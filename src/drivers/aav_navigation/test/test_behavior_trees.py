@@ -64,3 +64,40 @@ def test_the_behavior_server_can_back_up():
     plugins = yaml.safe_load(NAV2.read_text())['behavior_server']['ros__parameters']
     assert 'backup' in plugins['behavior_plugins']
     assert 'spin' not in plugins['behavior_plugins']
+
+
+TO_POSE = ['navigate_to_pose_car.xml', 'navigate_to_pose_car_reversing.xml']
+
+
+@pytest.mark.parametrize('name', TO_POSE)
+def test_no_replanning_on_the_final_approach(name):
+    # TODO 17: near the goal a new path was a loop for a car, and reset the goal checker.
+    # The tree keeps its path there (unless blocked, for another goal, or 30 s old).
+    # Inside a RateController: a Fallback restarts its children, and a RateController
+    # under it planned on every tick, not once a second (25 Oct).
+    (guard,) = [f for r in tree(name).iter('RateController') for f in r
+                if f.tag == 'Fallback' and f.get('name') == 'PlanUnlessOnTheFinalApproach']
+    assert not list(guard.iter('RateController'))
+    keep, plan = list(guard)
+    assert list(keep.iter('IsPathValid'))          # a blocked path is planned again
+    assert list(keep.iter('PathExpiringTimer'))    # and one it can't follow, in time
+    assert list(plan.iter('ComputePathToPose'))
+    # The zone must leave room for an S-bend back onto the line (two turns at the
+    # planner's radius), and be wider than the goal checker's circle.
+    zone = float(next(n for n in keep.iter('ArePosesNear')
+                      if n.get('ref_pose') == '{current_pose}').get('tolerance'))
+    nav2 = yaml.safe_load(NAV2.read_text())
+    checker = nav2['controller_server']['ros__parameters']['general_goal_checker']
+    radius = nav2['planner_server']['ros__parameters']['GridBased']['minimum_turning_radius']
+    assert zone >= 2.0 * radius
+    assert zone >= 3.0 * checker['xy_goal_tolerance']
+
+
+def test_the_map_window_waits_longer_than_nav2_keeps_a_path():
+    # The big screen's map shows NO NEW PLAN when /plan is older than plan_stale_after: it
+    # must wait longer than the tree keeps a path, or it cries wolf (TODO 17).
+    longest = max(float(t.get('seconds')) for name in TO_POSE
+                  for t in tree(name).iter('PathExpiringTimer'))
+    window = PACKAGE.parents[1] / 'hud' / 'aav_hud_raylib' / 'config' / 'map.yaml'
+    stale = yaml.safe_load(window.read_text())['map']['ros__parameters']['plan_stale_after']
+    assert stale > longest

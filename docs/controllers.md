@@ -9,6 +9,7 @@ second. We have two, and a script that compares them on the same drives in Gazeb
 > - **Switch:** `controller:=rpp` on `sim.launch.py` or `navigation.launch.py`.
 > - **Compare:** `pixi run controller-compare` (about 25 min, headless, on this computer only; `--legs 1` for a quick check).
 > - **Results, night of 22 Oct (Gazebo's lot, four runs):** after five fixes (below), MPPI reached the first goal in 29-30 s in every run; Pure Pursuit looped there in two of three. In the best run both reached all 4 goals. MPPI uses twice the CPU (20% of a Mac core).
+> - **No more circling goals (25 Oct, TODO 17):** Nav2 planned a new path every second, also in the last metres, where a new path is a loop for a car. Now it keeps its path for the last 8 m. 12 lot tours since: no goal circled (below).
 
 ## What each one does
 
@@ -27,11 +28,11 @@ collision monitor, twist_mux and ego. Everything after the controller is the sam
 ## Switch between them
 
 ```bash
-pixi run sim world:=test_lot controller:=mppi      # Gazebo, MPPI following the path
-ros2 launch aav_navigation navigation.launch.py controller:=mppi
+pixi run sim world:=test_lot controller:=rpp       # Gazebo, Pure Pursuit following the path
+ros2 launch aav_navigation navigation.launch.py controller:=rpp
 ```
 
-`controller:=` takes `rpp` (the default) or `mppi`. The launch file copies the `MPPI` block
+`controller:=` takes `mppi` (the default since 22 Oct) or `rpp`. The launch file copies the `MPPI` block
 of `nav2.yaml` under the name the behaviour trees ask for, `FollowPath`, and sets its
 turning radius, its reverse speed and its top speed from `vehicle.yaml`
 (`aav_description/vehicle.py`, `nav2_tuned`).
@@ -42,6 +43,7 @@ turning radius, its reverse speed and its top speed from `vehicle.yaml`
 pixi run controller-compare                    # both controllers, both tours
 pixi run controller-compare --tours obstacle   # only the box in the lane
 pixi run controller-compare --controllers mppi --speed 2
+pixi run controller-compare --tours lot --reversing --plans   # as on the car; keep every plan
 ```
 
 For each tour and controller the script starts Gazebo's test lot with no windows, on a ROS
@@ -66,15 +68,65 @@ What the numbers mean (`tools/drive_metrics.py`):
 | Number | Means |
 |---|---|
 | Time | from the goal sent to Nav2's answer |
+| The first route; driven / the first route | the planner's first path for the leg, and what the car drove against it: over about 1.5 is a detour (a loop, a missed turn) |
+| Drove on after the EKF had it at the goal | from the global EKF first putting the car within the goal's 1.0 m to Nav2's answer: a car circling a goal it reached shows here |
 | Controller asked to move after | the controller's first speed command over 0.05 m/s |
 | Car moving after | the car 0.1 m from where it started |
-| Off the path | from the planner's newest path (it replans every second) |
+| Off the path | from the planner's newest path (it replans every second, except on the final approach) |
 | Off the first route | from the first path: shows a car that wanders off |
 | End: off the goal | where the car stopped, against the goal |
 | Steering work | how fast the steering command changes (RMS): lower is smoother |
 | Stops, reversals | stand-stills of 1 s or more; changes of direction |
 | Closest to the box | the car's outline to the box's |
 | Controller CPU | `controller_server`'s share of one core |
+
+## Circling a goal: found and fixed, 25 October (TODO 17)
+
+The car sometimes drove a full loop at a goal it had nearly reached (21 Oct to 24 Oct: a
+different goal each run; Pure Pursuit 81 m for a 21 m leg). Found with `--plans`, which
+keeps every plan of a leg:
+
+![Before: a new path 3.7 m from the goal was a 24 m loop, and the car drove it. After: the path is kept for the last 8 m](img/controllers-goal-loop.svg)
+
+| Why it looped | Detail |
+|---|---|
+| **A new path every second, from wherever the car is** | the behaviour tree replanned at 1 Hz, also a few metres from the goal |
+| **There, a new path is a loop** | a car a little off the approach line (1.7 m beside it, heading 30° off) can't reach the goal's heading in 4 m: an S-bend back onto the line needs about 2 × the planner's 3.6 m turning radius. So Smac planned a loop |
+| **And each new path resets the goal checker** | Nav2's `controller_server` resets it with every path (`setPlannerPath`): a car in the goal's 1.0 m circle, but off its heading, lost the goal a second later |
+| Not the cause | the EKF's heading (worst 7-19° per leg, and 1-2° off when the loops were planned), the tolerances (1.0 m, 0.75 rad), the progress checker, the speed near the goal |
+
+**The fix** (`aav_navigation/behavior_trees/navigate_to_pose_car*.xml`): within 8 m of the
+goal the tree keeps the path it has, as long as it still ends at this goal, nothing blocks
+it (`IsPathValid`: the radar and lidar are in the planner's map) and it is under 30 s old.
+Everywhere else it still replans every second. All stock Nav2 tree nodes, no code of ours.
+
+| Tried first | Why not |
+|---|---|
+| Keep the path within 4 m | the last replan before the zone was already the loop |
+| Plan only when needed everywhere (every 10 s, or blocked: Nav2's "consistent replanning" tree) | `sim-check --obstacle` failed twice: with the planner blind to the box, MPPI crept into it between the stop zone's stops |
+| MPPI's `az_max` 1.0 → 0.38 rad/s² (how fast the car can really start a turn) | worse: MPPI left the path at the start of the U-turn |
+
+**Results**, Gazebo's lot, headless, the Mac, 3 tours per controller and way (24 tours
+in all), with Gazebo's steering fixed too (TODO 52c). "Detour" = driven / the first route:
+
+| | MPPI, forward only | Pure Pursuit, forward only | MPPI, reversing (as the car) | Pure Pursuit, reversing |
+|---|---|---|---|---|
+| A left turn (21 m) | 3 of 3, detour 0.99-1.01 | 3 of 3, 0.94-0.98 | 3 of 3, 0.98-1.01 | 3 of 3, 0.96-0.98 |
+| Round the building (41 m) | 3 of 3, 0.98-1.00 | 3 of 3, 0.97-1.01 | 3 of 3, 0.96-0.98 | 3 of 3, 0.96-0.99 |
+| Turn back (U-turn, 14 m lane) | **1 of 3** (1.32); twice stopped facing a wall | 3 of 3, 1.28-1.39 | 3 of 3, **1.76-1.86** | 3 of 3, 1.10-1.20 |
+| Home | 1 of 3 (after the U-turn) | 3 of 3, 0.99-1.02 | 3 of 3, 0.99-1.22 | 3 of 3, 0.97-1.00 |
+| Drove on after the EKF had it at the goal | 1.5 s at most | 0.2 s | 3.5 s | 5.8 s (a heading at the 43° edge) |
+
+Before the fix (the same day, the same Gazebo, 3 tours): MPPI circled the first goal once,
+**49.4 m for 21.7** (it drove on 34 s after reaching the goal's circle).
+
+Still open, and not circling:
+
+| | |
+|---|---|
+| **MPPI's three-point turn** (reversing) | 1.8 × the route: it rolls on about 5 m east before it backs up. It started each leg at 0.6 m/s forward and took 12 s to slow to 0 (seen since 22 Oct, run q). Before the fix the same (1.68) |
+| **The U-turn forward only** | MPPI swings wide and the stop zone stops it facing the building or the wall (2 of 3); a person must back it out. Pure Pursuit made it 3 of 3. The car may reverse (since 22 Oct), and then both make it |
+| **GPS noise** | goals count within 1.0 m and 0.75 rad, because the global EKF was up to 0.83 m off in these runs (Gazebo's GPS noise 0.5 m). With RTK (2 cm) the tolerance can drop to about 0.3 m. The 8 m hold stays: it is geometry, not noise |
 
 ## After the fixes, night of 22 October
 

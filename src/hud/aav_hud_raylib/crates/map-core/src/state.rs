@@ -333,12 +333,16 @@ mod tests {
 
     #[test]
     fn a_plan_that_stops_coming_says_so() {
-        let mut s = MapState::new(MapConfig::default());
+        let config = MapConfig::default();
+        // Past plan_stale_after: Nav2 keeps its path up to 30 s near the goal (TODO 17).
+        let late = config.plan_stale_after() + Duration::from_secs(5);
+        let mut s = MapState::new(config);
         let t0 = Instant::now();
         s.apply(car_at(0.0, 0.0), t0);
         s.apply(plan(&[(0.0, 0.0), (20.0, 0.0)]), t0);
-        assert_eq!(s.trip(t0 + Duration::from_secs(10)), Trip::PlanStopped);
-        assert!(!s.health(Topic::Plan, t0 + Duration::from_secs(10)).is_ok());
+        assert_eq!(s.trip(t0 + Duration::from_secs(10)), Trip::Driving);
+        assert_eq!(s.trip(t0 + late), Trip::PlanStopped);
+        assert!(!s.health(Topic::Plan, t0 + late).is_ok());
         // The map never goes stale: it's sent once.
         let info = GridInfo {
             width: 1,

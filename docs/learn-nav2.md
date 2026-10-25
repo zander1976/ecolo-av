@@ -121,6 +121,7 @@ standard tree, changed for a car.
 ```text
 Navigate (up to 6 tries)
  ├─ every 1 s: plan a path  ── fails? clear the global costmap, try again
+ │    (not in the last 8 m: keep the path, unless blocked or 30 s old)
  ├─ follow the path         ── fails? clear the local costmap, try again
  └─ still failing? take turns: clear both costmaps, or wait 5 s
 ```
@@ -130,6 +131,7 @@ Navigate (up to 6 tries)
 | **No Spin** | a car can't turn on the spot |
 | **BackUp only with reversing** | the `*_car_reversing.xml` trees back up 1 m at 0.25 m/s after the wait. Without something that sees behind the car, the `*_car.xml` trees: no BackUp |
 | Server timeouts 1 s, not Nav2's 20 ms | a busy computer failed whole goals (the bench, 11 Oct) |
+| **Keep the path for the last 8 m** | a new path planned near the goal is a loop for a car, and resets the goal checker: the car circled goals ([TODO 17](controllers.md#circling-a-goal-found-and-fixed-25-october-todo-17)) |
 
 ## Reversing
 

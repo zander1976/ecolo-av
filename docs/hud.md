@@ -255,7 +255,7 @@ pixi run map fullscreen:=true monitor:=HDMI-1   # full screen on that monitor
 |---|---|
 | `crates/map-core` | the maths, no ROS, no raylib: map to screen and back, zoom, the grid's pixels, the nearest point and the distance left, the trip's status. `cargo test -p map-core` (in `tools/test.sh`) |
 | `crates/map-app` | the window and the node, built like the HUD's. `--demo`, `--screenshot FILE`, `--vehicle FILE` |
-| `config/map.yaml` | every topic name, the limits: `stale_after`, `plan_stale_after` (3 s), `arrive_within` (1 m), and `street_map`, the street map's file |
+| `config/map.yaml` | every topic name, the limits: `stale_after`, `plan_stale_after` (35 s: Nav2 keeps its path up to 30 s near the goal), `arrive_within` (1 m), and `street_map`, the street map's file |
 
 - The distance comes from `/plan` and the car, not from Nav2's action feedback: simpler,
   and it works for a goal sent from anywhere.
