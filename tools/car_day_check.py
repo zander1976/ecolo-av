@@ -146,7 +146,7 @@ def build_line(events, built_at, newest_src):
         return Line('MISSING', 'build', f'{len(failed)} failed on {when}: '
                     f'{", ".join(failed)}', 'pixi run build (the end of its output says why)')
     if newest_src > built_at:
-        return Line('MISSING', 'build', f'src/ changed since the last build ({when})',
+        return Line('MISSING', 'build', f'ros/ changed since the last build ({when})',
                     'pixi run build')
     count = len(re.findall(r'JobEnded', events))
     return Line('OK', 'build', f'{count} packages built on {when}')
@@ -157,7 +157,7 @@ def check_build(root):
     if not events.is_file() or not (root / 'install').is_dir():
         return build_line(None, 0, 0)
     return build_line(events.read_text(errors='replace'), events.stat().st_mtime,
-                      newest_tracked(root, 'src'))
+                      newest_tracked(root, 'ros'))
 
 
 def kit_line(kit_txt, head, lock_hash, kit_models):
