@@ -9,7 +9,7 @@ The whole stack in Gazebo: same nodes and configs as the car, simulated hardware
       [actuator_model:=true] [speed_loop:=default|smooth|lqi] [sim_speed:=]
       [reversing:=true] [controller:=mppi] [planner:=hybrid] [tracker:=none]
       [amcl:=false]
-      [ndt:=false] [ndt_map:=maps/ndt/test_lot.pcd]
+      [ndt:=false] [ndt_ekf:=false] [ndt_map:=maps/ndt/test_lot.pcd]
       [plan_around:=true]
       [watchdog:=true] [geofence:=true] [geofence_radius:=200.0]
       [watch_hud:=false] [faults:=false] [spine:=false] [arm:=true]
@@ -69,6 +69,10 @@ bench's argument names:
                       (docs/designs/2026-10-29_ndt.md): only in world:=test_lot with the
                       lidar, from the start pose, and only once ndt_map (pixi run ndt-map
                       drive) is there
+  ndt_ekf:=true       a trial: NDT as above (ndt:=true is implied), and ekf_global takes
+                      its pose (x, y, yaw) beside the GPS (aav_localization
+                      config/ekf_global_ndt.yaml; docs/trials.md). Default false: the
+                      global EKF on GPS alone
   plan_around:=false  Nav2's planner sees only the map, not the radar and lidar: the car
                       stops for an obstacle instead of planning round it (the stop tests)
   watchdog:=true      the sensor watchdog (aav_safety): twist_mux's sensors lock stops Nav2
@@ -154,7 +158,9 @@ def launch_setup(context):
     tracker = vehicle.check_tracker(arg('tracker'), flag['reversing'])
     planner = vehicle.check_planner(arg('planner'))
     amcl = arg('amcl').lower() == 'true'
-    ndt = arg('ndt').lower() == 'true'
+    # ndt_ekf: ekf_global takes NDT's pose, so NDT runs too.
+    ndt_ekf = arg('ndt_ekf').lower() == 'true'
+    ndt = arg('ndt').lower() == 'true' or ndt_ekf
     gazebo_share = FindPackageShare('aav_gazebo').perform(context)
     sensors = worlds.has_sensors(worlds.world_file(gazebo_share, world))
     # Each only where the world renders it, as gazebo.launch.py decides.
@@ -165,7 +171,8 @@ def launch_setup(context):
         raise ValueError('amcl:=true needs world:=test_lot nav:=true lidar:=true: the only '
                          'world with a real map, and AMCL reads the lidar')
     if ndt and not (world == 'test_lot' and lidar):
-        raise ValueError('ndt:=true needs world:=test_lot lidar:=true: the only world with '
+        raise ValueError('ndt:=true (and ndt_ekf:=true) needs world:=test_lot lidar:=true: '
+                         'the only world with '
                          'a lidar map (pixi run ndt-map drive), and NDT reads the lidar')
     if ndt and not os.path.isfile(arg('ndt_map')):
         raise ValueError(f'ndt:=true: no map at ndt_map:={arg("ndt_map")}. Make it with '
@@ -200,7 +207,8 @@ def launch_setup(context):
                                       'config', 'imu_filter.yaml'), {'use_sim_time': True}],
              remappings=[('imu/data_raw', '/sensors/imu/data_raw'),
                          ('imu/data', '/sensors/imu/data')]),
-        include(context, 'aav_localization', 'localization.launch.py', use_sim_time='true'),
+        include(context, 'aav_localization', 'localization.launch.py', use_sim_time='true',
+                ndt_ekf=str(ndt_ekf).lower()),
     ]
     if radar:
         # The radar stand-in, as the bench's: few points per object, so small clusters.
@@ -230,7 +238,8 @@ def launch_setup(context):
                                          if amcl else ''),
                                plan_around=str(flag['plan_around']).lower()))
     if ndt:
-        # Scored only (controller-compare --ndt): nothing reads its pose to drive.
+        # Scored only (controller-compare --ndt), unless ndt_ekf:=true: then ekf_global
+        # reads its pose (controller-compare --ndt-ekf scores the difference).
         actions.append(include(context, 'aav_ndt', 'ndt.launch.py', use_sim_time='true',
                                ndt_map=arg('ndt_map'), ndt_x=0.0, ndt_y=arg('start_y'),
                                ndt_yaw=arg('start_yaw')))
@@ -396,6 +405,9 @@ def generate_launch_description():
         DeclareLaunchArgument('ndt', default_value='false',
                               description='NDT on the saved lidar map, scored only '
                                           '(world:=test_lot lidar:=true, ndt_map present)'),
+        DeclareLaunchArgument('ndt_ekf', default_value='false',
+                              description='a trial: NDT (ndt:=true implied) and its pose '
+                                          'into ekf_global, beside the GPS'),
         DeclareLaunchArgument('ndt_map', default_value=os.path.join('maps', 'ndt',
                                                                     'test_lot.pcd'),
                               description="NDT's map (pixi run ndt-map drive); relative to "

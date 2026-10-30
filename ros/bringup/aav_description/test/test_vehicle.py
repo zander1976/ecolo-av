@@ -49,6 +49,27 @@ def test_footprint_encloses_base_link_and_is_nav2_string():
         '[[1.800, 0.500], [1.800, -0.500], [-0.200, -0.500], [-0.200, 0.500]]'
 
 
+def test_self_box_holds_the_body_and_every_sensor_with_a_margin():
+    cfg = {'vehicle': {'body': {'length': 2.0, 'width': 1.0, 'rear_overhang': 0.2}},
+           'sensors': {'cam': {'xyz': [1.95, 0.3, 1.5]}, 'back': {'xyz': [-0.2, -0.6, 0.9]}}}
+    box = vehicle.self_box(cfg, margin=0.1)
+    # The camera sticks out 0.15 m ahead, the rear one 0.1 m to the right: both kept in.
+    assert box['min'] == pytest.approx([-0.2 - 0.04 - 0.1, -0.6 - 0.04 - 0.1])
+    assert box['max'] == pytest.approx([1.95 + 0.04 + 0.1, 0.5 + 0.1])
+    bare = vehicle.self_box({'vehicle': cfg['vehicle']}, margin=0.0)
+    assert bare == {'min': [-0.2, -0.5], 'max': [pytest.approx(1.8), 0.5]}
+
+
+def test_the_real_cars_self_box_holds_its_cameras_and_roof_with_room():
+    # The ghost of 30 Oct: Gazebo's lidar saw the roof's rear corners (x -0.21, |y| 0.51)
+    # and the front cameras (x 1.85) just outside a box flush with the body.
+    box = vehicle.self_box(vehicle.load(CONFIG))
+    assert box['min'][0] < -0.3 and box['max'][0] > 1.9
+    assert box['min'][1] < -0.6 and box['max'][1] > 0.6
+    # ... but not so big it hides a person beside the car.
+    assert box['max'][0] - box['min'][0] < 3.0 and box['max'][1] - box['min'][1] < 1.6
+
+
 def test_stop_zone_is_ahead_of_the_bumper_and_wider_than_the_body():
     v = {'body': {'length': 2.0, 'width': 1.0, 'rear_overhang': 0.2}}
     pts = vehicle.stop_zone_points(v, ahead=1.0, margin=0.2)

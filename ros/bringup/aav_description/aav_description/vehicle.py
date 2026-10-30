@@ -97,6 +97,33 @@ def footprint_points(v):
     return [[front, half], [front, -half], [rear, -half], [rear, half]]
 
 
+# The car as its own lidar sees it: the body and every sensor mounted on it, widened by a
+# margin. Gazebo's lidar (3 cm of range noise) put about 3 % of its hits on the car's own
+# roof corners and front cameras just outside a box flush with the body; over a drive
+# they drew a ghost double line 1.5 m up in NDT's map (found 30 Oct). 0.15 m is 5 sigma of
+# that noise, and covers a sensor's own housing (the URDF draws each one 8 cm across).
+SELF_MARGIN = 0.15      # m, each side
+SENSOR_HALF_SIZE = 0.04  # m: half a sensor's box in the URDF (aav.urdf.xacro sensor_frame)
+
+
+def self_box(cfg, margin=SELF_MARGIN):
+    """
+    Return the box, in base_link from above, that holds the car and its sensors.
+
+    cfg is the whole vehicle.yaml (load()). Returns {'min': [x, y], 'max': [x, y]} (m):
+    the body outline and each sensor's mount (plus SENSOR_HALF_SIZE), widened by margin.
+    A lidar point inside is the car itself: NDT's scan filter and its map drop them.
+    """
+    (front, left), _, (rear, right), _ = footprint_points(cfg['vehicle'])
+    xs, ys = [rear, front], [right, left]
+    for sensor in cfg.get('sensors', {}).values():
+        x, y = float(sensor['xyz'][0]), float(sensor['xyz'][1])
+        xs += [x - SENSOR_HALF_SIZE, x + SENSOR_HALF_SIZE]
+        ys += [y - SENSOR_HALF_SIZE, y + SENSOR_HALF_SIZE]
+    return {'min': [min(xs) - margin, min(ys) - margin],
+            'max': [max(xs) + margin, max(ys) + margin]}
+
+
 def polygon(points):
     """Return [x, y] corners in the string form Nav2 takes for a polygon."""
     return '[' + ', '.join(f'[{x:.3f}, {y:.3f}]' for x, y in points) + ']'

@@ -7,7 +7,7 @@
 <!-- Generated from docs/trials.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>Trials: new path followers and localizers beside the main ones</h1>
-<div class="meta">22 min read · 10 sections</div></header>
+<div class="meta">28 min read · 11 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="overview.html">Overview</a>
 <a href="release-notes.html">Release notes</a>
@@ -94,7 +94,7 @@
 <a href="car_measurements.html">Car numbers</a>
 <a href="hud.html">HUD</a></nav>
 <main>
-<nav class="toc"><span>On this page:</span><a href="#what-is-on-trial">What is on trial</a><a href="#where-a-tracker-sits">Where a tracker sits</a><a href="#fair-rules">Fair rules</a><a href="#run-it">Run it</a><a href="#results">Results</a><a href="#scoring-a-localizer-fairly">Scoring a localizer fairly</a><a href="#before-a-winner-goes-on-the-car">Before a winner goes on the car</a><a href="#results-29-october">Results, 29 October</a><a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results, 29 October (afternoon): LQR rebuilt, and mpc_full</a><a href="#planners-29-oct-hybrid-lattice-and-smac2d">Planners, 29 Oct: hybrid, lattice and smac2d</a></nav>
+<nav class="toc"><span>On this page:</span><a href="#what-is-on-trial">What is on trial</a><a href="#where-a-tracker-sits">Where a tracker sits</a><a href="#fair-rules">Fair rules</a><a href="#run-it">Run it</a><a href="#results">Results</a><a href="#ndt-into-the-global-ekf-30-oct">NDT into the global EKF (30 Oct)</a><a href="#scoring-a-localizer-fairly">Scoring a localizer fairly</a><a href="#before-a-winner-goes-on-the-car">Before a winner goes on the car</a><a href="#results-29-october">Results, 29 October</a><a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results, 29 October (afternoon): LQR rebuilt, and mpc_full</a><a href="#planners-29-oct-hybrid-lattice-and-smac2d">Planners, 29 Oct: hybrid, lattice and smac2d</a></nav>
 <div class="lead"><p>Ben, 29 Oct: "We want to make other nodes or plugins that we can test and then replace
 the main ones if they work." Each trial runs <strong>beside</strong> today's default, chosen at launch,
 and is <strong>scored on the same routes</strong>. It becomes the default only once it wins.</p>
@@ -106,6 +106,7 @@ and is <strong>scored on the same routes</strong>. It becomes the default only o
 - <strong>Score:</strong> <code>pixi run controller-compare --trackers pure_pursuit lqr --runs 3</code>.
 - <strong>Results (29 Oct, Gazebo, 3 runs):</strong> pure pursuit, Stanley and MPC finished every leg; MPPI, RPP and LQR lost legs on the U-turn. AMCL lost itself; the EKF wins. <a href="#results-29-october">Results</a>.
 - <strong>NDT</strong>, 29 Oct: about 1-3 cm off on the lot tour, 2 ms a match (below).
+- <strong>NDT into the global EKF</strong> (<code>ndt_ekf:=true</code>), 30 Oct: the EKF <strong>17 cm → 1.6 cm</strong> off; with the GPS off, 1.2 m → 1.6 cm. <a href="#ndt-into-the-global-ekf-30-oct">Results</a>.
 - <strong>Afternoon:</strong> LQR rebuilt with a preview (U-turn 2 of 3 in a quiet run; it weaved on a busy Mac), <code>mpc_full</code> 10 of 12. <a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results</a>.
 - <strong>Planners</strong> (<code>planner:=</code>): Nav2's State Lattice (on our own primitives), Smac 2D, NavFn and Theta<em>, beside Hybrid-A</em>. 29 Oct, one run: <strong>Hybrid-A* 4 of 4 legs</strong>; lattice and Smac 2D 2 of 4, both lost on the U-turn. Hybrid stays. <a href="#planners-29-oct-hybrid-lattice-and-smac2d">Results</a>.
 - The design: <code>docs/designs/2026-10-29_trials.md</code>.</p>
@@ -154,6 +155,11 @@ and is <strong>scored on the same routes</strong>. It becomes the default only o
 <td>NDT on a saved lidar map</td>
 <td>the global EKF, and AMCL</td>
 <td><code>ndt:=true</code> (after <code>pixi run ndt-map drive</code>)</td>
+</tr>
+<tr>
+<td>NDT's pose into the global EKF</td>
+<td>the global EKF on GPS alone</td>
+<td><code>ndt_ekf:=true</code></td>
 </tr>
 <tr>
 <td>State Lattice planner, our primitives</td>
@@ -227,7 +233,8 @@ pixi run sim world:=test_lot amcl:=true                         # AMCL beside th
 pixi run controller-compare --trackers pure_pursuit stanley lqr mpc mpc_full --controllers mppi --runs 3
 pixi run controller-compare --amcl                              # score AMCL too
 pixi run ndt-map drive                                          # NDT's map, once (~6 min)
-pixi run controller-compare --amcl --ndt                        # score NDT beside AMCL</code></pre>
+pixi run controller-compare --amcl --ndt                        # score NDT beside AMCL
+pixi run controller-compare --ndt-ekf --runs 3 --tours lot      # NDT into the global EKF</code></pre>
 </section>
 <section class="card"><h2 id="results">Results</h2>
 <p>Each run's results go here, with its date and its folder in <code>log/controller-compare/</code>.</p>
@@ -469,6 +476,216 @@ one run, <code>--tours lot --controllers mppi --amcl</code>):</p>
   mean, then AMCL dropped 68 scans (its transforms came late) and published nothing more.
   With the computer this loaded, AMCL's numbers are only worth what its pose count says.</li>
 </ul>
+</section>
+<section class="card"><h2 id="ndt-into-the-global-ekf-30-oct">NDT into the global EKF (30 Oct)</h2>
+<p><code>ndt_ekf:=true</code>: <code>ekf_global</code> takes NDT's x, y and yaw beside the GPS. Off by default.</p>
+<pre class="highlight"><code>lidar ─► NDT + map ─► /localization/ndt/pose (good fits only) ─┐
+GPS ─► navsat_transform ─► /localization/gps/odom ─────────────┼─► ekf_global ─► map → odom
+wheels, IMU, GPS heading ──────────────────────────────────────┘    (refuses a pose 5 sigma off)</code></pre>
+<blockquote>
+<p><strong>The short version</strong>
+- The global EKF's error: <strong>17 cm → 1.6 cm</strong> on average (3 runs each).
+- GPS off: without NDT the EKF drifted to <strong>1.2 m</strong> off; with NDT it stayed at <strong>1.6 cm</strong>.
+- The worst moments stay: NDT slips <strong>up to 0.4 m</strong> along the lane north of the
+  building (only walls parallel to the drive), and the EKF follows it.</p>
+</blockquote>
+<h3 id="the-numbers-gazebo-the-lot-tour-mppi">The numbers (Gazebo, the lot tour, MPPI)</h3>
+<p>Off = the global EKF (<code>/localization/odom/global</code>) against Gazebo's truth. Runs:
+<code>log/ndt-ekf/</code> (not in git): <code>base</code> and <code>ekf2</code> 3 runs each, <code>gpsoff-*2</code> one each.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Leg</th>
+<th>GPS, no NDT: mean / worst (m)</th>
+<th>GPS + NDT: mean / worst (m)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a left turn</td>
+<td>0.17 / 0.50</td>
+<td><strong>0.008</strong> / 0.02</td>
+</tr>
+<tr>
+<td>round the building</td>
+<td>0.18 / 0.58</td>
+<td><strong>0.031</strong> / 0.25</td>
+</tr>
+<tr>
+<td>turn back</td>
+<td>0.17 / 0.45</td>
+<td><strong>0.013</strong> / 0.38</td>
+</tr>
+<tr>
+<td>home</td>
+<td>0.17 / 0.52</td>
+<td><strong>0.011</strong> / 0.25</td>
+</tr>
+<tr>
+<td><strong>all 12 legs</strong></td>
+<td><strong>0.17 / 0.58</strong></td>
+<td><strong>0.016 / 0.38</strong></td>
+</tr>
+</tbody>
+</table></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>GPS, no NDT</th>
+<th>GPS + NDT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Heading, worst (deg)</td>
+<td>13.5</td>
+<td>2.4</td>
+</tr>
+<tr>
+<td>Off Nav2's path, mean (m, by the truth)</td>
+<td>0.11-0.14</td>
+<td>0.03 (0.10 on one U-turn)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>GPS off</strong> (stopped after the first fix; <code>--gps-off</code>, one run each):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Leg</th>
+<th>No NDT: mean / worst (m)</th>
+<th>NDT: mean / worst (m)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a left turn</td>
+<td>0.25 / 0.35</td>
+<td><strong>0.007</strong> / 0.02</td>
+</tr>
+<tr>
+<td>round the building</td>
+<td>0.47 / 0.70</td>
+<td><strong>0.030</strong> / 0.24</td>
+</tr>
+<tr>
+<td>turn back</td>
+<td>0.67 / 0.74</td>
+<td><strong>0.017</strong> / 0.39</td>
+</tr>
+<tr>
+<td>home</td>
+<td>0.95 / <strong>1.21</strong></td>
+<td><strong>0.009</strong> / 0.06</td>
+</tr>
+</tbody>
+</table></div>
+<p>Without GPS the EKF has only the wheels and the gyro: it drifts, 1.2 m by the end.
+With NDT it doesn't drift at all.</p>
+<ul>
+<li>Nav2 gave up on the U-turn ("turn back") in 1 of 3 runs without NDT and 2 of 3 with:
+  MPPI's known U-turn trouble (<a href="#results-29-october">results</a>), not the localizer (the
+  EKF was 1-2 cm off then).</li>
+<li>NDT: 97-100 % of clouds gave a pose; no LOST, no restart; 2.0 ms a match (worst 6.3)
+  on Ben's Mac (M4 Max), not the Orin.</li>
+</ul>
+<h3 id="ndts-covariance-fitted-nees">NDT's covariance: fitted (NEES)</h3>
+<p>NDT's spread is k·(−H⁻¹), with a floor. Fitted on the 3 <code>base</code> runs (5,852 good fits),
+checked on the 3 <code>ekf2</code> runs (6,442):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Before</th>
+<th>Now (<code>config/ndt.yaml</code>)</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>k (<code>covariance_scale</code>)</td>
+<td>1</td>
+<td><strong>7.5</strong></td>
+<td>the good fits' mean NEES is 3 (the honest value for 3 numbers); median 2.4</td>
+</tr>
+<tr>
+<td>floor, x and y</td>
+<td>(2 cm)²</td>
+<td><strong>(5 mm)²</strong></td>
+<td>2 cm hid k: a typical fit is 1 cm off</td>
+</tr>
+<tr>
+<td>floor, yaw</td>
+<td>(0.5°)²</td>
+<td><strong>(0.1°)²</strong></td>
+<td>the same</td>
+</tr>
+<tr>
+<td>NEES on the check runs</td>
+<td>-</td>
+<td><strong>2.9</strong></td>
+<td>k fitted again there: 7.2</td>
+</tr>
+</tbody>
+</table></div>
+<p>NEES = e′P⁻¹e, e the error from the truth, P the covariance published. Around 3: the
+spread matches the errors. <code>controller-compare --ndt</code> prints it, and the k that would
+make it 3, after every run.</p>
+<h3 id="keeping-bad-matches-out-of-the-ekf">Keeping bad matches out of the EKF</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Guard</th>
+<th>Where</th>
+<th>What it caught in Gazebo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Score per point under <strong>2.3</strong>: not published</td>
+<td><code>min_score_per_point</code> (was 2.0)</td>
+<td>4 fits 0.27-0.55 m off (scores 2.06-2.24). Every good fit scored 2.6 or more</td>
+</tr>
+<tr>
+<td>Out of iterations, or a jump while tracking (over 0.5 m or 5° from the guess): not published</td>
+<td>ndt-core; <code>max_correction_m</code>, <code>_deg</code> (new)</td>
+<td>43 more fits, the two not told apart (the status's message says which)</td>
+</tr>
+<tr>
+<td>A pose more than 5 sigma from the EKF: refused</td>
+<td><code>pose0_rejection_threshold: 5</code></td>
+<td>not counted (robot_localization doesn't say)</td>
+</tr>
+<tr>
+<td>The late pose put in at its own stamp</td>
+<td><code>smooth_lagged_data</code>, 1 s</td>
+<td>each pose is 2-6 ms late, plus the lidar's own delay</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>When NDT is LOST</strong> (5 poor fits in a row): it publishes nothing; <code>ekf_global</code> goes on
+with the GPS (or the wheels and gyro alone, if the GPS is out too) and its doubt grows;
+NDT starts again from <code>ekf_global</code>'s pose. The first fit after a restart may move far
+(no jump check), so the EKF's 5-sigma gate is the guard then. Not seen in these runs:
+<strong>untested in Gazebo</strong> (only <code>ndt-core</code>'s test).</p>
+<h3 id="what-it-doesnt-show-yet">What it doesn't show yet</h3>
+<ul>
+<li><strong>The lane north of the building</strong> fools NDT along the lane (0.25-0.4 m, about 2 % of
+  fits): only walls parallel to the car. Its spread there grows 4-10 times, not enough
+  to cover it. Next: inflate the covariance along a weak direction (the Hessian's
+  smallest eigenvalue), or refuse those fits.</li>
+<li>Gazebo's map is perfect, its lidar has no sweep and nothing moves: the score floor and
+  k must be fitted again on the car (a bag of the real lot, KISS-ICP's map).</li>
+<li>The geofence holds the car when the GPS stops, even with NDT: GPS-off runs need
+  <code>geofence:=false watchdog:=false</code>. If NDT wins, the geofence could take it as a
+  position source.</li>
+<li>Before it goes on the car: the trials' rule (<a href="#before-a-winner-goes-on-the-car">below</a>).</li>
+</ul>
+<pre class="highlight"><code class="language-bash">pixi run ndt-map drive                                     # the map, once
+pixi run controller-compare --ndt --runs 3 --tours lot      # NDT beside: the EKF on GPS alone
+pixi run controller-compare --ndt-ekf --runs 3 --tours lot  # NDT into the EKF
+pixi run controller-compare --ndt-ekf --gps-off --tours lot # the GPS stops after its first fix</code></pre>
 </section>
 <section class="card"><h2 id="scoring-a-localizer-fairly">Scoring a localizer fairly</h2>
 <div class="table-wrap"><table>

@@ -57,7 +57,7 @@ def test_every_row_sets_both_localizers():
     # debugdemo turns AMCL and NDT on; the last value wins, so each row says both.
     for _, _, args in pick.LOCALIZERS:
         names = {a.split(':=')[0] for a in args}
-        assert {'ndt', 'amcl'} <= names
+        assert {'ndt', 'ndt_ekf', 'amcl'} <= names
 
 
 def test_enter_takes_the_defaults():
@@ -67,6 +67,14 @@ def test_enter_takes_the_defaults():
     assert 'controller:=mppi' in cmd and 'tracker:=none' in cmd
     # debugdemo's default: NDT and AMCL both on, so the seeing screen shows every finder.
     assert 'ndt:=true' in cmd and 'amcl:=true' in cmd
+
+
+def test_debugdemo_still_offers_every_finder():
+    said = []
+    answers = iter(['', '', '', '', ''])
+    pick.questions(read=lambda _: next(answers), say=said.append)
+    for name, _, _ in pick.LOCALIZERS:
+        assert any(f' {name} ' in line for line in said), name
 
 
 def test_demo_defaults_to_the_ekfs_only():

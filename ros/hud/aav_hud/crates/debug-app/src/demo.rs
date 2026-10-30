@@ -434,6 +434,7 @@ mod tests {
             size: Metres(0.2),
             max_cubes: 100_000,
             ground_height: Metres(0.25),
+            own: None,
         };
         let car = car_at(0.0);
         let lidar = Transform3 {

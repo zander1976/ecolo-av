@@ -36,6 +36,7 @@ Add a row in the same commit as the feature (`CLAUDE.md`).
 | Heading from the GPS velocity (`aav_gps_heading`) | The receiver's Doppler velocity gives a good heading while moving, with no magnetometer | Ben | 2026-10-25 | sim |
 | [AMCL as a trial](trials.md) (stock `nav2_amcl`, `amcl:=true`) | To score a particle filter on the lidar and the map against the global EKF, without letting it steer the car (`tf_broadcast: false`) | Ben | 2026-10-29 | built |
 | NDT on a saved lidar map, our own in Rust (`aav_ndt`) | To find the car to centimetres on a map of the lot without RTK, as Autoware does, in code we understand and test on a laptop; scored as a trial before it feeds the EKF | Ben's idea; built by Ben | 2026-10-29 | sim |
+| [NDT into the global EKF](trials.md#ndt-into-the-global-ekf-30-oct) (`ndt_ekf:=true`, a trial) | So the map position Nav2 plans by holds to centimetres, and holds when the GPS drops out; NDT's covariance fitted to its Gazebo errors, poor or jumping fits never published, and the EKF refuses any pose 5 sigma off | Ben | 2026-10-30 | sim |
 
 ## Perception
 

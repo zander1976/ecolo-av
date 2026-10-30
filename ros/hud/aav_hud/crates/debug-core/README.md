@@ -25,7 +25,7 @@ map-frame layers (EKF global, AMCL, NDT, truth, plan, particles, NDT's map)
 | `frames` | `Stamp` (ns), `Transform3`, `StaticFrames::lookup` (follows a chain up to base_link), `MapToOdom` |
 | `poses` | `PoseBuffer`: 1 s of local EKF poses; `at(stamp)` interpolates, or says `TooOld` / `TooNew` |
 | `cloud` | `positions(&CloudView)`: x, y, z from a PointCloud2's bytes |
-| `cubes` | `build(points, cloud_to_base, car, stamp, settings)` -> `CubeScan`; `Band` (ground ... higher) |
+| `cubes` | `build(points, cloud_to_base, car, stamp, settings)` -> `CubeScan`; `Band` (ground ... higher); `OwnBox`: the car and its sensors, whose points make no cube (`--own-box`, from `vehicle.self_box`) |
 | `scan` | `place(...)`: a cloud start to finish, or a `ScanError` |
 | `persist` | `KeptCubes`: each scan's cubes kept by cell; `Fade` (four steps over `keep_cubes_for`); `FadedCube` |
 | `ndt` | `NdtStatus::from_message` (TRACKING / WAITING / LOST, score per point, ms per match); `MapFile::read` (a PCD, with ndt-core's reader) into `MapCells` (1 m, 3 points or more) and its `Footprint` from above (the points thinned to 15 cm, one `Ellipse` per column at 2 sigma, `covers`) |

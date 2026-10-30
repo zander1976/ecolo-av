@@ -60,14 +60,20 @@ PLANNERS = [
      ['planner:=theta_star']),
 ]
 
-# Where-am-I finders that run beside the EKF and are scored (they never steer yet).
+# Where-am-I finders that run beside the EKF and are scored (they never steer yet); with
+# ndt_ekf, the global EKF takes NDT's pose (a trial: docs/trials.md).
 # Every row sets each switch, on or off: debugdemo turns some on, and the last value wins.
 LOCALIZERS = [
-    ('ekf', 'the EKFs only: wheels, IMU and GPS (default)', ['ndt:=false', 'amcl:=false']),
+    ('ekf', 'the EKFs only: wheels, IMU and GPS (default)',
+     ['ndt:=false', 'ndt_ekf:=false', 'amcl:=false']),
     ('ndt', 'add NDT: the lidar matched to a saved map (1-3 cm)',
-     ['ndt:=true', f'ndt_map:={NDT_MAP}', 'amcl:=false']),
-    ('amcl', 'add AMCL: guesses that match the walls (6-11 cm)', ['ndt:=false', 'amcl:=true']),
-    ('both', 'add NDT and AMCL', ['ndt:=true', f'ndt_map:={NDT_MAP}', 'amcl:=true']),
+     ['ndt:=true', 'ndt_ekf:=false', f'ndt_map:={NDT_MAP}', 'amcl:=false']),
+    ('amcl', 'add AMCL: guesses that match the walls (6-11 cm)',
+     ['ndt:=false', 'ndt_ekf:=false', 'amcl:=true']),
+    ('both', 'add NDT and AMCL',
+     ['ndt:=true', 'ndt_ekf:=false', f'ndt_map:={NDT_MAP}', 'amcl:=true']),
+    ('ndt_ekf', 'NDT, and its pose into the global EKF beside the GPS (a trial)',
+     ['ndt:=true', 'ndt_ekf:=true', f'ndt_map:={NDT_MAP}', 'amcl:=false']),
 ]
 
 SPEED_LOOPS = [
@@ -119,7 +125,7 @@ def questions(read=input, say=print):
     # debugdemo is for seeing them all: there, NDT and AMCL come first (Ben, 30 Oct).
     finders = LOCALIZERS
     if program == 'debugdemo':
-        finders = [LOCALIZERS[3]] + LOCALIZERS[:3]
+        finders = sorted(LOCALIZERS, key=lambda row: row[0] != 'both')
     where = ask('Where-am-I finders beside the EKF?', finders, read, say)
     if 'ndt:=true' in where[2] and not (ROOT / NDT_MAP).is_file():
         say(f'  note: no {NDT_MAP} yet: make it once with pixi run ndt-map drive')
