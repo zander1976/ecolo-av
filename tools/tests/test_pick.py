@@ -65,6 +65,14 @@ def test_enter_takes_the_defaults():
     assert cmd[:3] == ['pixi', 'run', 'debugdemo']
     assert 'planner:=hybrid' in cmd
     assert 'controller:=mppi' in cmd and 'tracker:=none' in cmd
+    # debugdemo's default: NDT and AMCL both on, so the seeing screen shows every finder.
+    assert 'ndt:=true' in cmd and 'amcl:=true' in cmd
+
+
+def test_demo_defaults_to_the_ekfs_only():
+    answers = iter(['2', '', '', '', ''])
+    cmd = pick.questions(read=lambda _: next(answers), say=lambda *_: None)
+    assert cmd[2] == 'demo'
     assert 'ndt:=false' in cmd and 'amcl:=false' in cmd
 
 

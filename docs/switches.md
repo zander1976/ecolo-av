@@ -49,6 +49,8 @@ In `debugdemo`, keys 1-4 swap the tracker live. More: [Controllers](controllers.
 ## Where am I
 
 These run **beside** the EKFs and are only scored for now. They never steer.
+In `pixi run pick`, `debugdemo` offers NDT + AMCL first (to see every finder); the
+others offer the EKFs only first.
 
 | Switch | In plain words | Off from the truth |
 |---|---|---|

@@ -116,7 +116,11 @@ def questions(read=input, say=print):
         rows.append(ask('Which world?', WORLDS, read, say))
     rows.append(ask('Who draws the route?', PLANNERS, read, say))
     rows.append(ask('Who steers along the path?', FOLLOWERS, read, say))
-    where = ask('Where-am-I finders beside the EKF?', LOCALIZERS, read, say)
+    # debugdemo is for seeing them all: there, NDT and AMCL come first (Ben, 30 Oct).
+    finders = LOCALIZERS
+    if program == 'debugdemo':
+        finders = [LOCALIZERS[3]] + LOCALIZERS[:3]
+    where = ask('Where-am-I finders beside the EKF?', finders, read, say)
     if 'ndt:=true' in where[2] and not (ROOT / NDT_MAP).is_file():
         say(f'  note: no {NDT_MAP} yet: make it once with pixi run ndt-map drive')
     if program == 'sim' and where[0] != 'ekf' and rows[0][0] != 'test_lot':
