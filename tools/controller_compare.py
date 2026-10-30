@@ -22,6 +22,10 @@ The trials (docs/trials.md):
     pixi run controller-compare --ndt              (NDT beside the EKF, ndt:=true, on the map
                     pixi run ndt-map drive made: its errors, the share of clouds that gave
                     a pose, time over 1 m off, each match's wall-clock time)
+    pixi run controller-compare --voxels --tours lot
+                    the costmap and collision_monitor read the lidar as cubes (voxels:=true,
+                    aav_voxels) instead of the flat scan: the same legs, and each leg's
+                    note says the voxels node's ms a cloud and cubes a cloud
     pixi run controller-compare --planners hybrid lattice smac2d --tours lot
                     Nav2's planners (planner:=), each with MPPI unless --controllers or
                     --trackers says otherwise. Before each leg it also asks the planner
@@ -172,6 +176,7 @@ class Recorder(Node):
         self.truth, self.plans, self.steering, self.asked = [], [], [], []
         self.belief, self.amcl, self.loops = [], [], []
         self.ndt, self.ndt_status = [], []
+        self.voxels = []     # (ms a cloud, cubes) from the voxels trial's status
         self.last_truth = self.glob = None
         self.lock, self.locked, self.states = None, False, set()
         self.monitor, self.monitor_stops = None, 0
@@ -184,6 +189,8 @@ class Recorder(Node):
                                  self.on_ndt, 10)
         self.create_subscription(DiagnosticStatus, '/localization/ndt/status',
                                  self.on_ndt_status, 10)
+        self.create_subscription(DiagnosticStatus, '/perception/voxels/status',
+                                 self.on_voxels, 10)
         self.create_subscription(DiagnosticStatus, '/drivers/nav/track/status',
                                  self.on_loop, 10)
         self.create_subscription(AckermannDriveStamped, '/ego/actuator_cmd', self.on_steering,
@@ -201,6 +208,7 @@ class Recorder(Node):
         self.truth, self.plans, self.steering, self.asked = [], [], [], []
         self.belief, self.amcl, self.loops = [], [], []
         self.ndt, self.ndt_status = [], []
+        self.voxels = []
         self.locked, self.states, self.monitor_stops = False, set(), 0
         self.recording = True
 
@@ -236,6 +244,14 @@ class Recorder(Node):
             try:
                 self.ndt_status.append((self.now(), msg.level == DiagnosticStatus.OK,
                                         float(v['match_ms']), int(v['restarts'])))
+            except (KeyError, ValueError):
+                pass
+
+    def on_voxels(self, msg):
+        if self.recording:
+            v = {kv.key: kv.value for kv in msg.values}
+            try:
+                self.voxels.append((float(v['ms']), int(v['cubes'])))
             except (KeyError, ValueError):
                 pass
 
@@ -398,6 +414,12 @@ def drive_leg(rec, pgid, goal, speed, body, obstacle, process='controller_server
                      (': ' + '; '.join(sorted(rec.states)) if rec.states else ''))
     if rec.monitor_stops:
         notes.append(f'collision_monitor stopped the car {rec.monitor_stops}x')
+    if rec.voxels:
+        ms = sorted(m for m, _ in rec.voxels)
+        cubes = [c for _, c in rec.voxels]
+        notes.append(f'voxels {sum(ms) / len(ms):.1f} ms a cloud mean, '
+                     f'{ms[int(0.95 * (len(ms) - 1))]:.1f} 95th, {ms[-1]:.1f} worst; '
+                     f'{sum(cubes) / len(cubes):.0f} cubes a cloud, {len(ms)} clouds')
     leg = {'truth': rec.truth, 'belief': rec.belief, 'plans': rec.plans,
            'steering': rec.steering,
            'asked': rec.asked, 'start': start, 'end': end, 'goal': goal, 'reached': reached,
@@ -524,6 +546,8 @@ def session(tour, follower, args, out_dir, body, used, run=1):
         command.append('amcl:=true')
     if args.ndt:
         command += ['ndt:=true', f'ndt_map:={NDT_MAP}']
+    if args.voxels:
+        command.append('voxels:=true')
     if plan['obstacle']:
         command.append('obstacle:=true')
     if args.speed:
@@ -621,6 +645,8 @@ def report(results, args, started):
              (', AMCL beside the EKF' if args.amcl else '') +
              (", NDT beside the EKF (its map: tools/ndt_map.py; Gazebo's lidar has no sweep, "
               "the car's does)" if args.ndt else '') +
+             (', the lidar as cubes (voxels:=true, aav_voxels) instead of the flat scan'
+              if args.voxels else '') +
              (f', planners: {", ".join(args.planners)} (planner:=; the planner alone '
               "asked once before each leg, its turns against the car's full lock of "
               f'{vehicle.min_turning_radius(vehicle.load()["vehicle"]):.2f} m)'
@@ -708,6 +734,9 @@ def main():
     parser.add_argument('--ndt', action='store_true',
                         help='run NDT beside the EKF (ndt:=true) and score it too; needs '
                              'the map: pixi run ndt-map drive')
+    parser.add_argument('--voxels', action='store_true',
+                        help='the costmap and collision_monitor read the lidar as cubes '
+                             '(voxels:=true, aav_voxels), not the flat scan')
     parser.add_argument('--tours', nargs='+', choices=list(TOURS), default=list(TOURS))
     parser.add_argument('--speed', type=float, default=None,
                         help="m/s, up to 5: sim_speed:= (the car's own top speed: 1.0)")
