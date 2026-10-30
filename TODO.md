@@ -3,6 +3,15 @@
 The current work list, newest first. Tick items off as they land; each tick = a commit.
 Ben's messages, word for word: `docs/history/messages-*.md`.
 
+## Friday 30 October: the lattice, fairly
+
+Ben, 30 Oct: "Reversing is always true i think".
+
+| # | Task | Status |
+|---|---|---|
+| 54 | **Rerun the planners with reversing on** (hybrid, lattice, lattice32), 3 runs each | ✅ 30 Oct, branch `lattice-rerun`: every leg for all three; the lattice fastest, 184 s a tour against Hybrid's 213 s; 32 headings no better ([trials](docs/trials.md#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32)) |
+| 54b | **Ben: make the lattice the default planner?** | ⬜ Ben decides. Before: the bench, and forward only (the car's `reversing:=false` until H5), where the lattice still loses the U-turn |
+
 ## Thursday 29 October: control (Ben, 27 Oct)
 
 Ben: "investigate LQR and maybe collapse all these various controllers into a single

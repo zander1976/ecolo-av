@@ -437,8 +437,8 @@ Add a row in the same commit as the feature (<code>CLAUDE.md</code>).
 <td>built</td>
 </tr>
 <tr>
-<td><a href="controllers.html#planners">Trial planners</a> (<code>planner:=</code> hybrid, lattice, smac2d, navfn or theta_star; the lattice on our own primitives, <code>pixi run lattice-primitives</code>)</td>
-<td>To see whether another of Nav2's planners plans better or faster than Hybrid-A* on the same routes, scored by <code>controller-compare --planners</code>, before any replaces the default. Only hybrid and lattice keep to the turning radius, so the car refuses the other three</td>
+<td><a href="controllers.html#planners">Trial planners</a> (<code>planner:=</code> hybrid, lattice, smac2d, navfn or theta_star; the lattice on our own primitives, <code>pixi run lattice-primitives</code>, 16 headings or 32 with <code>lattice_headings:=32</code>)</td>
+<td>To see whether another of Nav2's planners plans better or faster than Hybrid-A* on the same routes, scored by <code>controller-compare --planners</code> (<code>--reversing</code> for the car's own setting, <code>lattice32</code> for the 32-heading file), before any replaces the default. Only hybrid and lattice keep to the turning radius, so the car refuses the other three</td>
 <td>Ben</td>
 <td>2026-10-29</td>
 <td>built</td>

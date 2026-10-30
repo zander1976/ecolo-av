@@ -110,24 +110,29 @@ twice, the last one wins.</p></div>
 <tr>
 <th>Switch</th>
 <th>In plain words</th>
-<th>Gazebo, 29 Oct</th>
+<th>Gazebo, the lot tour</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>planner:=hybrid</code> (default)</td>
 <td>Hybrid-A*: only routes a car can drive</td>
-<td><strong>4 of 4 legs</strong></td>
+<td>30 Oct, reversing: every leg, 213 s a tour</td>
 </tr>
 <tr>
 <td><code>planner:=lattice</code></td>
 <td>State Lattice: strings our car's own moves together; fast</td>
-<td>2 of 4 (lost the U-turn)</td>
+<td>30 Oct, reversing: every leg, <strong>184 s</strong> a tour. Forward only (29 Oct): 2 of 4, lost the U-turn</td>
+</tr>
+<tr>
+<td><code>planner:=lattice lattice_headings:=32</code></td>
+<td>the lattice with 32 headings, not 16</td>
+<td>30 Oct, reversing: every leg, 197 s; slower plans. No better</td>
 </tr>
 <tr>
 <td><code>planner:=smac2d</code></td>
 <td>A<em> on the grid: </em><em>ignores the turning circle</em>*</td>
-<td>2 of 4</td>
+<td>29 Oct, forward only: 2 of 4</td>
 </tr>
 <tr>
 <td><code>planner:=navfn</code></td>
@@ -141,7 +146,8 @@ twice, the last one wins.</p></div>
 </tr>
 </tbody>
 </table></div>
-<p>The real car takes only <code>hybrid</code> or <code>lattice</code>. More: <a href="controllers.html">Controllers, Planners</a>.</p>
+<p>The real car takes only <code>hybrid</code> or <code>lattice</code>. Hybrid stays the default until Ben
+decides. More: <a href="controllers.html">Controllers, Planners</a>, <a href="trials.html#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32">the runs</a>.</p>
 </section>
 <section class="card"><h2 id="who-steers-along-the-path">Who steers along the path</h2>
 <div class="table-wrap"><table>

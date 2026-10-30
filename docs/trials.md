@@ -12,7 +12,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 > - **Results (29 Oct, Gazebo, 3 runs):** pure pursuit, Stanley and MPC finished every leg; MPPI, RPP and LQR lost legs on the U-turn. AMCL lost itself; the EKF wins. [Results](#results-29-october).
 > - **NDT**, 29 Oct: about 1-3 cm off on the lot tour, 2 ms a match (below).
 > - **Afternoon:** LQR rebuilt with a preview (U-turn 2 of 3 in a quiet run; it weaved on a busy Mac), `mpc_full` 10 of 12. [Results](#results-29-october-afternoon-lqr-rebuilt-and-mpc_full).
-> - **Planners** (`planner:=`): Nav2's State Lattice (on our own primitives), Smac 2D, NavFn and Theta*, beside Hybrid-A*. 29 Oct, one run: **Hybrid-A* 4 of 4 legs**; lattice and Smac 2D 2 of 4, both lost on the U-turn. Hybrid stays. [Results](#planners-29-oct-hybrid-lattice-and-smac2d).
+> - **Planners** (`planner:=`): Nav2's State Lattice (on our own primitives), Smac 2D, NavFn and Theta*, beside Hybrid-A*. 29 Oct, forward only: Hybrid-A* 4 of 4, the lattice 2 of 4. **30 Oct, reversing on, 3-4 runs: every leg for hybrid, lattice and lattice32; the lattice the fastest** (184 s a tour against 213 s). Hybrid stays the default until Ben decides. [Results](#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32).
 > - The design: `docs/designs/2026-10-29_trials.md`.
 
 ## What is on trial
@@ -26,7 +26,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 | our pure pursuit (the control) | Nav2's RPP and MPPI | `tracker:=pure_pursuit` |
 | AMCL | the global EKF | `amcl:=true` |
 | NDT on a saved lidar map | the global EKF, and AMCL | `ndt:=true` (after `pixi run ndt-map drive`) |
-| State Lattice planner, our primitives | Hybrid-A* | `planner:=lattice` |
+| State Lattice planner, our primitives | Hybrid-A* | `planner:=lattice` (`lattice_headings:=32`: the 32-heading file) |
 | Smac 2D, NavFn, Theta* planners (ignore the turning circle: sim and bench only) | Hybrid-A* | `planner:=smac2d`, `navfn`, `theta_star` |
 
 ## Where a tracker sits
@@ -315,8 +315,8 @@ results in `~/aav-runs/2026-10-29/planners-results/` on Ben's Mac (not in git).
 - **The lattice is fast and drives well** where there's room: 4 ms a plan, and the
   smallest error on the first two legs. Every turn kept to 3.58 m, as made. But with
   only 16 headings its U-turn loop needs more room than Hybrid's 72; it ran the car into
-  a corner it couldn't leave forwards. Next: primitives with 32 headings, and a run
-  with `--reversing` (the lattice may then back out).
+  a corner it couldn't leave forwards. Done 30 Oct (below): with `--reversing` it backs
+  out and finishes; 32 headings didn't help.
 - **Smac 2D is the fastest planner and the worst for a car**: it ignores the goal's
   heading and the turning circle, so a U-turn is a straight line back. This is why the
   car refuses it.
@@ -325,3 +325,67 @@ results in `~/aav-runs/2026-10-29/planners-results/` on Ben's Mac (not in git).
 - Planning times are the planner's own `planning_time`, on Gazebo's clock; the wall-clock
   call was within a few ms of it. One run each: **not a ranking yet**. `navfn` and
   `theta_star` weren't run.
+- **Unfair to the lattice:** the run was forward only, and the sim's default (and Ben's,
+  30 Oct: "Reversing is always true i think") is `reversing:=true`. Rerun below.
+
+## Planners, 30 Oct: reversing on, hybrid, lattice and lattice32
+
+The 29 Oct run again, fairly: **reversing on**, MPPI following (it follows backwards
+too; our trackers can't), 1 m/s, the lot tour. `lattice32` is the lattice on its new
+32-heading file (`lattice_headings:=32`). Branch `lattice-rerun`.
+
+```bash
+AAV_SIM_DOMAIN=224 pixi run controller-compare --planners lattice32 lattice hybrid \
+    --reversing --tours lot --runs 3
+```
+
+Then one more run of each with every point of the plan kept (the cusp scoring, below).
+Results in `~/aav-runs/2026-10-30/lattice-rerun*/` on Ben's Mac (not in git).
+
+### The whole tour
+
+Each planner's runs: hybrid 4, lattice 4, lattice32 3 (one more was spoiled, below).
+
+| | hybrid (default) | lattice (16) | lattice32 |
+|---|---:|---:|---:|
+| Legs finished | 16 of 16 | 16 of 16 | 12 of 12 |
+| Time, all legs: mean (each run) | 213 s (211-215) | **184 s** (182-185) | 197 s (187-216) |
+| Driven in reverse, a tour | 9.1 m | 9.3 m | 9.0 m (16.8 once) |
+| Planning time, mean / worst | 15 / 55 ms | **10 / 33 ms** | 18 / 68 ms |
+| Tightest turn in a plan (radius) | 3.28 m | 3.59 m | 3.47 m |
+| Plan tighter than full lock (2.87 m) | 0 m | 0 m | 0 m |
+| Changes between forward and reverse (plans, a tour) | 2 | 4 | 4 |
+| Off the path, mean | 0.11-0.13 m | 0.13-0.14 m | 0.13-0.24 m |
+
+### Leg by leg (the range over the runs)
+
+| Leg | hybrid | lattice | lattice32 |
+|---|---|---|---|
+| a left turn | 28-29 s | 26-27 s | 26-27 s |
+| round the building | 53 s | 44-46 s | 45 s |
+| **turn back** (the U-turn) | 64-67 s, backs up about 9 m | 56-60 s, backs up about 9 m | 56-59 s, backs up about 9 m |
+| home | 65-66 s | 55-56 s | 57-63 s; **86 s** once (collision_monitor stopped it, it backed up 8 m more) |
+
+### What it shows
+
+- **With reversing on, the lattice finishes every leg**, and it is the fastest: about
+  **29 s quicker** a tour than Hybrid-A* (14 %), with plans a third quicker. On 29 Oct
+  (forward only) it lost the U-turn; backing up 9 m is what it needed.
+- **32 headings don't help.** Same legs, slower plans, more spread. The 16-heading file
+  stays the lattice's default.
+- **Hybrid-A* stays the default for now**: the trials rule is that Ben decides a swap.
+  The lattice has won this one test, in Gazebo. Before a swap: the bench, and a look at
+  forward only on the car (its `reversing:=false` until H5), where the lattice still loses
+  the U-turn.
+- Every planner turned the U-turn the same way: forward, about 9 m back, forward.
+
+### Notes
+
+- **One lattice32 run was spoiled**: its car never moved. Another helper's ROS nodes on
+  the same domain (226) told output_mux the actuators were REAL, so it stopped the car.
+  Rerun on domain 221: 4 of 4, 187 s. It is left out of the table.
+- **Cusps:** a reversing plan doubles back where the car changes gear. The first scoring
+  read that corner as a 0.3-0.5 m "turn", so every planner looked as if it broke full
+  lock. The scoring now cuts the plan at each cusp (a turn of more than 120°) and
+  measures the turns between them. The tightest-turn row comes from the runs that kept
+  every point of the plan (one each); the other runs kept one point in four.
