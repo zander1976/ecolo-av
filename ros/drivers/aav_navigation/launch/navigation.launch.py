@@ -43,7 +43,9 @@ Trials (docs/trials.md), each beside the default and scored by pixi run controll
                           Reeds-Shepp. lattice: SmacPlannerLattice on our own primitives
                           (config/lattice_ackermann.json, pixi run lattice-primitives), for
                           the car's turning radius and the map's cells (refused if either
-                          differs), backwards too with reversing:=true. smac2d, navfn,
+                          differs), backwards too with reversing:=true.
+                          lattice_headings:=32 takes the trial file with 32 headings
+                          (lattice_ackermann_32.json). smac2d, navfn,
                           theta_star: grid paths that ignore the turning radius, so the
                           follower must round their corners; car.launch.py refuses them
   tracker:=pure_pursuit|stanley|lqr|mpc|mpc_full  aav_track's track node follows the path instead
@@ -141,7 +143,7 @@ def tuned_copy(source, v, reversing, max_speed, radar, lidar, ghost=False,
     return out.name
 
 
-def lattice_for(share, v, map_yaml):
+def lattice_for(share, v, map_yaml, headings=vehicle.LATTICE_HEADINGS[0]):
     """
     Return the lattice primitives' path, checked against the car and the map.
 
@@ -149,12 +151,14 @@ def lattice_for(share, v, map_yaml):
     or for a car that now turns wider, it would plan moves the car can't make. Refuse
     rather than start it so (pixi run lattice-primitives makes a new file).
     """
-    path = f'{share}/config/lattice_ackermann.json'
+    path = f'{share}/config/{vehicle.lattice_file_name(headings)}'
     with open(path) as f:
         meta = json.load(f)['lattice_metadata']
     with open(map_yaml) as f:
         resolution = yaml.safe_load(f)['resolution']
     wrong = vehicle.lattice_problems(meta, v, resolution)
+    if meta.get('num_of_headings') != int(headings):
+        wrong.append(f"{meta.get('num_of_headings')} headings, not {headings}")
     if wrong:
         raise ValueError(f'planner:=lattice: {path}: ' + '; '.join(wrong) +
                          '. Run pixi run lattice-primitives, or pick another planner')
@@ -185,7 +189,10 @@ def nodes(context):
     cfg = vehicle.load()
     v = cfg['vehicle']
     map_yaml = LaunchConfiguration('map').perform(context)
-    lattice_file = lattice_for(share, v, map_yaml) if planner == 'lattice' else None
+    headings = (LaunchConfiguration('lattice_headings').perform(context).strip() or
+                vehicle.LATTICE_HEADINGS[0])
+    lattice_file = (lattice_for(share, v, map_yaml, headings) if planner == 'lattice'
+                    else None)
     trees = '_car_reversing.xml' if reversing else '_car.xml'
     rewrites = vehicle.nav2_rewrites(v, reversing, planner)
     rewrites.update({
@@ -363,6 +370,11 @@ def generate_launch_description():
                                           'behind GridBased. hybrid and lattice keep to the '
                                           "car's turning radius; the others don't (sim and "
                                           'bench only). docs/controllers.md, Planners'),
+        DeclareLaunchArgument('lattice_headings',
+                              default_value=str(vehicle.LATTICE_HEADINGS[0]),
+                              description='with planner:=lattice: 16 headings (the default '
+                                          'file) or 32 (a trial: '
+                                          'config/lattice_ackermann_32.json)'),
         DeclareLaunchArgument('plan_around', default_value='true',
                               description='true: the planner sees the radar and lidar too, '
                                           'and plans round what they see; false: the map '

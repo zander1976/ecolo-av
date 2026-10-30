@@ -50,6 +50,7 @@ Many values are still `TODO measure` (docs/car_measurements.md).
 | `plan_turning_radius(v)`, `s_bend_length(radius, offset)`, `final_approach(v)` | the planner's radius; the room ahead an S-bend needs; how near the goal Nav2 keeps its path (TODO 17) |
 | `ego_params(cfg)`, `spine_params(v)` | ego's and `spine_bridge`'s parameters |
 | `check_planner(name, real)`, `lattice_problems(meta, v, resolution)` | a planner's name, checked (only `CAR_PLANNERS` with `real`); what's wrong with a lattice primitives file for this car and map |
+| `lattice_file_name(headings)` | the primitives file for 16 headings (the default) or 32 (`LATTICE_HEADINGS`, `lattice_headings:=`) |
 | `check_tracker(name, reversing)`, `track_params(nav2, cfg, ego, max_speed)` | a trial tracker's name, checked; `aav_track`'s parameters from nav2.yaml, vehicle.yaml and ego.yaml |
 | `obstacle_heights(v)`, `centre_of_mass(...)` | the lidar's height band; centre of mass from the scales |
 

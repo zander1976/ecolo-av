@@ -59,7 +59,8 @@ bench's argument names:
   planner:=lattice    Nav2 plans with another planner (navigation.launch.py planner:=):
                       hybrid (the default) or lattice keep to the car's turning radius;
                       smac2d, navfn and theta_star don't, trials only. pixi run
-                      controller-compare --planners scores them (docs/controllers.md)
+                      controller-compare --planners scores them (docs/controllers.md).
+                      lattice_headings:=32: the lattice's trial file, 32 headings
   tracker:=lqr        a trial path follower (aav_track: pure_pursuit, stanley, lqr or mpc)
                       in controller_server's place, on Nav2's same planner, smoother and
                       collision_monitor. Forward only: with reversing:=false (docs/trials.md)
@@ -218,6 +219,7 @@ def launch_setup(context):
                                max_speed=arg('sim_speed'),
                                reversing=str(flag['reversing']).lower(),
                                controller=controller, tracker=tracker, planner=planner,
+                               lattice_headings=arg('lattice_headings'),
                                # A trial tracker may be swapped live here (the debug
                                # HUD's panel shows which): Gazebo only, never the car.
                                live_swap='true',
@@ -386,6 +388,10 @@ def generate_launch_description():
                               description=', '.join(vehicle.PLANNERS) + ": Nav2's planner. "
                                           "hybrid and lattice keep to the car's turning "
                                           'radius; the others are trials (docs/controllers.md)'),
+        DeclareLaunchArgument('lattice_headings',
+                              default_value=str(vehicle.LATTICE_HEADINGS[0]),
+                              description='with planner:=lattice: 16 headings (the default) '
+                                          'or 32 (a trial file)'),
         DeclareLaunchArgument('tracker', default_value=vehicle.DEFAULT_TRACKER,
                               description="a trial path follower in controller_server's "
                                           'place: ' + ', '.join(vehicle.TRACKERS) +
