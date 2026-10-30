@@ -17,6 +17,11 @@ One leg is one Nav2 goal. It records, on Gazebo's clock:
   amcl      [(t, x, y, yaw)]        optional: AMCL's pose (/localization/amcl/pose), a trial
   ndt       [(t, x, y, yaw)]        optional: NDT's pose (/localization/ndt/pose), a trial
   ndt_status [(t, ok, match_ms, restarts)]  optional: NDT's status, one per cloud
+  kiss      [(t, x, y, yaw)]        optional: KISS-ICP's odometry (/localization/kiss_icp/odom),
+                                    a trial, in its own frame (kiss_odom)
+  kiss_status [(t, match_ms, dropped)]  optional: KISS-ICP's status, one per cloud
+  local     [(t, x, y, yaw)]        optional: ekf_local (/localization/odom/local), odom
+                                    frame: the odometry KISS-ICP is scored against
   loops     [(t, loop_ms, loop_ms_max, missed)]  optional: aav_track's status, each tick
   planned   optional: one plan asked of the planner alone before the leg, from where the
             car stood (controller_compare.py --planners, /compute_path_to_pose):
@@ -280,6 +285,53 @@ def localizer_row(name, truth, poses, start, end):
     }
 
 
+# An odometry's drift per 100 m means little over less than this (m driven).
+DRIFT_MIN_M = 5.0
+
+
+def odometry_row(name, truth, poses, min_distance=DRIFT_MIN_M):
+    """
+    Return an odometry's drift, its keys starting with `name` (KISS-ICP, ekf_local).
+
+    An odometry lives in its own frame (kiss_odom, odom) and only says how far the car
+    moved, so its first pose is lined up with the truth then (position and heading), and
+    each later pose is scored against the truth nearest in time:
+    drift per 100 m (the last pose's gap over the distance driven, x 100; NaN under
+    min_distance m), the worst gap (m), the heading's gap at the end (deg), samples.
+    """
+    nan = {f'{name}_drift_per_100m': math.nan, f'{name}_drift_max_m': math.nan,
+           f'{name}_heading_drift_deg': math.nan, f'{name}_odom_samples': len(poses)}
+    if not truth or not poses:
+        return nan
+    poses = sorted(poses)
+    times = [t for t, *_ in truth]
+
+    def nearest(t):
+        i = bisect.bisect_left(times, t)
+        return truth[min((j for j in (i - 1, i) if 0 <= j < len(truth)),
+                         key=lambda j: abs(times[j] - t))]
+
+    t0, x0, y0, yaw0 = poses[0]
+    _, tx, ty, tyaw = nearest(t0)
+    turn = angle_diff(tyaw, yaw0)
+    c, s = math.cos(turn), math.sin(turn)
+    gaps, heading = [], 0.0
+    for t, x, y, yaw in poses:
+        ax = tx + c * (x - x0) - s * (y - y0)
+        ay = ty + s * (x - x0) + c * (y - y0)
+        _, rx, ry, ryaw = nearest(t)
+        gaps.append(math.hypot(ax - rx, ay - ry))
+        heading = abs(angle_diff(yaw + turn, ryaw))
+    driven = travelled([p for p in truth if t0 <= p[0] <= poses[-1][0]])
+    return {
+        f'{name}_drift_per_100m': (100.0 * gaps[-1] / driven if driven >= min_distance
+                                   else math.nan),
+        f'{name}_drift_max_m': max(gaps),
+        f'{name}_heading_drift_deg': math.degrees(heading),
+        f'{name}_odom_samples': len(poses),
+    }
+
+
 # How tight a path turns: the circle through three points this far apart along it (m).
 # Over 1 m, a Hybrid or Lattice arc reads its own radius; a grid planner's corner reads
 # well under a metre.
@@ -433,6 +485,17 @@ def summary(leg):
             'ndt_match_ms_max': max(times),
             'ndt_restarts': max(r for *_, r in status) - min(r for *_, r in status),
         })
+    for name in ('kiss', 'local'):
+        if leg.get(name) is not None:
+            row.update(odometry_row(name, truth, leg[name]))
+    kiss = leg.get('kiss_status')
+    if kiss:
+        times = [ms for _, ms, _ in kiss]
+        row.update({
+            'kiss_match_ms_mean': sum(times) / len(times),
+            'kiss_match_ms_max': max(times),
+            'kiss_dropped': max(d for *_, d in kiss) - min(d for *_, d in kiss),
+        })
     loops = leg.get('loops')
     if loops:
         row.update({
@@ -500,6 +563,16 @@ COLUMNS = [
     ('ndt_match_ms_mean', "NDT's match: mean (ms, wall clock)", '{:.1f}'),
     ('ndt_match_ms_max', "NDT's match: worst (ms, wall clock)", '{:.1f}'),
     ('ndt_restarts', 'NDT restarts after LOST', '{:d}'),
+    ('kiss_drift_per_100m', 'KISS-ICP: drift (m per 100 m driven)', '{:.2f}'),
+    ('local_drift_per_100m', 'ekf_local: drift (m per 100 m driven)', '{:.2f}'),
+    ('kiss_drift_max_m', 'KISS-ICP: off, worst (m, lined up at the start)', '{:.2f}'),
+    ('local_drift_max_m', 'ekf_local: off, worst (m, lined up at the start)', '{:.2f}'),
+    ('kiss_heading_drift_deg', "KISS-ICP's heading: off at the end (deg)", '{:.2f}'),
+    ('local_heading_drift_deg', "ekf_local's heading: off at the end (deg)", '{:.2f}'),
+    ('kiss_odom_samples', 'KISS-ICP poses', '{:d}'),
+    ('kiss_match_ms_mean', "KISS-ICP's match: mean (ms, wall clock)", '{:.1f}'),
+    ('kiss_match_ms_max', "KISS-ICP's match: worst (ms, wall clock)", '{:.1f}'),
+    ('kiss_dropped', 'KISS-ICP: clouds dropped', '{:d}'),
     ('belief_grid_mean_m', 'The EKF on the 10 Hz grid: off, mean (m)', '{:.2f}'),
     ('amcl_grid_mean_m', 'AMCL on the 10 Hz grid: off, mean (m)', '{:.2f}'),
     ('ndt_grid_mean_m', 'NDT on the 10 Hz grid: off, mean (m)', '{:.3f}'),

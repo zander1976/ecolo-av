@@ -493,3 +493,23 @@ def test_a_whole_tour_in_one_row():
     text = m.table([('hybrid', out)], columns=m.OVERALL)
     assert 'Legs finished' in text and '**no**' in text
     assert m.overall([None]) == {'legs': '0/1'}
+
+
+def test_an_odometry_is_lined_up_at_the_start_and_scored_per_100_m():
+    # The car drives 20 m east from (5, 2); the odometry starts at its own 0, 0 facing
+    # north (its frame), and over-reads the distance by 2 % and turns 1 degree by the end.
+    truth = [(t, 5.0 + t, 2.0, 0.0) for t in range(21)]
+    odom = [(t, 0.0, 1.02 * t, math.pi / 2 + math.radians(t / 20)) for t in range(21)]
+    row = m.odometry_row('kiss', truth, odom)
+    assert row['kiss_drift_per_100m'] == pytest.approx(2.0)      # 0.4 m over 20 m
+    assert row['kiss_drift_max_m'] == pytest.approx(0.4)
+    assert row['kiss_heading_drift_deg'] == pytest.approx(1.0)
+    assert row['kiss_odom_samples'] == 21
+
+
+def test_an_odometry_on_a_short_leg_or_none_says_nan():
+    truth = [(t, 0.1 * t, 0.0, 0.0) for t in range(11)]          # 1 m: too short
+    row = m.odometry_row('local', truth, [(t, 0.1 * t, 0.0, 0.0) for t in range(11)])
+    assert math.isnan(row['local_drift_per_100m'])
+    assert row['local_drift_max_m'] == pytest.approx(0.0)
+    assert math.isnan(m.odometry_row('kiss', truth, [])['kiss_drift_max_m'])
