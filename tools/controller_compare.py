@@ -27,7 +27,7 @@ The trials (docs/trials.md):
     pixi run controller-compare --ndt-ekf          (the same, with NDT's pose into the global
                     EKF, ndt_ekf:=true: compare its EKF numbers with --ndt's)
     pixi run controller-compare --ndt --gps-off    (the GPS stops once the EKF has its first
-                    fix; with watchdog:=false, or the sensor watchdog would hold Nav2)
+                    fix; with watchdog:=false geofence:=false, or they would hold Nav2)
     pixi run controller-compare --planners hybrid lattice smac2d --tours lot
                     Nav2's planners (planner:=), each with MPPI unless --controllers or
                     --trackers says otherwise. Before each leg it also asks the planner
@@ -176,6 +176,7 @@ class Recorder(Node):
         super().__init__('controller_compare', parameter_overrides=[
             Parameter('use_sim_time', value=True)])
         self.recording = False
+        self.watchdog = True            # False: watchdog:=false, nothing publishes its lock
         self.truth, self.plans, self.steering, self.asked = [], [], [], []
         self.belief, self.amcl, self.loops = [], [], []
         self.ndt, self.ndt_status, self.ndt_fits = [], [], []
@@ -357,6 +358,8 @@ def plan_alone(rec, goal, lock_radius):
 
 def ready(rec):
     """Wait until the sensor watchdog lets Nav2 drive; clear a latch once. Return notes."""
+    if not rec.watchdog:
+        return []                       # watchdog:=false (--gps-off): no lock to wait for
     if rec.spin_for(READY_TIME, lambda: rec.lock is False):
         return []
     # Still locked: a latch (a GPS jump, the wheels against the IMU) waits for a person.
@@ -588,8 +591,9 @@ def session(tour, follower, args, out_dir, body, used, run=1):
     elif args.ndt:
         command += ['ndt:=true', f'ndt_map:={NDT_MAP}']
     if args.gps_off:
-        # The sensor watchdog would hold Nav2 with the GPS quiet: the drive is the test.
-        command.append('watchdog:=false')
+        # The sensor watchdog and the geofence (LOST after 2 s without a GPS position)
+        # would hold Nav2 with the GPS quiet: the drive is the test.
+        command += ['watchdog:=false', 'geofence:=false']
     if plan['obstacle']:
         command.append('obstacle:=true')
     if args.speed:
@@ -608,6 +612,7 @@ def session(tour, follower, args, out_dir, body, used, run=1):
                                   stderr=subprocess.STDOUT, start_new_session=True)
         rclpy.init()
         rec = Recorder()
+        rec.watchdog = not args.gps_off
         try:
             up = rec.spin_for(UP_TIME, lambda: rec.last_truth is not None and rec.glob)
             if not (up and rec.spin_for(UP_TIME, rec.nav.server_is_ready)):
@@ -695,7 +700,7 @@ def report(results, args, started):
              (", NDT beside the EKF (its map: tools/ndt_map.py; Gazebo's lidar has no sweep, "
               "the car's does)" if args.ndt and not args.ndt_ekf else '') +
              (", NDT's pose into the global EKF (ndt_ekf:=true)" if args.ndt_ekf else '') +
-             (', the GPS stopped after the first fix (watchdog:=false)'
+             (', the GPS stopped after the first fix (watchdog:=false geofence:=false)'
               if args.gps_off else '') +
              (f', planners: {", ".join(args.planners)} (planner:=; the planner alone '
               "asked once before each leg, its turns against the car's full lock of "
@@ -789,7 +794,8 @@ def main():
     parser.add_argument('--ndt-ekf', action='store_true',
                         help="as --ndt, and the global EKF takes NDT's pose (ndt_ekf:=true)")
     parser.add_argument('--gps-off', action='store_true',
-                        help='stop the GPS once the EKF has its first fix (watchdog:=false)')
+                        help='stop the GPS once the EKF has its first fix (watchdog:=false '
+                             'geofence:=false)')
     parser.add_argument('--tours', nargs='+', choices=list(TOURS), default=list(TOURS))
     parser.add_argument('--speed', type=float, default=None,
                         help="m/s, up to 5: sim_speed:= (the car's own top speed: 1.0)")
