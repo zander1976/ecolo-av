@@ -346,3 +346,15 @@ def test_ndt_needs_the_test_lot_the_lidar_and_its_map(tmp_path):
     # The start pose is the car's, as AMCL's; on simulated time.
     assert sent == {'use_sim_time': 'true', 'ndt_map': str(map_file), 'ndt_x': '0.0',
                     'ndt_y': '4.0', 'ndt_yaw': '1.0'}
+
+
+def test_kiss_icp_needs_the_lidar_and_is_off_by_default():
+    # A trial, scored only (docs/designs/2026-10-30_kiss-icp.md).
+    assert 'kiss_icp.launch.py' not in included(started(SIM, world='test_lot'))
+    with pytest.raises(ValueError, match='kiss_icp:=true needs the lidar'):
+        started(SIM, kiss_icp='true')                           # the empty world
+    with pytest.raises(ValueError, match='kiss_icp:=true needs the lidar'):
+        started(SIM, world='test_lot', lidar='false', kiss_icp='true')
+    sent = included(started(SIM, world='test_lot', kiss_icp='true'))['kiss_icp.launch.py']
+    assert sent == {'use_sim_time': 'true'}
+    assert 'kiss_icp.launch.py' in included(started(SIM, world='road', kiss_icp='true'))

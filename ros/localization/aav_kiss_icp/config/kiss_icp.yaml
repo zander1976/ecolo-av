@@ -1,0 +1,12 @@
+# kiss_icp (aav_kiss_icp): KISS-ICP's own defaults where it has them (K5,
+# docs/designs/2026-10-30_kiss-icp.md). The lidar's mount and the car's outline come from
+# vehicle.yaml through the launch file, never from here.
+kiss_icp:
+  ros__parameters:
+    min_range: 0.5             # m from the lidar: Gazebo's lidar starts there; the VLP-16 at 0.9
+    max_range: 100.0           # m: KISS-ICP's default
+    voxel_size: 0.0            # m: 0 = max_range / 100 (KISS-ICP's rule: 1 m cubes)
+    max_points_per_voxel: 20   # KISS-ICP's default
+    threads: 4                 # KISS-ICP's 0 means every core; 4 leaves the Orin's others free
+    deskew: true               # only where the cloud has a per-point time (the VLP-16)
+    lidar_period: 0.1          # s: 10 Hz, for counting the clouds dropped

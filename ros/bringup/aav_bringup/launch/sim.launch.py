@@ -9,7 +9,7 @@ The whole stack in Gazebo: same nodes and configs as the car, simulated hardware
       [actuator_model:=true] [speed_loop:=default|smooth|lqi] [sim_speed:=]
       [reversing:=true] [controller:=mppi] [planner:=hybrid] [tracker:=none]
       [amcl:=false]
-      [ndt:=false] [ndt_map:=maps/ndt/test_lot.pcd]
+      [ndt:=false] [ndt_map:=maps/ndt/test_lot.pcd] [kiss_icp:=false]
       [plan_around:=true]
       [watchdog:=true] [geofence:=true] [geofence_radius:=200.0]
       [watch_hud:=false] [faults:=false] [spine:=false] [arm:=true]
@@ -69,6 +69,9 @@ bench's argument names:
                       (docs/designs/2026-10-29_ndt.md): only in world:=test_lot with the
                       lidar, from the start pose, and only once ndt_map (pixi run ndt-map
                       drive) is there
+  kiss_icp:=true      KISS-ICP lidar odometry (aav_kiss_icp), scored only, never TF or an
+                      EKF (docs/designs/2026-10-30_kiss-icp.md): any world with the lidar;
+                      needs the kiss environment once (pixi install --locked -e kiss)
   plan_around:=false  Nav2's planner sees only the map, not the radar and lidar: the car
                       stops for an obstacle instead of planning round it (the stop tests)
   watchdog:=true      the sensor watchdog (aav_safety): twist_mux's sensors lock stops Nav2
@@ -155,6 +158,7 @@ def launch_setup(context):
     planner = vehicle.check_planner(arg('planner'))
     amcl = arg('amcl').lower() == 'true'
     ndt = arg('ndt').lower() == 'true'
+    kiss_icp = arg('kiss_icp').lower() == 'true'
     gazebo_share = FindPackageShare('aav_gazebo').perform(context)
     sensors = worlds.has_sensors(worlds.world_file(gazebo_share, world))
     # Each only where the world renders it, as gazebo.launch.py decides.
@@ -170,6 +174,9 @@ def launch_setup(context):
     if ndt and not os.path.isfile(arg('ndt_map')):
         raise ValueError(f'ndt:=true: no map at ndt_map:={arg("ndt_map")}. Make it with '
                          '`pixi run ndt-map drive`')
+    if kiss_icp and not lidar:
+        raise ValueError(f'kiss_icp:=true needs the lidar: world:={world} lidar:='
+                         f'{arg("lidar")} has none (world:=test_lot or road, lidar:=true)')
     if wanted and not sensors:
         raise ValueError(f'{", ".join(wanted)}: world:={world} has no camera. Use world:=road')
     nav_share = FindPackageShare('aav_navigation').perform(context)
@@ -234,6 +241,10 @@ def launch_setup(context):
         actions.append(include(context, 'aav_ndt', 'ndt.launch.py', use_sim_time='true',
                                ndt_map=arg('ndt_map'), ndt_x=0.0, ndt_y=arg('start_y'),
                                ndt_yaw=arg('start_yaw')))
+    if kiss_icp:
+        # Scored only (controller-compare --kiss-icp): nothing reads its odometry to drive.
+        actions.append(include(context, 'aav_kiss_icp', 'kiss_icp.launch.py',
+                               use_sim_time='true'))
     if flag['watchdog']:
         # What this world has, and the camera only where something reads it: watching it
         # costs one more stream of pictures.
@@ -400,6 +411,9 @@ def generate_launch_description():
                                                                     'test_lot.pcd'),
                               description="NDT's map (pixi run ndt-map drive); relative to "
                                           'where the launch starts'),
+        DeclareLaunchArgument('kiss_icp', default_value='false',
+                              description='KISS-ICP lidar odometry, scored only (a world '
+                                          'with the lidar; pixi install --locked -e kiss)'),
         DeclareLaunchArgument('plan_around', default_value='true',
                               description="true: Nav2's planner plans round what the radar "
                                           'and lidar see; false: the map only, so the car '
