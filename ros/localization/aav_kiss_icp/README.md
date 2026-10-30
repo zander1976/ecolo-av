@@ -34,6 +34,7 @@ pixi install --locked -e kiss
 | Parameter | Default | Means |
 |---|---|---|
 | `kiss_python` | `''` | the kiss env's Python; empty: `<repo>/.pixi/envs/kiss/bin/python` |
+| `min_height` | 0.3 m | above `base_link`: lower is the ground, cut out (a flat ground's rings say "no motion") |
 | `min_range`, `max_range` | 0.5, 100 m | from the lidar |
 | `voxel_size` | 0 | 0: `max_range / 100` (KISS-ICP's rule: 1 m) |
 | `max_points_per_voxel` | 20 | KISS-ICP's default |

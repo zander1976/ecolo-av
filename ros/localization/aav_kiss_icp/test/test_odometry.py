@@ -65,6 +65,13 @@ def test_the_body_and_the_ranges_are_cut_out():
     assert kept_times.tolist() == [0.1, 0.2]
 
 
+def test_the_ground_is_cut_out_below_min_height():
+    points = np.array([[8.0, 0.0, 0.02], [8.0, 1.0, 0.31], [9.0, 0.0, 2.0]])
+    kept, _ = odometry.crop(points, None, (-0.5, -0.7), (2.5, 0.7), 0.5, 100.0,
+                            (0.9, 0.0, 1.8), min_height=0.3)
+    assert kept.tolist() == [[8.0, 1.0, 0.31], [9.0, 0.0, 2.0]]
+
+
 def test_times_scale_to_one_turn_and_gazebos_single_instant_gives_none():
     assert odometry.sweep_times(np.array([0.02, 0.07, 0.12])).tolist() == pytest.approx(
         [0.0, 0.5, 1.0])

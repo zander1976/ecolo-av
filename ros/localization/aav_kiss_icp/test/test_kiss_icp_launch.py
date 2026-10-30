@@ -80,3 +80,4 @@ def test_the_config_keeps_kiss_icps_own_defaults():
         p = yaml.safe_load(f)['kiss_icp']['ros__parameters']
     assert (p['max_range'], p['voxel_size'], p['max_points_per_voxel']) == (100.0, 0.0, 20)
     assert p['deskew'] is True
+    assert p['min_height'] == 0.3      # the ground out, as NDT's

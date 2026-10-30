@@ -20,7 +20,8 @@ Publishes   localization/kiss_icp/odom    nav_msgs/Odometry: frame kiss_odom (it
 
 Parameters  kiss_python (the kiss environment's Python: '' = <repo>/.pixi/envs/kiss),
             lidar_xyz, lidar_rpy (the mount, from vehicle.yaml by the launch file),
-            body_min, body_max (the car's outline in base_link, x y), min_range,
+            body_min, body_max (the car's outline in base_link, x y), min_height
+            (m above base_link: lower is the ground, cut out), min_range,
             max_range, voxel_size (0 = max_range / 100, KISS-ICP's rule),
             max_points_per_voxel, threads, deskew, lidar_period. config/kiss_icp.yaml.
 
@@ -63,12 +64,14 @@ class KissIcp(Node):
         super().__init__('kiss_icp')
         p = {name: self.declare_parameter(name, default).value for name, default in (
             ('kiss_python', ''), ('lidar_xyz', [0.0, 0.0, 0.0]), ('lidar_rpy', [0.0, 0.0, 0.0]),
-            ('body_min', [0.0, 0.0]), ('body_max', [0.0, 0.0]), ('min_range', 0.5),
+            ('body_min', [0.0, 0.0]), ('body_max', [0.0, 0.0]), ('min_height', 0.3),
+            ('min_range', 0.5),
             ('max_range', 100.0), ('voxel_size', 0.0), ('max_points_per_voxel', 20),
             ('threads', 4), ('deskew', True), ('lidar_period', 0.1))}
         self.mount = ([float(v) for v in p['lidar_xyz']], [float(v) for v in p['lidar_rpy']])
         self.body = ([float(v) for v in p['body_min']], [float(v) for v in p['body_max']])
         self.ranges = (float(p['min_range']), float(p['max_range']))
+        self.min_height = float(p['min_height'])
         self.deskew = bool(p['deskew'])
         self.period = float(p['lidar_period'])
         self.settings = {'min_range': 0.0, 'max_range': self.ranges[1],
@@ -91,7 +94,8 @@ class KissIcp(Node):
         self.start_worker()
         self.get_logger().info(
             f'kiss_icp: lidar odometry, the mount {self.mount} from base_link, '
-            f'{self.ranges[0]:g}-{self.ranges[1]:g} m, deskew {self.deskew}, worker {self.python}')
+            f'{self.ranges[0]:g}-{self.ranges[1]:g} m, above {self.min_height:g} m, '
+            f'deskew {self.deskew}, worker {self.python}')
 
     def start_worker(self):
         if not os.path.isfile(self.python):
@@ -129,7 +133,7 @@ class KissIcp(Node):
             return
         points = odometry.to_base_link(points, *self.mount)
         points, times = odometry.crop(points, times, *self.body, *self.ranges,
-                                      origin=self.mount[0])
+                                      origin=self.mount[0], min_height=self.min_height)
         times = odometry.sweep_times(times) if self.deskew else None
         if self.worker is None or self.worker.poll() is not None:
             if self.worker is not None:

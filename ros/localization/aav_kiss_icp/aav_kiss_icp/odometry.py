@@ -7,7 +7,8 @@ Imported by kiss_icp_node.py; tested in test/test_odometry.py.
   cloud has a `time` field: the car's VLP-16 does, Gazebo's lidar doesn't).
 - to_base_link(): the scan moved from lidar_link into base_link (the mount from
   vehicle.yaml), so KISS-ICP's pose is the car's own.
-- crop(): the car's own body cut out, and points nearer or further than the ranges.
+- crop(): the car's own body and the ground cut out, and points nearer or further
+  than the ranges.
 - sweep_times(): the times scaled to 0-1 across the turn, for KISS-ICP's deskew.
 - pose_of(), twist_of(): a 4x4 pose into position and quaternion; the last step into a
   twist in base_link.
@@ -70,18 +71,23 @@ def to_base_link(points, xyz, rpy):
     return points @ rotation(*rpy).T + np.asarray(xyz, dtype=np.float64)
 
 
-def crop(points, times, body_min, body_max, min_range, max_range, origin):
+def crop(points, times, body_min, body_max, min_range, max_range, origin,
+         min_height=-float('inf')):
     """
-    Return (points, times) without the car's own body, and only between the ranges.
+    Return (points, times) without the car's own body or the ground, between the ranges.
 
     body_min, body_max: (x, y) corners of the car's outline in base_link; a point over
     it, at any height, is the car. The ranges are measured from origin (the lidar).
+    min_height (m above base_link): lower points are the ground. On a flat ground the
+    lidar's downward beams draw the same circles round the car every scan, and those
+    say "you didn't move" (30 Oct, Gazebo: KISS-ICP read 12 m for 21 m driven).
     """
     x, y = points[:, 0], points[:, 1]
     body = ((x >= body_min[0]) & (x <= body_max[0]) &
             (y >= body_min[1]) & (y <= body_max[1]))
     distance = np.linalg.norm(points - np.asarray(origin, dtype=np.float64), axis=1)
-    keep = ~body & (distance >= min_range) & (distance <= max_range)
+    keep = (~body & (distance >= min_range) & (distance <= max_range) &
+            (points[:, 2] >= min_height))
     return points[keep], (times[keep] if times is not None else None)
 
 
