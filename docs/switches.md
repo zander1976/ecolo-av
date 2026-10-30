@@ -75,6 +75,7 @@ NDT's map isn't in git: make it once with `pixi run ndt-map drive` (about 6 min)
 | `sim_speed:=3` | a top speed above the car's 1 m/s, in Gazebo only |
 | `geofence:=false` | no geofence (it's on by default) |
 | `lidar:=false`, `radar:=false` | sensors off |
+| `voxels:=true` | Nav2 sees the lidar as 0.25 m cubes, not a flat scan (a trial: [Trials](trials.md#voxels-30-oct-the-lidar-as-cubes)) |
 
 **Tried, 29 Oct 23:05:** the menu's pick (debugdemo, `mpc`, NDT, LQI) in Gazebo on Ben's
 Mac: the track node ran MPC, NDT tracked (2 ms a match), AMCL stayed off, the speed loop

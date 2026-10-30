@@ -7,7 +7,7 @@
 <!-- Generated from docs/trials.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>Trials: new path followers and localizers beside the main ones</h1>
-<div class="meta">22 min read · 10 sections</div></header>
+<div class="meta">25 min read · 11 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="overview.html">Overview</a>
 <a href="release-notes.html">Release notes</a>
@@ -94,7 +94,7 @@
 <a href="car_measurements.html">Car numbers</a>
 <a href="hud.html">HUD</a></nav>
 <main>
-<nav class="toc"><span>On this page:</span><a href="#what-is-on-trial">What is on trial</a><a href="#where-a-tracker-sits">Where a tracker sits</a><a href="#fair-rules">Fair rules</a><a href="#run-it">Run it</a><a href="#results">Results</a><a href="#scoring-a-localizer-fairly">Scoring a localizer fairly</a><a href="#before-a-winner-goes-on-the-car">Before a winner goes on the car</a><a href="#results-29-october">Results, 29 October</a><a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results, 29 October (afternoon): LQR rebuilt, and mpc_full</a><a href="#planners-29-oct-hybrid-lattice-and-smac2d">Planners, 29 Oct: hybrid, lattice and smac2d</a></nav>
+<nav class="toc"><span>On this page:</span><a href="#what-is-on-trial">What is on trial</a><a href="#where-a-tracker-sits">Where a tracker sits</a><a href="#fair-rules">Fair rules</a><a href="#run-it">Run it</a><a href="#results">Results</a><a href="#scoring-a-localizer-fairly">Scoring a localizer fairly</a><a href="#before-a-winner-goes-on-the-car">Before a winner goes on the car</a><a href="#results-29-october">Results, 29 October</a><a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results, 29 October (afternoon): LQR rebuilt, and mpc_full</a><a href="#planners-29-oct-hybrid-lattice-and-smac2d">Planners, 29 Oct: hybrid, lattice and smac2d</a><a href="#voxels-30-oct-the-lidar-as-cubes">Voxels, 30 Oct: the lidar as cubes</a></nav>
 <div class="lead"><p>Ben, 29 Oct: "We want to make other nodes or plugins that we can test and then replace
 the main ones if they work." Each trial runs <strong>beside</strong> today's default, chosen at launch,
 and is <strong>scored on the same routes</strong>. It becomes the default only once it wins.</p>
@@ -108,6 +108,7 @@ and is <strong>scored on the same routes</strong>. It becomes the default only o
 - <strong>NDT</strong>, 29 Oct: about 1-3 cm off on the lot tour, 2 ms a match (below).
 - <strong>Afternoon:</strong> LQR rebuilt with a preview (U-turn 2 of 3 in a quiet run; it weaved on a busy Mac), <code>mpc_full</code> 10 of 12. <a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results</a>.
 - <strong>Planners</strong> (<code>planner:=</code>): Nav2's State Lattice (on our own primitives), Smac 2D, NavFn and Theta<em>, beside Hybrid-A</em>. 29 Oct, one run: <strong>Hybrid-A* 4 of 4 legs</strong>; lattice and Smac 2D 2 of 4, both lost on the U-turn. Hybrid stays. <a href="#planners-29-oct-hybrid-lattice-and-smac2d">Results</a>.
+- <strong>Voxels</strong> (<code>voxels:=true</code>, 30 Oct): Nav2 reads the lidar as 0.25 m cubes. It stopped 0.44 m before the post (the scan 0.36 m), drove the lot tour 4 of 4, 6 ms a cloud. <a href="#voxels-30-oct-the-lidar-as-cubes">Results</a>.
 - The design: <code>docs/designs/2026-10-29_trials.md</code>.</p>
 </blockquote></div>
 <section class="card"><h2 id="what-is-on-trial">What is on trial</h2>
@@ -164,6 +165,11 @@ and is <strong>scored on the same routes</strong>. It becomes the default only o
 <td>Smac 2D, NavFn, Theta* planners (ignore the turning circle: sim and bench only)</td>
 <td>Hybrid-A*</td>
 <td><code>planner:=smac2d</code>, <code>navfn</code>, <code>theta_star</code></td>
+</tr>
+<tr>
+<td>The lidar as 0.25 m cubes over the fitted road (<code>aav_voxels</code>)</td>
+<td>the flat scan (<code>lidar_scan</code>)</td>
+<td><code>voxels:=true</code></td>
 </tr>
 </tbody>
 </table></div>
@@ -227,7 +233,9 @@ pixi run sim world:=test_lot amcl:=true                         # AMCL beside th
 pixi run controller-compare --trackers pure_pursuit stanley lqr mpc mpc_full --controllers mppi --runs 3
 pixi run controller-compare --amcl                              # score AMCL too
 pixi run ndt-map drive                                          # NDT's map, once (~6 min)
-pixi run controller-compare --amcl --ndt                        # score NDT beside AMCL</code></pre>
+pixi run controller-compare --amcl --ndt                        # score NDT beside AMCL
+pixi run sim-check --lidar-obstacle --voxels                     # the cubes stop for a post?
+pixi run controller-compare --voxels --tours lot                 # the lot tour on cubes</code></pre>
 </section>
 <section class="card"><h2 id="results">Results</h2>
 <p>Each run's results go here, with its date and its folder in <code>log/controller-compare/</code>.</p>
@@ -838,6 +846,139 @@ results in <code>~/aav-runs/2026-10-29/planners-results/</code> on Ben's Mac (no
 <li>Planning times are the planner's own <code>planning_time</code>, on Gazebo's clock; the wall-clock
   call was within a few ms of it. One run each: <strong>not a ranking yet</strong>. <code>navfn</code> and
   <code>theta_star</code> weren't run.</li>
+</ul>
+</section>
+<section class="card"><h2 id="voxels-30-oct-the-lidar-as-cubes">Voxels, 30 Oct: the lidar as cubes</h2>
+<p><code>voxels:=true</code> (<code>aav_voxels</code>, <a href="../designs/2026-10-30_voxels.md">design</a>): Nav2's costmap
+and stop zone read <strong>0.25 m cubes</strong> over the fitted road instead of the flat scan.
+Gazebo on Ben's Mac, one run each, MPPI.</p>
+<h3 id="does-it-stop-for-the-post-sim-check-lidar-obstacle-radar-off">Does it stop for the post? (<code>sim-check --lidar-obstacle</code>, radar off)</h3>
+<p>A person-sized post (0.5 × 0.5 × 1.8 m) 15 m ahead; the planner blind to it.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Flat scan (today)</th>
+<th>Cubes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stopped</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Front bumper to the post</td>
+<td><strong>0.36 m</strong></td>
+<td><strong>0.44 m</strong></td>
+</tr>
+<tr>
+<td>Top speed</td>
+<td>0.96 m/s</td>
+<td>0.97 m/s</td>
+</tr>
+<tr>
+<td>Local costmap there</td>
+<td>100 of 100</td>
+<td>100 of 100</td>
+</tr>
+<tr>
+<td>Post taken away: goal reached</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="what-it-costs-the-nodes-own-status-every-cloud">What it costs (the node's own status, every cloud)</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Flat scan</th>
+<th>Cubes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One Gazebo cloud cut (the same cloud, both ways, in the check)</td>
+<td><strong>0.18 ms</strong></td>
+<td><strong>5.3 ms</strong></td>
+</tr>
+<tr>
+<td>The node, read to publish (mean / 95th / worst)</td>
+<td>not measured</td>
+<td><strong>6.1 / 6.3 / 6.6 ms</strong> (road world), <strong>6.2 / 6.7 / 12.7 ms</strong> (lot tour)</td>
+</tr>
+<tr>
+<td>Clouds dropped</td>
+<td>-</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Road fitted</td>
+<td>-</td>
+<td>every cloud (Gazebo has no suspension: flat)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Cubes per cloud: <strong>4</strong> in the road world (the stop sign), <strong>15</strong> with the post (45 at
+most), <strong>1,067-1,378</strong> on the lot tour (walls, the building, parked cars).</p>
+<h3 id="the-lot-tour-controller-compare-tours-lot-controllers-mppi-with-and-without-voxels">The lot tour (<code>controller-compare --tours lot --controllers mppi</code>, with and without <code>--voxels</code>)</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Leg</th>
+<th>Flat scan</th>
+<th>Cubes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a left turn</td>
+<td>✅ 29 s, 21.4 m</td>
+<td>✅ 29 s, 21.3 m</td>
+</tr>
+<tr>
+<td>round the building</td>
+<td>✅ 52 s, 40.0 m</td>
+<td>✅ 53 s, 41.0 m</td>
+</tr>
+<tr>
+<td>turn back (the U-turn)</td>
+<td>✅ 70 s, 55.5 m</td>
+<td>✅ 76 s, 60.9 m</td>
+</tr>
+<tr>
+<td>home</td>
+<td>✅ 67 s, 52.6 m</td>
+<td>✅ 68 s, 53.1 m</td>
+</tr>
+<tr>
+<td>Off the path, mean</td>
+<td>0.08-0.12 m</td>
+<td>0.10-0.11 m</td>
+</tr>
+<tr>
+<td>Stops by collision_monitor</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div>
+<p>Runs: <code>/tmp/voxbench/runs/</code> on Ben's Mac (not in git).</p>
+<h3 id="what-it-shows_2">What it shows</h3>
+<ul>
+<li><strong>Cubes stop the car as well as the scan</strong>: 0.44 m from the post against 0.36 m.</li>
+<li><strong>They cost more</strong>, 6 ms a cloud against well under 1 ms, but that is 6 % of the
+  100 ms between clouds: Python is enough. Rust only if the Orin is over 20 ms.</li>
+<li><strong>The lot tour drives the same</strong>: all four legs; the U-turn took 6 s longer (one run:
+  not a ranking).</li>
+<li><strong>Not shown yet</strong>: the leaning car (Gazebo can't lean; the made-up lot in
+  <code>test_cubes.py</code> does, 2-3°), a thin pole in the stop zone, backing up
+  (<code>--rear-obstacle</code>), <code>--plan-around</code>, and the car itself.</li>
+<li><strong>Next</strong>: Nav2's 3D <code>VoxelLayer</code> on the same cubes, which would keep a low box near
+  the car marked (the 2D layer clears it, as the scan does).</li>
 </ul></section>
 <nav class="prevnext"><a class="prev" href="switches.html"><small>Previous</small>← Switches</a>
 <a class="next" href="a-to-b.html"><small>Next</small>A to B →</a></nav>

@@ -48,7 +48,7 @@ Add a row in the same commit as the feature (`CLAUDE.md`).
 | Lane keeping (`aav_lane_geometry`) | Steers back to the lane's centre: on the bench, from 0.3 m off to within 5 cm | the 2025-26 team | 2026-10-10 | sim |
 | Radar clustering in Rust (`aav_radar_clusters`) | Turns radar points into objects; our C++ moves to Rust, with the same answers bit for bit | Ben | 2026-10-15 | sim |
 | Lidar to a 2D scan (`aav_lidar` `lidar_scan`) | Nav2's costmap and stop zone need a flat scan, without the car's own body in it | Ben | 2026-10-15 | sim |
-| [Lidar as cubes, a trial](designs/2026-10-30_voxels.md) (`aav_voxels` `voxels`, `voxels:=true`) | "This is a car not a needle": read the lidar once as coarse 0.25 m cubes, measured from the road fitted to each cloud, so a leaning car doesn't see the road as an obstacle and everything behind the nearest thing still counts; the costmap and stop zone share them | Ben's idea; built by Ben | 2026-10-30 | built |
+| [Lidar as cubes, a trial](designs/2026-10-30_voxels.md) (`aav_voxels` `voxels`, `voxels:=true`) | "This is a car not a needle": read the lidar once as coarse 0.25 m cubes, measured from the road fitted to each cloud, so a leaning car doesn't see the road as an obstacle and everything behind the nearest thing still counts; the costmap and stop zone share them | Ben's idea; built by Ben | 2026-10-30 | sim |
 
 ## Drivers
 

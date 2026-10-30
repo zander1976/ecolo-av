@@ -13,6 +13,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 > - **NDT**, 29 Oct: about 1-3 cm off on the lot tour, 2 ms a match (below).
 > - **Afternoon:** LQR rebuilt with a preview (U-turn 2 of 3 in a quiet run; it weaved on a busy Mac), `mpc_full` 10 of 12. [Results](#results-29-october-afternoon-lqr-rebuilt-and-mpc_full).
 > - **Planners** (`planner:=`): Nav2's State Lattice (on our own primitives), Smac 2D, NavFn and Theta*, beside Hybrid-A*. 29 Oct, one run: **Hybrid-A* 4 of 4 legs**; lattice and Smac 2D 2 of 4, both lost on the U-turn. Hybrid stays. [Results](#planners-29-oct-hybrid-lattice-and-smac2d).
+> - **Voxels** (`voxels:=true`, 30 Oct): Nav2 reads the lidar as 0.25 m cubes. It stopped 0.44 m before the post (the scan 0.36 m), drove the lot tour 4 of 4, 6 ms a cloud. [Results](#voxels-30-oct-the-lidar-as-cubes).
 > - The design: `docs/designs/2026-10-29_trials.md`.
 
 ## What is on trial
@@ -28,6 +29,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 | NDT on a saved lidar map | the global EKF, and AMCL | `ndt:=true` (after `pixi run ndt-map drive`) |
 | State Lattice planner, our primitives | Hybrid-A* | `planner:=lattice` |
 | Smac 2D, NavFn, Theta* planners (ignore the turning circle: sim and bench only) | Hybrid-A* | `planner:=smac2d`, `navfn`, `theta_star` |
+| The lidar as 0.25 m cubes over the fitted road (`aav_voxels`) | the flat scan (`lidar_scan`) | `voxels:=true` |
 
 ## Where a tracker sits
 
@@ -67,6 +69,8 @@ pixi run controller-compare --trackers pure_pursuit stanley lqr mpc mpc_full --c
 pixi run controller-compare --amcl                              # score AMCL too
 pixi run ndt-map drive                                          # NDT's map, once (~6 min)
 pixi run controller-compare --amcl --ndt                        # score NDT beside AMCL
+pixi run sim-check --lidar-obstacle --voxels                     # the cubes stop for a post?
+pixi run controller-compare --voxels --tours lot                 # the lot tour on cubes
 ```
 
 ## Results
@@ -325,3 +329,59 @@ results in `~/aav-runs/2026-10-29/planners-results/` on Ben's Mac (not in git).
 - Planning times are the planner's own `planning_time`, on Gazebo's clock; the wall-clock
   call was within a few ms of it. One run each: **not a ranking yet**. `navfn` and
   `theta_star` weren't run.
+
+## Voxels, 30 Oct: the lidar as cubes
+
+`voxels:=true` (`aav_voxels`, [design](designs/2026-10-30_voxels.md)): Nav2's costmap
+and stop zone read **0.25 m cubes** over the fitted road instead of the flat scan.
+Gazebo on Ben's Mac, one run each, MPPI.
+
+### Does it stop for the post? (`sim-check --lidar-obstacle`, radar off)
+
+A person-sized post (0.5 × 0.5 × 1.8 m) 15 m ahead; the planner blind to it.
+
+| | Flat scan (today) | Cubes |
+|---|---|---|
+| Stopped | ✅ | ✅ |
+| Front bumper to the post | **0.36 m** | **0.44 m** |
+| Top speed | 0.96 m/s | 0.97 m/s |
+| Local costmap there | 100 of 100 | 100 of 100 |
+| Post taken away: goal reached | ✅ | ✅ |
+
+### What it costs (the node's own status, every cloud)
+
+| | Flat scan | Cubes |
+|---|---|---|
+| One Gazebo cloud cut (the same cloud, both ways, in the check) | **0.18 ms** | **5.3 ms** |
+| The node, read to publish (mean / 95th / worst) | not measured | **6.1 / 6.3 / 6.6 ms** (road world), **6.2 / 6.7 / 12.7 ms** (lot tour) |
+| Clouds dropped | - | 0 |
+| Road fitted | - | every cloud (Gazebo has no suspension: flat) |
+
+Cubes per cloud: **4** in the road world (the stop sign), **15** with the post (45 at
+most), **1,067-1,378** on the lot tour (walls, the building, parked cars).
+
+### The lot tour (`controller-compare --tours lot --controllers mppi`, with and without `--voxels`)
+
+| Leg | Flat scan | Cubes |
+|---|---|---|
+| a left turn | ✅ 29 s, 21.4 m | ✅ 29 s, 21.3 m |
+| round the building | ✅ 52 s, 40.0 m | ✅ 53 s, 41.0 m |
+| turn back (the U-turn) | ✅ 70 s, 55.5 m | ✅ 76 s, 60.9 m |
+| home | ✅ 67 s, 52.6 m | ✅ 68 s, 53.1 m |
+| Off the path, mean | 0.08-0.12 m | 0.10-0.11 m |
+| Stops by collision_monitor | 0 | 0 |
+
+Runs: `/tmp/voxbench/runs/` on Ben's Mac (not in git).
+
+### What it shows
+
+- **Cubes stop the car as well as the scan**: 0.44 m from the post against 0.36 m.
+- **They cost more**, 6 ms a cloud against well under 1 ms, but that is 6 % of the
+  100 ms between clouds: Python is enough. Rust only if the Orin is over 20 ms.
+- **The lot tour drives the same**: all four legs; the U-turn took 6 s longer (one run:
+  not a ranking).
+- **Not shown yet**: the leaning car (Gazebo can't lean; the made-up lot in
+  `test_cubes.py` does, 2-3°), a thin pole in the stop zone, backing up
+  (`--rear-obstacle`), `--plan-around`, and the car itself.
+- **Next**: Nav2's 3D `VoxelLayer` on the same cubes, which would keep a low box near
+  the car marked (the 2D layer clears it, as the scan does).
