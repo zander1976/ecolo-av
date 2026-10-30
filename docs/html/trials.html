@@ -7,7 +7,7 @@
 <!-- Generated from docs/trials.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>Trials: new path followers and localizers beside the main ones</h1>
-<div class="meta">36 min read · 13 sections</div></header>
+<div class="meta">39 min read · 14 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="overview.html">Overview</a>
 <a href="release-notes.html">Release notes</a>
@@ -94,7 +94,7 @@
 <a href="car_measurements.html">Car numbers</a>
 <a href="hud.html">HUD</a></nav>
 <main>
-<nav class="toc"><span>On this page:</span><a href="#what-is-on-trial">What is on trial</a><a href="#where-a-tracker-sits">Where a tracker sits</a><a href="#fair-rules">Fair rules</a><a href="#run-it">Run it</a><a href="#results">Results</a><a href="#ndt-into-the-global-ekf-30-oct">NDT into the global EKF (30 Oct)</a><a href="#scoring-a-localizer-fairly">Scoring a localizer fairly</a><a href="#before-a-winner-goes-on-the-car">Before a winner goes on the car</a><a href="#results-29-october">Results, 29 October</a><a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results, 29 October (afternoon): LQR rebuilt, and mpc_full</a><a href="#planners-29-oct-hybrid-lattice-and-smac2d">Planners, 29 Oct: hybrid, lattice and smac2d</a><a href="#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32">Planners, 30 Oct: reversing on, hybrid, lattice and lattice32</a><a href="#voxels-30-oct-the-lidar-as-cubes">Voxels, 30 Oct: the lidar as cubes</a></nav>
+<nav class="toc"><span>On this page:</span><a href="#what-is-on-trial">What is on trial</a><a href="#where-a-tracker-sits">Where a tracker sits</a><a href="#fair-rules">Fair rules</a><a href="#run-it">Run it</a><a href="#results">Results</a><a href="#ndt-into-the-global-ekf-30-oct">NDT into the global EKF (30 Oct)</a><a href="#scoring-a-localizer-fairly">Scoring a localizer fairly</a><a href="#scoring-an-odometry-fairly-kiss-icp-ekf_local">Scoring an odometry fairly (KISS-ICP, ekf_local)</a><a href="#before-a-winner-goes-on-the-car">Before a winner goes on the car</a><a href="#results-29-october">Results, 29 October</a><a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results, 29 October (afternoon): LQR rebuilt, and mpc_full</a><a href="#planners-29-oct-hybrid-lattice-and-smac2d">Planners, 29 Oct: hybrid, lattice and smac2d</a><a href="#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32">Planners, 30 Oct: reversing on, hybrid, lattice and lattice32</a><a href="#voxels-30-oct-the-lidar-as-cubes">Voxels, 30 Oct: the lidar as cubes</a></nav>
 <div class="lead"><p>Ben, 29 Oct: "We want to make other nodes or plugins that we can test and then replace
 the main ones if they work." Each trial runs <strong>beside</strong> today's default, chosen at launch,
 and is <strong>scored on the same routes</strong>. It becomes the default only once it wins.</p>
@@ -109,7 +109,8 @@ and is <strong>scored on the same routes</strong>. It becomes the default only o
 - <strong>NDT into the global EKF</strong> (<code>ndt_ekf:=true</code>), 30 Oct: the EKF <strong>17 cm → 1.6 cm</strong> off; with the GPS off, 1.2 m → 1.6 cm. <a href="#ndt-into-the-global-ekf-30-oct">Results</a>.
 - <strong>Afternoon:</strong> LQR rebuilt with a preview (U-turn 2 of 3 in a quiet run; it weaved on a busy Mac), <code>mpc_full</code> 10 of 12. <a href="#results-29-october-afternoon-lqr-rebuilt-and-mpc_full">Results</a>.
 - <strong>Planners</strong> (<code>planner:=</code>): Nav2's State Lattice (on our own primitives), Smac 2D, NavFn and Theta<em>, beside Hybrid-A</em>. 29 Oct, forward only: Hybrid-A<em> 4 of 4, the lattice 2 of 4. </em><em>30 Oct, reversing on, 3-4 runs: every leg for hybrid, lattice and lattice32; the lattice the fastest</em><em> (184 s a tour against 213 s). Hybrid stays the default until Ben decides. <a href="#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32">Results</a>.
-- </em><em>Voxels</em>* (<code>voxels:=true</code>, 30 Oct): Nav2 reads the lidar as 0.25 m cubes. It stopped 0.44 m before the post (the scan 0.36 m), drove the lot tour 4 of 4, 6 ms a cloud. <a href="#voxels-30-oct-the-lidar-as-cubes">Results</a>.
+- </em><em>Voxels</em><em> (<code>voxels:=true</code>, 30 Oct): Nav2 reads the lidar as 0.25 m cubes. It stopped 0.44 m before the post (the scan 0.36 m), drove the lot tour 4 of 4, 6 ms a cloud. <a href="#voxels-30-oct-the-lidar-as-cubes">Results</a>.
+- </em><em>KISS-ICP</em><em> (<code>aav_kiss_icp</code>, stock, MIT): lidar odometry, scored against <code>ekf_local</code>, never in an EKF yet. <code>kiss_icp:=true</code>. 30 Oct, one run: </em><em>0.04 m per 100 m</em>* over the lot tour, against ekf_local's 0.33; about 1 ms a scan; once the ground was cut out. <a href="#30-oct-kiss-icp-beside-ekf_local-one-run-mppi-the-lot-tour">Results</a>. Design: <code>docs/designs/2026-10-30_kiss-icp.md</code>.
 - The design: <code>docs/designs/2026-10-29_trials.md</code>.</p>
 </blockquote></div>
 <section class="card"><h2 id="what-is-on-trial">What is on trial</h2>
@@ -161,6 +162,11 @@ and is <strong>scored on the same routes</strong>. It becomes the default only o
 <td>NDT's pose into the global EKF</td>
 <td>the global EKF on GPS alone</td>
 <td><code>ndt_ekf:=true</code></td>
+</tr>
+<tr>
+<td>KISS-ICP lidar odometry (how far the car moved, no map)</td>
+<td><code>ekf_local</code> (wheels and IMU)</td>
+<td><code>kiss_icp:=true</code> (after <code>pixi install --locked -e kiss</code>)</td>
 </tr>
 <tr>
 <td>State Lattice planner, our primitives</td>
@@ -242,7 +248,9 @@ pixi run ndt-map drive                                          # NDT's map, onc
 pixi run controller-compare --amcl --ndt                        # score NDT beside AMCL
 pixi run controller-compare --ndt-ekf --runs 3 --tours lot      # NDT into the global EKF
 pixi run sim-check --lidar-obstacle --voxels                     # the cubes stop for a post?
-pixi run controller-compare --voxels --tours lot                 # the lot tour on cubes</code></pre>
+pixi run controller-compare --voxels --tours lot                 # the lot tour on cubes
+pixi install --locked -e kiss                                   # KISS-ICP, once
+pixi run controller-compare --kiss-icp --tours lot --controllers mppi   # its drift vs ekf_local</code></pre>
 </section>
 <section class="card"><h2 id="results">Results</h2>
 <p>Each run's results go here, with its date and its folder in <code>log/controller-compare/</code>.</p>
@@ -694,6 +702,64 @@ NDT starts again from <code>ekf_global</code>'s pose. The first fit after a rest
 pixi run controller-compare --ndt --runs 3 --tours lot      # NDT beside: the EKF on GPS alone
 pixi run controller-compare --ndt-ekf --runs 3 --tours lot  # NDT into the EKF
 pixi run controller-compare --ndt-ekf --gps-off --tours lot # the GPS stops after its first fix</code></pre>
+<h3 id="30-oct-kiss-icp-beside-ekf_local-one-run-mppi-the-lot-tour">30 Oct: KISS-ICP beside ekf_local (one run, MPPI, the lot tour)</h3>
+<p><code>pixi run controller-compare --kiss-icp --tours lot --controllers mppi</code>, headless, on Ben's
+Mac (Apple silicon), another Gazebo run just finished. Folders <code>log/kiss-run1/</code> and
+<code>log/kiss-run2/</code> (not in git).</p>
+<p><strong>First try: the ground left in.</strong> KISS-ICP read <strong>12 m for 21 m</strong> driven and 65° for an 85°
+turn. Gazebo's ground is perfectly flat, so the lidar's 8 downward beams draw the same
+circles round the car every scan: half the points, all saying "you didn't move".
+<strong>Fix:</strong> points below 0.3 m above <code>base_link</code> left out (<code>min_height</code>), as NDT does.</p>
+<p><strong>With the ground out</strong>, the whole tour (178 m, 4 legs, all reached):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;">KISS-ICP</th>
+<th style="text-align: right;">ekf_local (wheels + IMU)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Drift (m per 100 m driven)</td>
+<td style="text-align: right;"><strong>0.04</strong></td>
+<td style="text-align: right;">0.33</td>
+</tr>
+<tr>
+<td>Worst off (m, lined up at the start)</td>
+<td style="text-align: right;"><strong>0.11</strong></td>
+<td style="text-align: right;">0.59</td>
+</tr>
+<tr>
+<td>Heading off at the end (deg)</td>
+<td style="text-align: right;"><strong>0.63</strong></td>
+<td style="text-align: right;">1.38</td>
+</tr>
+<tr>
+<td>Match time (ms, wall clock, mean / worst)</td>
+<td style="text-align: right;">1.0-1.4 / 2.8</td>
+<td style="text-align: right;">-</td>
+</tr>
+<tr>
+<td>Clouds dropped</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">-</td>
+</tr>
+</tbody>
+</table></div>
+<p>Leg by leg, drift per 100 m (KISS-ICP / ekf_local): a left turn 0.23 / 0.13; round the
+building 0.21 / 0.18; turn back 0.08 / 0.21; home 0.23 / 1.65.</p>
+<p><strong>What it shows</strong></p>
+<ul>
+<li>In Gazebo, KISS-ICP drifts <strong>less than the wheels and IMU</strong> over the tour, and its heading
+  holds better. On a short leg the two are about level.</li>
+<li>It is cheap: about 1 ms a scan on the Mac, at 4 threads. The Orin is untested.</li>
+<li><strong>Gazebo flatters it</strong>: no sweep to deskew, no people or cars moving, walls everywhere.
+  The car's VLP-16 smears each scan by the car's motion (deskew on, from its <code>time</code>
+  field); an open lot has fewer walls.</li>
+<li>One run only. Next: 3 runs, then a bag from the real lot, before its twist goes into
+  <code>ekf_local</code>.</li>
+</ul>
 </section>
 <section class="card"><h2 id="scoring-a-localizer-fairly">Scoring a localizer fairly</h2>
 <div class="table-wrap"><table>
@@ -722,6 +788,41 @@ pixi run controller-compare --ndt-ekf --gps-off --tours lot # the GPS stops afte
 </tr>
 </tbody>
 </table></div>
+</section>
+<section class="card"><h2 id="scoring-an-odometry-fairly-kiss-icp-ekf_local">Scoring an odometry fairly (KISS-ICP, ekf_local)</h2>
+<p>An odometry says only <strong>how far the car moved</strong>, in its own frame. So:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Number</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>lined up with the truth at its first pose (position and heading)</td>
+<td>its frame starts anywhere</td>
+</tr>
+<tr>
+<td>drift per 100 m driven: the last pose's gap, over the distance</td>
+<td>the usual odometry number (KITTI's is a % of distance)</td>
+</tr>
+<tr>
+<td>worst gap; heading off at the end</td>
+<td>a drift that comes back still steered the car wrong</td>
+</tr>
+<tr>
+<td>per leg, and over the whole tour</td>
+<td>short legs flatter it</td>
+</tr>
+<tr>
+<td>KISS-ICP's match time (wall clock)</td>
+<td>simulated time hides a slow match</td>
+</tr>
+</tbody>
+</table></div>
+<p>Gazebo's lidar has <strong>no sweep</strong> (one instant per turn), so KISS-ICP's deskew does nothing
+there; the car's VLP-16 has a <code>time</code> field, and its scans are smeared by the car's motion.</p>
 </section>
 <section class="card"><h2 id="before-a-winner-goes-on-the-car">Before a winner goes on the car</h2>
 <ul>

@@ -15,6 +15,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 > - **Afternoon:** LQR rebuilt with a preview (U-turn 2 of 3 in a quiet run; it weaved on a busy Mac), `mpc_full` 10 of 12. [Results](#results-29-october-afternoon-lqr-rebuilt-and-mpc_full).
 > - **Planners** (`planner:=`): Nav2's State Lattice (on our own primitives), Smac 2D, NavFn and Theta*, beside Hybrid-A*. 29 Oct, forward only: Hybrid-A* 4 of 4, the lattice 2 of 4. **30 Oct, reversing on, 3-4 runs: every leg for hybrid, lattice and lattice32; the lattice the fastest** (184 s a tour against 213 s). Hybrid stays the default until Ben decides. [Results](#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32).
 > - **Voxels** (`voxels:=true`, 30 Oct): Nav2 reads the lidar as 0.25 m cubes. It stopped 0.44 m before the post (the scan 0.36 m), drove the lot tour 4 of 4, 6 ms a cloud. [Results](#voxels-30-oct-the-lidar-as-cubes).
+> - **KISS-ICP** (`aav_kiss_icp`, stock, MIT): lidar odometry, scored against `ekf_local`, never in an EKF yet. `kiss_icp:=true`. 30 Oct, one run: **0.04 m per 100 m** over the lot tour, against ekf_local's 0.33; about 1 ms a scan; once the ground was cut out. [Results](#30-oct-kiss-icp-beside-ekf_local-one-run-mppi-the-lot-tour). Design: `docs/designs/2026-10-30_kiss-icp.md`.
 > - The design: `docs/designs/2026-10-29_trials.md`.
 
 ## What is on trial
@@ -29,6 +30,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 | AMCL | the global EKF | `amcl:=true` |
 | NDT on a saved lidar map | the global EKF, and AMCL | `ndt:=true` (after `pixi run ndt-map drive`) |
 | NDT's pose into the global EKF | the global EKF on GPS alone | `ndt_ekf:=true` |
+| KISS-ICP lidar odometry (how far the car moved, no map) | `ekf_local` (wheels and IMU) | `kiss_icp:=true` (after `pixi install --locked -e kiss`) |
 | State Lattice planner, our primitives | Hybrid-A* | `planner:=lattice` (`lattice_headings:=32`: the 32-heading file) |
 | Smac 2D, NavFn, Theta* planners (ignore the turning circle: sim and bench only) | Hybrid-A* | `planner:=smac2d`, `navfn`, `theta_star` |
 | The lidar as 0.25 m cubes over the fitted road (`aav_voxels`) | the flat scan (`lidar_scan`) | `voxels:=true` |
@@ -74,6 +76,8 @@ pixi run controller-compare --amcl --ndt                        # score NDT besi
 pixi run controller-compare --ndt-ekf --runs 3 --tours lot      # NDT into the global EKF
 pixi run sim-check --lidar-obstacle --voxels                     # the cubes stop for a post?
 pixi run controller-compare --voxels --tours lot                 # the lot tour on cubes
+pixi install --locked -e kiss                                   # KISS-ICP, once
+pixi run controller-compare --kiss-icp --tours lot --controllers mppi   # its drift vs ekf_local
 ```
 
 ## Results
@@ -274,6 +278,41 @@ pixi run controller-compare --ndt-ekf --runs 3 --tours lot  # NDT into the EKF
 pixi run controller-compare --ndt-ekf --gps-off --tours lot # the GPS stops after its first fix
 ```
 
+### 30 Oct: KISS-ICP beside ekf_local (one run, MPPI, the lot tour)
+
+`pixi run controller-compare --kiss-icp --tours lot --controllers mppi`, headless, on Ben's
+Mac (Apple silicon), another Gazebo run just finished. Folders `log/kiss-run1/` and
+`log/kiss-run2/` (not in git).
+
+**First try: the ground left in.** KISS-ICP read **12 m for 21 m** driven and 65° for an 85°
+turn. Gazebo's ground is perfectly flat, so the lidar's 8 downward beams draw the same
+circles round the car every scan: half the points, all saying "you didn't move".
+**Fix:** points below 0.3 m above `base_link` left out (`min_height`), as NDT does.
+
+**With the ground out**, the whole tour (178 m, 4 legs, all reached):
+
+| | KISS-ICP | ekf_local (wheels + IMU) |
+|---|---:|---:|
+| Drift (m per 100 m driven) | **0.04** | 0.33 |
+| Worst off (m, lined up at the start) | **0.11** | 0.59 |
+| Heading off at the end (deg) | **0.63** | 1.38 |
+| Match time (ms, wall clock, mean / worst) | 1.0-1.4 / 2.8 | - |
+| Clouds dropped | 0 | - |
+
+Leg by leg, drift per 100 m (KISS-ICP / ekf_local): a left turn 0.23 / 0.13; round the
+building 0.21 / 0.18; turn back 0.08 / 0.21; home 0.23 / 1.65.
+
+**What it shows**
+
+- In Gazebo, KISS-ICP drifts **less than the wheels and IMU** over the tour, and its heading
+  holds better. On a short leg the two are about level.
+- It is cheap: about 1 ms a scan on the Mac, at 4 threads. The Orin is untested.
+- **Gazebo flatters it**: no sweep to deskew, no people or cars moving, walls everywhere.
+  The car's VLP-16 smears each scan by the car's motion (deskew on, from its `time`
+  field); an open lot has fewer walls.
+- One run only. Next: 3 runs, then a bag from the real lot, before its twist goes into
+  `ekf_local`.
+
 ## Scoring a localizer fairly
 
 | Number | Why |
@@ -282,6 +321,21 @@ pixi run controller-compare --ndt-ekf --gps-off --tours lot # the GPS stops afte
 | the same on one 10 Hz grid (each pose held until the next) | one that publishes more often isn't scored on more samples |
 | time over 1 m off, or no pose yet; the longest stretch | lost, and how long it took to recover |
 | NDT: share of clouds that gave a pose; each match's wall-clock time | simulated time can hide a slow match |
+
+## Scoring an odometry fairly (KISS-ICP, ekf_local)
+
+An odometry says only **how far the car moved**, in its own frame. So:
+
+| Number | Why |
+|---|---|
+| lined up with the truth at its first pose (position and heading) | its frame starts anywhere |
+| drift per 100 m driven: the last pose's gap, over the distance | the usual odometry number (KITTI's is a % of distance) |
+| worst gap; heading off at the end | a drift that comes back still steered the car wrong |
+| per leg, and over the whole tour | short legs flatter it |
+| KISS-ICP's match time (wall clock) | simulated time hides a slow match |
+
+Gazebo's lidar has **no sweep** (one instant per turn), so KISS-ICP's deskew does nothing
+there; the car's VLP-16 has a `time` field, and its scans are smeared by the car's motion.
 
 ## Before a winner goes on the car
 

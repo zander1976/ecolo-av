@@ -387,3 +387,15 @@ def test_the_global_ekf_reads_ndt_only_with_ndt_ekf():
     assert 0 < p['pose0_rejection_threshold'] < 10
     # NDT's poses come late (the cloud's stamp): put each in at its own time.
     assert p['smooth_lagged_data'] is True and p['history_length'] >= 0.5
+
+
+def test_kiss_icp_needs_the_lidar_and_is_off_by_default():
+    # A trial, scored only (docs/designs/2026-10-30_kiss-icp.md).
+    assert 'kiss_icp.launch.py' not in included(started(SIM, world='test_lot'))
+    with pytest.raises(ValueError, match='kiss_icp:=true needs the lidar'):
+        started(SIM, kiss_icp='true')                           # the empty world
+    with pytest.raises(ValueError, match='kiss_icp:=true needs the lidar'):
+        started(SIM, world='test_lot', lidar='false', kiss_icp='true')
+    sent = included(started(SIM, world='test_lot', kiss_icp='true'))['kiss_icp.launch.py']
+    assert sent == {'use_sim_time': 'true'}
+    assert 'kiss_icp.launch.py' in included(started(SIM, world='road', kiss_icp='true'))
