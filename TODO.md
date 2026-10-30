@@ -344,6 +344,13 @@ work on." His order, with the work under way:
          ("stop sign, 14 m").
       On the car, 3 and 4 need camera-to-lidar calibration (research pick 4). Nav2's own
       `VoxelLayer` is a separate choice (it changes driving): only if 2D misses something.
+- [ ] **Cubes for Nav2** (Ben, 30 Oct: "this is a car not a needle"): built as a trial,
+      `voxels:=true` (`aav_voxels`, `docs/designs/2026-10-30_voxels.md`); in Gazebo it stops
+      for the post and drives the lot tour like the scan (`docs/trials.md`). Left:
+      `--rear-obstacle` and `--plan-around` with `--voxels`; a thin pole in the stop zone
+      (`min_points: 3` on cubes); 3 runs of the lot tour; the Orin's ms a cloud; the car,
+      leaning in a turn; then Nav2's 3D `VoxelLayer` on the same cubes; then make it the
+      default if it wins.
 - [ ] **The debug HUD** (Ben, 29 Oct, word for word in `docs/history/messages-2026-10-29.md`):
       the hardware workbench above, as its own HUD screen. It reads each sensor's and
       actuator's own node directly (`/sensors/...`, `/vehicle/...`, the spine's status),
