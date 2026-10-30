@@ -322,6 +322,19 @@ PLANNER_BLOCKS = {'hybrid': 'GridBased', 'lattice': 'Lattice', 'smac2d': 'Smac2D
                   'navfn': 'NavFn', 'theta_star': 'ThetaStar'}
 # The lattice's turning radius against plan_turning_radius: the file keeps 3 decimals.
 LATTICE_TOLERANCE = 0.005
+# The lattice primitives files (lattice_headings:=): 16 headings, the default, and 32, a
+# trial (finer headings, more moves; tools/lattice_primitives.py --headings 32).
+LATTICE_HEADINGS = (16, 32)
+
+
+def lattice_file_name(headings=LATTICE_HEADINGS[0]):
+    """Return the primitives file's name in aav_navigation's config/ for this many headings."""
+    headings = int(headings)
+    if headings not in LATTICE_HEADINGS:
+        raise ValueError(f'lattice_headings:={headings}: pick one of '
+                         f'{", ".join(str(h) for h in LATTICE_HEADINGS)}')
+    tail = '' if headings == LATTICE_HEADINGS[0] else f'_{headings}'
+    return f'lattice_ackermann{tail}.json'
 
 
 def check_planner(planner, real=False):

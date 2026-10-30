@@ -514,7 +514,7 @@ on branch `trials` (Tentative; `git show trials:docs/designs/2026-10-29_trials.m
 
 The **planner** draws the path; the **follower** (MPPI, RPP, a tracker) drives it. Nav2
 can use several planners. We picked one with `planner:=`; Hybrid-A* stays the default
-until another wins (`docs/trials.md`, [Planners](trials.md#planners-29-oct-hybrid-lattice-and-smac2d)).
+until another wins (`docs/trials.md`, [Planners, 30 Oct](trials.md#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32)).
 
 ```text
  goal ─► bt_navigator ─► planner_server: "GridBased" ─► the path ─► follower
@@ -546,7 +546,7 @@ behind that name, so nothing else changes.
 | Planner | ✅ | ❌ |
 |---|---|---|
 | hybrid | paths the car can drive; reverses when allowed | slower; replans may pick a new route |
-| lattice | paths the car can drive; moves made for our car | only as good as its primitives; a coarse 16-heading list |
+| lattice | paths the car can drive; moves made for our car; fastest round the lot with reversing on (30 Oct) | only as good as its primitives; forward only, it gets stuck after a U-turn |
 | smac2d | fast; short paths | corners the car can't turn |
 | navfn | fast; simple | corners; hugs the costmap's low cost, not the car |
 | theta_star | the straightest paths | long straight lines with sharp corners between |
@@ -558,15 +558,21 @@ robots (0.5 m and 1 m turning radius). So we make our own with Nav2's own genera
 
 ```bash
 pixi run lattice-primitives          # makes the list again (after pixi run vendor)
-pixi run lattice-primitives --check  # still right for vehicle.yaml?
+pixi run lattice-primitives --check  # still right for vehicle.yaml? (both files)
+pixi run lattice-primitives --headings 32   # the trial file, lattice_headings:=32
 ```
 
 | Setting | Value | From |
 |---|---|---|
 | turning radius | 3.59 m | full lock (2.87 m) × 1.25, as Hybrid uses (`vehicle.plan_turning_radius`) |
 | cells | 0.25 m | the maps (`maps/*.yaml`); the costmap uses the map's cells |
-| headings | 16 | the generator's advice |
-| moves | 96 | forward only; Nav2 adds the same moves backwards with `reversing:=true` |
+| headings | 16 (default); 32 (trial) | the generator's advice; `lattice_headings:=32` |
+| moves | 96; 144 | forward only; Nav2 adds the same moves backwards with `reversing:=true` |
+| size, time to make | 82 kB; 93 kB | about 2 s each |
+
+The 32-heading file needs the generator to search further (`stopping_threshold` 10, not
+5). At 5 it had **no turn** off east, north, west or south: the car could only go
+straight from there. `--check` now refuses a file like that.
 
 ![Every move in the list, from the middle: straight lines and arcs of 3.6 m or wider](img/lattice-primitives.png)
 
@@ -578,9 +584,11 @@ until the list is made again; a test fails too.
 
 ```bash
 pixi run controller-compare --planners hybrid lattice smac2d --tours lot
+pixi run controller-compare --planners hybrid lattice lattice32 --reversing --runs 3 --tours lot
 ```
 
-Each planner drives the lot tour behind MPPI. Before each leg, the planner alone is asked
+Each planner drives the lot tour behind MPPI. `--reversing` lets Nav2 back up, as the
+sim does by default; `lattice32` is the lattice on its 32-heading file. Before each leg, the planner alone is asked
 for the path too, so these are measured without the follower:
 
 | Number | Means |
@@ -589,6 +597,8 @@ for the path too, so these are measured without the follower:
 | path length | how long its path is (m) |
 | tightest turn | the smallest circle the path bends round (m) |
 | path tighter than full lock | metres of path the car can't drive as drawn |
+| changes between forward and reverse | the path's cusps: the car stops and changes gear there. Turns are measured between cusps, not across one |
+| driven in reverse | metres the car really backed up |
 | legs finished | did the car get there |
 
 ## 8. The other trial: localization

@@ -41,6 +41,7 @@ Launch: `ros2 launch aav_navigation navigation.launch.py [args]`
 | `max_speed` | empty (1.0 m/s) | Nav2's top speed (`sim.launch.py sim_speed:=`) |
 | `controller` | `mppi` | or `rpp` (Regulated Pure Pursuit); `docs/path-followers.md` |
 | `planner` | `hybrid` | the planner behind `GridBased`: `hybrid` (SmacPlannerHybrid) or `lattice` (SmacPlannerLattice, `config/lattice_ackermann.json`; refused if it no longer fits `vehicle.yaml` or the map's cells) keep to the turning radius; `smac2d`, `navfn`, `theta_star` don't (trials; `car.launch.py` refuses them). `docs/controllers.md`, Planners |
+| `lattice_headings` | 16 | with `planner:=lattice`: 16 headings (`config/lattice_ackermann.json`) or 32, a trial (`config/lattice_ackermann_32.json`) |
 | `plan_around` | true | false: the planner sees only the map, so the car stops (stop tests) |
 | `tracker` | `none` | a trial follower (`aav_track`): `pure_pursuit`, `stanley`, `lqr`, `mpc`. It serves `follow_path`; controller_server's becomes `follow_path_unused`. Refused with `reversing:=true` (`docs/trials.md`) |
 | `amcl` | false | true (needs `lidar:=true`): stock AMCL, scored only, on `/localization/amcl/pose` (`config/amcl.yaml`: `tf_broadcast: false`) |
@@ -73,7 +74,7 @@ Files:
 | Folder | Holds |
 |---|---|
 | `config/nav2.yaml` | every server's parameters |
-| `config/lattice_ackermann.json` | the State Lattice planner's moves for our car (`planner:=lattice`): made by Nav2's generator, `pixi run lattice-primitives` (`tools/lattice_primitives.py`); never edit by hand |
+| `config/lattice_ackermann.json` | the State Lattice planner's moves for our car (`planner:=lattice`): made by Nav2's generator, `pixi run lattice-primitives` (`tools/lattice_primitives.py`); never edit by hand. `lattice_ackermann_32.json`: the same with 32 headings, a trial (`--headings 32`, `lattice_headings:=32`) |
 | `config/amcl.yaml` | AMCL, the trial (`amcl:=true`): `tf_broadcast: false`, the lidar scan, base_link |
 | `behavior_trees/` | `navigate_to_pose_car.xml`, `navigate_through_poses_car.xml`, and `*_car_reversing.xml` twins with BackUp. The to-pose trees keep their path within 8 m of the goal (`vehicle.final_approach`, TODO 17) |
 | `maps/` | `empty` and `example_lot` maps and their specs ([maps/README.md](./maps/README.md)) |

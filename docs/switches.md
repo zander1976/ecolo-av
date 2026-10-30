@@ -20,15 +20,17 @@ twice, the last one wins.
 
 ## Who draws the route
 
-| Switch | In plain words | Gazebo, 29 Oct |
+| Switch | In plain words | Gazebo, the lot tour |
 |---|---|---|
-| `planner:=hybrid` (default) | Hybrid-A*: only routes a car can drive | **4 of 4 legs** |
-| `planner:=lattice` | State Lattice: strings our car's own moves together; fast | 2 of 4 (lost the U-turn) |
-| `planner:=smac2d` | A* on the grid: **ignores the turning circle** | 2 of 4 |
+| `planner:=hybrid` (default) | Hybrid-A*: only routes a car can drive | 30 Oct, reversing: every leg, 213 s a tour |
+| `planner:=lattice` | State Lattice: strings our car's own moves together; fast | 30 Oct, reversing: every leg, **184 s** a tour. Forward only (29 Oct): 2 of 4, lost the U-turn |
+| `planner:=lattice lattice_headings:=32` | the lattice with 32 headings, not 16 | 30 Oct, reversing: every leg, 197 s; slower plans. No better |
+| `planner:=smac2d` | A* on the grid: **ignores the turning circle** | 29 Oct, forward only: 2 of 4 |
 | `planner:=navfn` | NavFn, the classic: ignores the turning circle | not tried |
 | `planner:=theta_star` | Theta*: straight lines: ignores the turning circle | not tried |
 
-The real car takes only `hybrid` or `lattice`. More: [Controllers, Planners](controllers.md).
+The real car takes only `hybrid` or `lattice`. Hybrid stays the default until Ben
+decides. More: [Controllers, Planners](controllers.md), [the runs](trials.md#planners-30-oct-reversing-on-hybrid-lattice-and-lattice32).
 
 ## Who steers along the path
 

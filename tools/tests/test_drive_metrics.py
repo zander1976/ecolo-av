@@ -456,6 +456,23 @@ def test_an_arc_reads_its_own_radius_and_a_grid_corner_reads_tight():
     assert all(math.isinf(r) for _, r in m.turn_radii([(0.0, 0.0), (5.0, 0.0)]))
 
 
+def test_a_cusp_is_a_change_of_gear_not_a_tight_turn():
+    lock = 2.87
+    # 5 m east, then straight back 3 m (reversing): one cusp, and no turn at all.
+    there = [(0.25 * i, 0.0) for i in range(21)]
+    back = [(5.0 - 0.25 * i, 0.0) for i in range(1, 13)]
+    pieces = m.cusp_pieces(there + back)
+    assert [len(p) for p in pieces] == [21, 13] and pieces[1][0] == (5.0, 0.0)
+    row = m.plan_row({'path': there + back, 'ms': 1.0, 'wall_ms': 2.0, 'lock_radius': lock})
+    assert row['plan_cusps'] == 1 and row['plan_too_tight_m'] == 0.0
+    assert math.isinf(row['plan_tightest_m'])
+    # A repeated point at the cusp (as Smac writes) changes nothing; a grid corner (90
+    # deg) is still a turn, not a cusp.
+    assert len(m.cusp_pieces(there + there[-1:] + back)) == 2
+    assert m.plan_row({'path': [(0.0, 0.0), (5.0, 0.0), (5.0, 5.0)], 'ms': 1.0,
+                       'wall_ms': 1.0, 'lock_radius': lock})['plan_cusps'] == 0
+
+
 def test_the_planners_numbers_count_what_the_car_cant_drive():
     lock = 2.87
     smooth = m.plan_row({'path': arc(3.6, 90.0), 'ms': 40.0, 'wall_ms': 55.0,
@@ -553,3 +570,14 @@ def test_a_leg_with_ndt_fits_reports_its_nees():
     row = m.summary(leg)
     assert row['ndt_nees_mean'] == pytest.approx(3.0, rel=0.25)
     assert 0.03 < row['ndt_fit_mean_m'] < 0.1
+
+
+def test_metres_driven_in_reverse():
+    forward = straight(speed=1.0, seconds=5.0)
+    t_end = forward[-1][0]
+    # Then back 1.5 m at 0.5 m/s, still facing east.
+    back = [(t_end + i / 10.0, 5.0 - 0.05 * i, 0.0, 0.0) for i in range(1, 31)]
+    assert m.reversed_distance(forward) == 0.0
+    assert m.reversed_distance(forward + back) == pytest.approx(1.5)
+    rows = [{'reached': True, 'reversed_m': 1.5}, {'reached': True, 'reversed_m': 2.0}]
+    assert m.overall(rows)['reversed_m'] == pytest.approx(3.5)

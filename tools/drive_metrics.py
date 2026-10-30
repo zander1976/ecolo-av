@@ -426,23 +426,53 @@ def turn_radii(path, span=TURN_SPAN, step=TURN_STEP):
             for i in range(k, len(points) - k)]
 
 
+# A cusp: the path doubles back on itself (forward to reverse, or back), a turn of more
+# than this between one step and the next. A grid planner's sharpest corner is 90 deg.
+CUSP_ANGLE = math.radians(120.0)
+
+
+def cusp_pieces(path, angle=CUSP_ANGLE):
+    """
+    Return the path [(x, y)] cut where it doubles back: one piece per direction of travel.
+
+    With reversing on, Hybrid and the lattice plan forward, stop, and back up. The point
+    where they swap is a corner in x, y but not a turn: the car stops there and changes
+    gear, so it is scored apart, and each piece's turns on their own.
+    """
+    points = [p for i, p in enumerate(path) if i == 0 or tuple(p) != tuple(path[i - 1])]
+    pieces, start = [], 0
+    for i in range(1, len(points) - 1):
+        (ax, ay), (bx, by), (cx, cy) = points[i - 1], points[i], points[i + 1]
+        u, v = (bx - ax, by - ay), (cx - bx, cy - by)
+        turn = abs(math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1]))
+        if turn > angle:
+            pieces.append(points[start:i + 1])
+            start = i
+    pieces.append(points[start:])
+    return pieces
+
+
 def plan_row(planned):
     """
     Return the planner's numbers for one plan (controller_compare.py --planners).
 
     plan_too_tight_m: metres of the path that turn tighter than the car's full lock: a car
-    can't drive them as drawn, and the follower has to cut or round them.
+    can't drive them as drawn, and the follower has to cut or round them. plan_cusps:
+    where the path changes between forward and reverse (cusp_pieces); the turns are
+    measured within each piece, not across a cusp.
     """
     if not planned or not planned.get('path'):
         return {'plan_found': False, 'plan_ms': (planned or {}).get('ms'),
                 'plan_wall_ms': (planned or {}).get('wall_ms')}
     path, lock = planned['path'], planned['lock_radius']
-    radii = [r for _, r in turn_radii(path)]
+    pieces = cusp_pieces(path)
+    radii = [r for piece in pieces for _, r in turn_radii(piece)]
     return {
         'plan_found': True,
         'plan_ms': planned.get('ms'),
         'plan_wall_ms': planned.get('wall_ms'),
         'plan_m': path_length(path),
+        'plan_cusps': len(pieces) - 1,
         'plan_tightest_m': min(radii, default=math.inf),
         'plan_too_tight_m': sum(1 for r in radii if r < lock) * TURN_STEP,
     }
@@ -472,6 +502,17 @@ def reversals(truth, moving=STILL):
     """Count the changes between driving forward and in reverse."""
     signs = [v > 0 for _, v in speeds(truth) if abs(v) >= moving]
     return sum(a != b for a, b in zip(signs, signs[1:]))
+
+
+def reversed_distance(truth, moving=STILL):
+    """Return the distance (m) the car covered backwards (faster than `moving` in reverse)."""
+    out = 0.0
+    for a, b in zip(truth, truth[1:]):
+        dt = b[0] - a[0]
+        step = (b[1] - a[1]) * math.cos(b[3]) + (b[2] - a[2]) * math.sin(b[3])
+        if dt > 0.0 and step / dt <= -moving:
+            out += math.hypot(b[1] - a[1], b[2] - a[2])
+    return out
 
 
 def clearance(truth, obstacle, body):
@@ -509,6 +550,7 @@ def summary(leg):
         'steering_rms': rms_rate(leg['steering']),
         'stops': stops(truth),
         'reversals': reversals(truth),
+        'reversed_m': reversed_distance(truth),
         'clearance_m': clearance(truth, leg.get('obstacle'), leg['body']),
         'cpu_percent': leg.get('cpu'),
         'route_switches': switched,
@@ -585,6 +627,7 @@ COLUMNS = [
     ('steering_rms', 'Steering work (rad/s RMS)', '{:.3f}'),
     ('stops', 'Stops', '{:d}'),
     ('reversals', 'Reversals', '{:d}'),
+    ('reversed_m', 'Driven in reverse (m)', '{:.1f}'),
     ('clearance_m', 'Closest to the box (m)', '{:.2f}'),
     ('cpu_percent', 'follower CPU (%): controller_server, or aav_track', '{:.0f}'),
     ('route_switches', 'The planner changed its route (times)', '{:d}'),
@@ -592,6 +635,7 @@ COLUMNS = [
     ('plan_ms', "The planner alone: planning time (ms, its own clock: Gazebo's)", '{:.0f}'),
     ('plan_wall_ms', 'The planner alone: the whole call (ms, wall clock)', '{:.0f}'),
     ('plan_m', 'The planner alone: path length (m)', '{:.1f}'),
+    ('plan_cusps', 'The planner alone: changes between forward and reverse', '{:d}'),
     ('plan_tightest_m', 'The planner alone: tightest turn (radius, m)', radius_cell),
     ('plan_too_tight_m', "The planner alone: path tighter than the car's full lock (m)",
      '{:.2f}'),
@@ -670,9 +714,12 @@ OVERALL = [
     ('legs', 'Legs finished', '{}'),
     ('time_s', 'Time, all legs (s)', '{:.0f}'),
     ('driven_m', 'Driven, all legs (m)', '{:.1f}'),
+    ('reversed_m', 'Driven in reverse, all legs (m)', '{:.1f}'),
     ('plan_m', 'The planner alone: path length, all legs (m)', '{:.1f}'),
     ('plan_ms', 'The planner alone: planning time, mean (ms)', '{:.0f}'),
     ('plan_ms_max', 'The planner alone: planning time, worst (ms)', '{:.0f}'),
+    ('plan_cusps', 'The planner alone: changes between forward and reverse, all legs',
+     '{:d}'),
     ('plan_tightest_m', 'The planner alone: tightest turn (radius, m)', radius_cell),
     ('plan_too_tight_m', "Path tighter than the car's full lock, all legs (m)", '{:.2f}'),
     ('turns_ok', "Kept to the car's turning radius", lambda v: 'yes' if v else '**no**'),
@@ -689,7 +736,8 @@ def overall(rows):
         return [r[key] for r in done if isinstance(r.get(key), (int, float))
                 and not isinstance(r.get(key), bool) and not math.isnan(r[key])]
 
-    for key in ('time_s', 'driven_m', 'plan_m', 'plan_too_tight_m'):
+    for key in ('time_s', 'driven_m', 'reversed_m', 'plan_m', 'plan_cusps',
+                'plan_too_tight_m'):
         if numbers(key):
             out[key] = sum(numbers(key))
     if numbers('plan_ms'):
