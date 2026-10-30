@@ -11,6 +11,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 > - **Score:** `pixi run controller-compare --trackers pure_pursuit lqr --runs 3`.
 > - **Results (29 Oct, Gazebo, 3 runs):** pure pursuit, Stanley and MPC finished every leg; MPPI, RPP and LQR lost legs on the U-turn. AMCL lost itself; the EKF wins. [Results](#results-29-october).
 > - **NDT**, 29 Oct: about 1-3 cm off on the lot tour, 2 ms a match (below).
+> - **NDT into the global EKF** (`ndt_ekf:=true`), 30 Oct: the EKF **17 cm → 1.6 cm** off; with the GPS off, 1.2 m → 1.6 cm. [Results](#ndt-into-the-global-ekf-30-oct).
 > - **Afternoon:** LQR rebuilt with a preview (U-turn 2 of 3 in a quiet run; it weaved on a busy Mac), `mpc_full` 10 of 12. [Results](#results-29-october-afternoon-lqr-rebuilt-and-mpc_full).
 > - **Planners** (`planner:=`): Nav2's State Lattice (on our own primitives), Smac 2D, NavFn and Theta*, beside Hybrid-A*. 29 Oct, one run: **Hybrid-A* 4 of 4 legs**; lattice and Smac 2D 2 of 4, both lost on the U-turn. Hybrid stays. [Results](#planners-29-oct-hybrid-lattice-and-smac2d).
 > - The design: `docs/designs/2026-10-29_trials.md`.
@@ -26,6 +27,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 | our pure pursuit (the control) | Nav2's RPP and MPPI | `tracker:=pure_pursuit` |
 | AMCL | the global EKF | `amcl:=true` |
 | NDT on a saved lidar map | the global EKF, and AMCL | `ndt:=true` (after `pixi run ndt-map drive`) |
+| NDT's pose into the global EKF | the global EKF on GPS alone | `ndt_ekf:=true` |
 | State Lattice planner, our primitives | Hybrid-A* | `planner:=lattice` |
 | Smac 2D, NavFn, Theta* planners (ignore the turning circle: sim and bench only) | Hybrid-A* | `planner:=smac2d`, `navfn`, `theta_star` |
 
@@ -67,6 +69,7 @@ pixi run controller-compare --trackers pure_pursuit stanley lqr mpc mpc_full --c
 pixi run controller-compare --amcl                              # score AMCL too
 pixi run ndt-map drive                                          # NDT's map, once (~6 min)
 pixi run controller-compare --amcl --ndt                        # score NDT beside AMCL
+pixi run controller-compare --ndt-ekf --runs 3 --tours lot      # NDT into the global EKF
 ```
 
 ## Results
@@ -163,6 +166,109 @@ one run, `--tours lot --controllers mppi --amcl`):
 - An earlier try at the same setup (`20261029-213056/`), beside another Gazebo: leg 1 0.08 m
   mean, then AMCL dropped 68 scans (its transforms came late) and published nothing more.
   With the computer this loaded, AMCL's numbers are only worth what its pose count says.
+
+## NDT into the global EKF (30 Oct)
+
+`ndt_ekf:=true`: `ekf_global` takes NDT's x, y and yaw beside the GPS. Off by default.
+
+```
+lidar ─► NDT + map ─► /localization/ndt/pose (good fits only) ─┐
+GPS ─► navsat_transform ─► /localization/gps/odom ─────────────┼─► ekf_global ─► map → odom
+wheels, IMU, GPS heading ──────────────────────────────────────┘    (refuses a pose 5 sigma off)
+```
+
+> **The short version**
+> - The global EKF's error: **17 cm → 1.6 cm** on average (3 runs each).
+> - GPS off: without NDT the EKF drifted to **1.2 m** off; with NDT it stayed at **1.6 cm**.
+> - The worst moments stay: NDT slips **up to 0.4 m** along the lane north of the
+>   building (only walls parallel to the drive), and the EKF follows it.
+
+### The numbers (Gazebo, the lot tour, MPPI)
+
+Off = the global EKF (`/localization/odom/global`) against Gazebo's truth. Runs:
+`log/ndt-ekf/` (not in git): `base` and `ekf2` 3 runs each, `gpsoff-*2` one each.
+
+| Leg | GPS, no NDT: mean / worst (m) | GPS + NDT: mean / worst (m) |
+|---|---|---|
+| a left turn | 0.17 / 0.50 | **0.008** / 0.02 |
+| round the building | 0.18 / 0.58 | **0.031** / 0.25 |
+| turn back | 0.17 / 0.45 | **0.013** / 0.38 |
+| home | 0.17 / 0.52 | **0.011** / 0.25 |
+| **all 12 legs** | **0.17 / 0.58** | **0.016 / 0.38** |
+
+| | GPS, no NDT | GPS + NDT |
+|---|---|---|
+| Heading, worst (deg) | 13.5 | 2.4 |
+| Off Nav2's path, mean (m, by the truth) | 0.11-0.14 | 0.03 (0.10 on one U-turn) |
+
+**GPS off** (stopped after the first fix; `--gps-off`, one run each):
+
+| Leg | No NDT: mean / worst (m) | NDT: mean / worst (m) |
+|---|---|---|
+| a left turn | 0.25 / 0.35 | **0.007** / 0.02 |
+| round the building | 0.47 / 0.70 | **0.030** / 0.24 |
+| turn back | 0.67 / 0.74 | **0.017** / 0.39 |
+| home | 0.95 / **1.21** | **0.009** / 0.06 |
+
+Without GPS the EKF has only the wheels and the gyro: it drifts, 1.2 m by the end.
+With NDT it doesn't drift at all.
+
+- Nav2 gave up on the U-turn ("turn back") in 1 of 3 runs without NDT and 2 of 3 with:
+  MPPI's known U-turn trouble ([results](#results-29-october)), not the localizer (the
+  EKF was 1-2 cm off then).
+- NDT: 97-100 % of clouds gave a pose; no LOST, no restart; 2.0 ms a match (worst 6.3)
+  on Ben's Mac (M4 Max), not the Orin.
+
+### NDT's covariance: fitted (NEES)
+
+NDT's spread is k·(−H⁻¹), with a floor. Fitted on the 3 `base` runs (5,852 good fits),
+checked on the 3 `ekf2` runs (6,442):
+
+| | Before | Now (`config/ndt.yaml`) | Why |
+|---|---|---|---|
+| k (`covariance_scale`) | 1 | **7.5** | the good fits' mean NEES is 3 (the honest value for 3 numbers); median 2.4 |
+| floor, x and y | (2 cm)² | **(5 mm)²** | 2 cm hid k: a typical fit is 1 cm off |
+| floor, yaw | (0.5°)² | **(0.1°)²** | the same |
+| NEES on the check runs | - | **2.9** | k fitted again there: 7.2 |
+
+NEES = e′P⁻¹e, e the error from the truth, P the covariance published. Around 3: the
+spread matches the errors. `controller-compare --ndt` prints it, and the k that would
+make it 3, after every run.
+
+### Keeping bad matches out of the EKF
+
+| Guard | Where | What it caught in Gazebo |
+|---|---|---|
+| Score per point under **2.3**: not published | `min_score_per_point` (was 2.0) | 4 fits 0.27-0.55 m off (scores 2.06-2.24). Every good fit scored 2.6 or more |
+| Out of iterations, or a jump while tracking (over 0.5 m or 5° from the guess): not published | ndt-core; `max_correction_m`, `_deg` (new) | 43 more fits, the two not told apart (the status's message says which) |
+| A pose more than 5 sigma from the EKF: refused | `pose0_rejection_threshold: 5` | not counted (robot_localization doesn't say) |
+| The late pose put in at its own stamp | `smooth_lagged_data`, 1 s | each pose is 2-6 ms late, plus the lidar's own delay |
+
+**When NDT is LOST** (5 poor fits in a row): it publishes nothing; `ekf_global` goes on
+with the GPS (or the wheels and gyro alone, if the GPS is out too) and its doubt grows;
+NDT starts again from `ekf_global`'s pose. The first fit after a restart may move far
+(no jump check), so the EKF's 5-sigma gate is the guard then. Not seen in these runs:
+**untested in Gazebo** (only `ndt-core`'s test).
+
+### What it doesn't show yet
+
+- **The lane north of the building** fools NDT along the lane (0.25-0.4 m, about 2 % of
+  fits): only walls parallel to the car. Its spread there grows 4-10 times, not enough
+  to cover it. Next: inflate the covariance along a weak direction (the Hessian's
+  smallest eigenvalue), or refuse those fits.
+- Gazebo's map is perfect, its lidar has no sweep and nothing moves: the score floor and
+  k must be fitted again on the car (a bag of the real lot, KISS-ICP's map).
+- The geofence holds the car when the GPS stops, even with NDT: GPS-off runs need
+  `geofence:=false watchdog:=false`. If NDT wins, the geofence could take it as a
+  position source.
+- Before it goes on the car: the trials' rule ([below](#before-a-winner-goes-on-the-car)).
+
+```bash
+pixi run ndt-map drive                                     # the map, once
+pixi run controller-compare --ndt --runs 3 --tours lot      # NDT beside: the EKF on GPS alone
+pixi run controller-compare --ndt-ekf --runs 3 --tours lot  # NDT into the EKF
+pixi run controller-compare --ndt-ekf --gps-off --tours lot # the GPS stops after its first fix
+```
 
 ## Scoring a localizer fairly
 

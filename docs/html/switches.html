@@ -195,7 +195,8 @@ In <code>debugdemo</code>, keys 1-4 swap the tracker live. More: <a href="contro
 <a href="trials.html">Trials</a>.</p>
 </section>
 <section class="card"><h2 id="where-am-i">Where am I</h2>
-<p>These run <strong>beside</strong> the EKFs and are only scored for now. They never steer.</p>
+<p>These run <strong>beside</strong> the EKFs and are only scored for now. They never steer, except
+<code>ndt_ekf:=true</code>: then the global EKF, which Nav2 plans by, takes NDT's pose too.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -219,6 +220,11 @@ In <code>debugdemo</code>, keys 1-4 swap the tracker live. More: <a href="contro
 <td><code>amcl:=true</code></td>
 <td>many guesses; keep the ones that match the walls</td>
 <td>6-11 cm</td>
+</tr>
+<tr>
+<td><code>ndt_ekf:=true ndt_map:=maps/ndt/test_lot.pcd</code></td>
+<td>NDT, and the global EKF <strong>uses</strong> it beside the GPS (a trial)</td>
+<td>the EKF <strong>1.6 cm</strong> (<a href="trials.html#ndt-into-the-global-ekf-30-oct">trials</a>)</td>
 </tr>
 </tbody>
 </table></div>

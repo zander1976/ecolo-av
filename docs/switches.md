@@ -56,7 +56,7 @@ These run **beside** the EKFs and are only scored for now. They never steer, exc
 | (nothing) | the EKFs: wheels, IMU and GPS | ~17 cm |
 | `ndt:=true ndt_map:=maps/ndt/test_lot.pcd` | the lidar slid onto a saved map | **1-3 cm** |
 | `amcl:=true` | many guesses; keep the ones that match the walls | 6-11 cm |
-| `ndt_ekf:=true ndt_map:=maps/ndt/test_lot.pcd` | NDT, and the global EKF **uses** it beside the GPS (a trial) | [trials](trials.md#ndt-into-the-global-ekf-30-oct) |
+| `ndt_ekf:=true ndt_map:=maps/ndt/test_lot.pcd` | NDT, and the global EKF **uses** it beside the GPS (a trial) | the EKF **1.6 cm** ([trials](trials.md#ndt-into-the-global-ekf-30-oct)) |
 
 NDT's map isn't in git: make it once with `pixi run ndt-map drive` (about 6 min).
 
