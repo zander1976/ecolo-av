@@ -29,6 +29,9 @@ The trials (docs/trials.md):
                     length and its tightest turn against the car's full lock. Then a
                     table of the whole tour: legs finished, time, path length, planning
                     time, kept to the turning radius (docs/controllers.md, Planners)
+    pixi run controller-compare --planners hybrid lattice lattice32 --reversing --runs 3
+                    the same with reversing on (MPPI follows backwards too; the trackers
+                    can't), and lattice32: the lattice on its 32-heading file
 
 For each tour and controller it:
 1. starts sim.launch.py world:=test_lot gui:=false rviz:=false controller:=<rpp|mppi>
@@ -119,7 +122,7 @@ COLOURS = {'rpp': '#1f6fb4', 'mppi': '#e8590c', 'pure_pursuit': '#2b8a3e', 'stan
            'lqr': '#c92a2a', 'mpc': '#e67700', 'mpc_full': '#5f3dc4',
            # --planners: a column is a planner's name when one follower drives them all.
            'hybrid': '#e8590c', 'lattice': '#1f6fb4', 'smac2d': '#2b8a3e',
-           'navfn': '#862e9c', 'theta_star': '#c92a2a'}
+           'navfn': '#862e9c', 'theta_star': '#c92a2a', 'lattice32': '#5f3dc4'}
 PLAN_TIME = 15.0        # s (wall) for the planner alone to answer, before each leg
 # NDT's map of the test lot (tools/ndt_map.py; maps/ is not in git).
 NDT_MAP = os.path.join(ROOT, 'maps', 'ndt', 'test_lot.pcd')
@@ -419,12 +422,14 @@ def private(used):
     """
     Pick an unused ROS domain and Gazebo partition, and set them, before rclpy.init.
 
-    The domain: AAV_SIM_DOMAIN's for the first run, else one from 150-230. The partition:
-    AAV_SIM_PARTITION (default controller_compare), then the domain.
+    The domain: AAV_SIM_DOMAIN's for the first run, the next ones up from it for the
+    later runs (never above 232: Fast DDS breaks there), else one from 150-230. The
+    partition: AAV_SIM_PARTITION (default controller_compare), then the domain.
     """
     first = os.environ.get('AAV_SIM_DOMAIN')
-    if first and first not in used:
-        domain = first
+    above = [str(d) for d in range(int(first), 233) if str(d) not in used] if first else []
+    if above:
+        domain = above[0]
     else:
         domain = str(random.choice([d for d in range(150, 231) if str(d) not in used]))
     used.add(domain)
@@ -486,12 +491,25 @@ def followers(args):
             for kind, name in chosen for planner in args.planners]
 
 
+# --planners words beyond vehicle.PLANNERS: the same planner on another of its files.
+# lattice32: the State Lattice on its 32-heading trial file (lattice_headings:=32).
+PLANNER_VARIANTS = {f'lattice{h}': ('lattice', [f'lattice_headings:={h}'])
+                    for h in vehicle.LATTICE_HEADINGS[1:]}
+PLANNER_WORDS = vehicle.PLANNERS + tuple(PLANNER_VARIANTS)
+
+
+def planner_launch(word):
+    """Return sim.launch.py's arguments for a --planners word: planner:= and any others."""
+    planner, extra = PLANNER_VARIANTS.get(word, (word, []))
+    return [f'planner:={planner}'] + extra
+
+
 def planner_names(text):
     """Return the planners in a --planners word: comma-separated, or one."""
     names = [n.strip().lower() for n in text.split(',') if n.strip()]
     for name in names:
-        if name not in vehicle.PLANNERS:
-            raise argparse.ArgumentTypeError(f'{name}: pick from {", ".join(vehicle.PLANNERS)}')
+        if name not in PLANNER_WORDS:
+            raise argparse.ArgumentTypeError(f'{name}: pick from {", ".join(PLANNER_WORDS)}')
     return names
 
 
@@ -519,7 +537,7 @@ def session(tour, follower, args, out_dir, body, used, run=1):
                # --reversing: Nav2 may then back out of a dead end.
                f'reversing:={str(args.reversing).lower()}']
     if planner:
-        command.append(f'planner:={planner}')
+        command += planner_launch(planner)
     if args.amcl:
         command.append('amcl:=true')
     if args.ndt:
@@ -698,8 +716,9 @@ def main():
                         help='the trial trackers (aav_track, docs/trials.md): pure_pursuit, '
                              'stanley, lqr, mpc, mpc_full; spaces or commas between. Forward only')
     parser.add_argument('--planners', nargs='+', type=planner_names, default=None,
-                        help="Nav2's planners (planner:=): " + ', '.join(vehicle.PLANNERS) +
-                             '; each behind MPPI unless --controllers or --trackers say')
+                        help="Nav2's planners (planner:=): " + ', '.join(PLANNER_WORDS) +
+                             ' (lattice32: the lattice on its 32-heading file); each '
+                             'behind MPPI unless --controllers or --trackers say')
     parser.add_argument('--runs', type=int, default=1,
                         help='drive each follower this many times (default 1; 3 for a real '
                              'comparison: the mean and spread)')
