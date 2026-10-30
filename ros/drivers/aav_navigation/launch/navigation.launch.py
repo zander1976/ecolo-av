@@ -3,7 +3,7 @@ Nav2 as one more driver: goals in, /drivers/nav/cmd_vel (TwistStamped) out to tw
 
   ros2 launch aav_navigation navigation.launch.py [map:=<path to map yaml>]
       [radar:=false] [lidar:=false] [collision_monitor:=<radar or lidar>]
-      [camera_obstacles:=false] [ghost:=false]
+      [camera_obstacles:=false] [ghost:=false] [voxels:=false]
       [reversing:=false] [max_speed:=] [controller:=mppi] [planner:=hybrid]
       [plan_around:=true]
       [tracker:=none] [live_swap:=false] [amcl:=false] [amcl_x:=0.0] [amcl_y:=0.0]
@@ -59,6 +59,12 @@ Trials (docs/trials.md), each beside the default and scored by pixi run controll
                           lidar:=true), from amcl_x, amcl_y, amcl_yaw (map frame), with its
                           own lifecycle manager. tf_broadcast false: ekf_global keeps
                           map -> odom; AMCL's pose, /localization/amcl/pose, is only scored
+  voxels:=true            (with lidar:=true) aav_voxels' voxels cuts the cloud into 0.25 m
+                          cubes between the fitted road and just over the roof
+                          (/perception/voxels/cubes, and the road it saw, .../ground): the
+                          local costmap's lidar_layer and collision_monitor read those
+                          instead of /sensors/lidar/scan. lidar_scan then runs only for
+                          amcl:=true (docs/designs/2026-10-30_voxels.md)
   amcl_map:=<yaml>        AMCL's own map (finer, obstacles as outlines: maps/README.md),
                           from amcl_map_server on /localization/amcl/map; empty: Nav2's /map
 
@@ -127,12 +133,12 @@ def flag(context, name):
 
 def tuned_copy(source, v, reversing, max_speed, radar, lidar, ghost=False,
                controller=vehicle.DEFAULT_CONTROLLER, plan_around=True, camera=False,
-               planner=vehicle.DEFAULT_PLANNER, lattice_file=None):
+               planner=vehicle.DEFAULT_PLANNER, lattice_file=None, voxels=False):
     """Return a temporary copy of nav2.yaml, tuned by vehicle.nav2_tuned (no ROS there)."""
     with open(source) as f:
         cfg = vehicle.nav2_tuned(yaml.safe_load(f), v, reversing, max_speed, radar, lidar,
                                  ghost, controller, plan_around, camera, planner,
-                                 lattice_file)
+                                 lattice_file, voxels)
     out = tempfile.NamedTemporaryFile('w', prefix='nav2_', suffix='.yaml', delete=False)
     with out:
         yaml.safe_dump(cfg, out)
@@ -177,6 +183,9 @@ def nodes(context):
     reversing = flag(context, 'reversing')
     tracker = vehicle.check_tracker(LaunchConfiguration('tracker').perform(context), reversing)
     amcl = flag(context, 'amcl')
+    voxels = flag(context, 'voxels')
+    if voxels and not lidar:
+        raise ValueError('voxels:=true needs lidar:=true: the cubes come from the lidar')
     if amcl and not lidar:
         raise ValueError('amcl:=true needs lidar:=true: AMCL reads /sensors/lidar/scan')
 
@@ -205,7 +214,7 @@ def nodes(context):
     controller = LaunchConfiguration('controller').perform(context).strip().lower()
     source = tuned_copy(f'{share}/config/nav2.yaml', v, reversing,
                         float(speed) if speed else None, radar, lidar, ghost, controller,
-                        flag(context, 'plan_around'), guard, planner, lattice_file)
+                        flag(context, 'plan_around'), guard, planner, lattice_file, voxels)
     params = ParameterFile(
         RewrittenYaml(source_file=source, param_rewrites=rewrites, convert_types=True),
         allow_substs=True)
@@ -247,9 +256,15 @@ def nodes(context):
         actions.append(Node(package='aav_safety', executable='stop_hold', name='stop_hold',
                             output='screen',
                             parameters=[config, {'use_sim_time': use_sim_time}]))
-    if lidar:
-        # Not a lifecycle node: it runs from the start, Nav2's servers or not.
+    if lidar and (amcl or not voxels):
+        # Not a lifecycle node: it runs from the start, Nav2's servers or not. With
+        # voxels:=true only AMCL still reads its scan.
         actions.append(Node(package='aav_lidar', executable='lidar_scan', name='lidar_scan',
+                            output='screen',
+                            parameters=[params, {'use_sim_time': use_sim_time}]))
+    if voxels:
+        # The trial: the cubes, for the costmap and collision_monitor. Not a lifecycle node.
+        actions.append(Node(package='aav_voxels', executable='voxels', name='voxels',
                             output='screen',
                             parameters=[params, {'use_sim_time': use_sim_time}]))
     if ghost:
@@ -349,6 +364,10 @@ def generate_launch_description():
                               description='true: a pretend person (aav_ghost), its own '
                                           'costmap layer and collision_monitor source; '
                                           'placed with pixi run ghost'),
+        DeclareLaunchArgument('voxels', default_value='false',
+                              description='true (with lidar:=true): the trial, aav_voxels: '
+                                          "the costmap's lidar_layer and collision_monitor "
+                                          'read 0.25 m cubes instead of the flat scan'),
         DeclareLaunchArgument('max_speed', default_value='',
                               description="m/s: Nav2's top speed, if not nav2.yaml's 1.0 "
                                           '(sim.launch.py sim_speed:=)'),
