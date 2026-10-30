@@ -640,7 +640,7 @@ topics:
     type: diagnostic_msgs/msg/DiagnosticStatus
     pub: [kiss_icp]
     sub: []
-    note: KISS-ICP's state after every cloud - name kiss_icp, level OK (TRACKING) or ERROR (no kiss environment, a cloud without x, y, z, or the worker failed); values match_ms (wall clock, KISS-ICP alone), points (after the body and range cut), deskew (true only where the cloud has a per-point time - the VLP-16, not Gazebo), clouds, clouds_dropped, restarts (of the worker).
+    note: KISS-ICP's state after every cloud - name kiss_icp, level OK (TRACKING) or ERROR (no kiss environment, a cloud without x, y, z, or the worker failed); values match_ms (wall clock, KISS-ICP alone), points (after the body, ground - below min_height, 0.3 m - and range cuts), deskew (true only where the cloud has a per-point time - the VLP-16, not Gazebo), clouds, clouds_dropped, restarts (of the worker).
   /localization/gps/fix:
     type: sensor_msgs/msg/NavSatFix
     pub: [navsat_transform]
