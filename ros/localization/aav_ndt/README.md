@@ -38,7 +38,8 @@ Status: level OK (a good fit), WARN (poor, or no start), ERROR (LOST); message
 `match_ms`, `points`, `poor_in_row`, `restarts`, `clouds_dropped`, `x`, `y`, `yaw`.
 
 Parameters: `config/ndt.yaml` (cubes, filters, the fit's floor, the step cap, the
-covariance), plus from the launch file the lidar's mount and the body (vehicle.yaml),
+covariance), plus from the launch file the lidar's mount and the car's own box
+(`body_min`, `body_max`: `vehicle.self_box`, the body and its sensors, 15 cm wider),
 `map`, and the start (`start_x`, `start_y`, `start_yaw`, `start_from_global`).
 
 ### Launch

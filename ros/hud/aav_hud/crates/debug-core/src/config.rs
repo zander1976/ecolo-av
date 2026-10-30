@@ -10,7 +10,7 @@ use std::time::Duration;
 use serde::Deserialize;
 use thiserror::Error;
 
-use crate::cubes::{CubeSettings, Metres};
+use crate::cubes::{CubeSettings, Metres, OwnBox};
 
 /// `config/debug_hud.yaml`, built in.
 pub const BUILT_IN_YAML: &str = include_str!("../../../config/debug_hud.yaml");
@@ -185,6 +185,10 @@ pub struct DebugConfig {
     pub keep_cubes_for: f64,
     /// One NDT map cube's edge, metres.
     pub ndt_map_cell: f64,
+    /// The car and its sensors from above, whose points make no cube: not a parameter,
+    /// the command line's `--own-box` (the launch file works it out from vehicle.yaml).
+    #[serde(skip)]
+    pub own_box: Option<OwnBox>,
 }
 
 /// Why a settings file can't be used.
@@ -364,6 +368,7 @@ impl DebugConfig {
             size: Metres(self.cube_size),
             max_cubes: usize::try_from(self.max_cubes).unwrap_or(usize::MAX),
             ground_height: Metres(self.ground_height),
+            own: self.own_box,
         }
     }
 }

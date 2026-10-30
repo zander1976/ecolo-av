@@ -43,8 +43,8 @@
 //! ROS node for pretend data. The maths is in debug-core.
 //!
 //! usage: debug_hud [--demo] [--fullscreen] [--monitor NAME|N] [--list-monitors]
-//!                  [--config FILE] [--vehicle FILE] [--screenshot FILE [--after S]]
-//!                  [--bench-cubes N] [--ros-args ...]
+//!                  [--config FILE] [--vehicle FILE] [--own-box X0,Y0,X1,Y1]
+//!                  [--screenshot FILE [--after S]] [--bench-cubes N] [--ros-args ...]
 
 mod demo;
 #[cfg(feature = "ros")]
@@ -60,6 +60,7 @@ use std::{
 use anyhow::{bail, Context as _, Result};
 use debug_core::{
     config::DebugConfig,
+    cubes::OwnBox,
     keys::Action,
     ndt::MapFile,
     orbit::Orbit,
@@ -79,8 +80,8 @@ use crate::{
 
 const USAGE: &str = "\
 usage: debug_hud [--demo] [--fullscreen] [--monitor NAME|N] [--list-monitors]
-                 [--config FILE] [--vehicle FILE] [--screenshot FILE [--after S]]
-                 [--bench-cubes N] [--ros-args ...]
+                 [--config FILE] [--vehicle FILE] [--own-box X0,Y0,X1,Y1]
+                 [--screenshot FILE [--after S]] [--bench-cubes N] [--ros-args ...]
 
   --demo             pretend data: no ROS, no car
   --fullscreen       fill the screen (F11 switches too)
@@ -88,6 +89,8 @@ usage: debug_hud [--demo] [--fullscreen] [--monitor NAME|N] [--list-monitors]
   --list-monitors    print the monitors' numbers, names and sizes, then quit
   --config FILE      topic names from FILE instead of the built-in config/debug_hud.yaml
   --vehicle FILE     the car's size from FILE instead of the built-in vehicle.yaml
+  --own-box X0,Y0,X1,Y1  the car and its sensors from above in base_link (m): the lidar's
+                     points inside make no cube (debug_hud.launch.py passes vehicle.yaml's)
   --screenshot FILE  save the window as a PNG after --after seconds (4), then quit
   --bench-cubes N    the drawing test (with --demo): N cubes; prints the frame rate over
                      10 s, then quits
@@ -114,6 +117,7 @@ struct Options {
     list_monitors: bool,
     config: Option<PathBuf>,
     vehicle: Option<PathBuf>,
+    own_box: Option<OwnBox>,
     screenshot: Option<PathBuf>,
     after: Option<f64>,
     bench_cubes: Option<usize>,
@@ -139,6 +143,12 @@ impl Options {
                 "--monitor" => opts.monitor = Some(value("--monitor")?.parse()?),
                 "--config" => opts.config = Some(value("--config")?.into()),
                 "--vehicle" => opts.vehicle = Some(value("--vehicle")?.into()),
+                "--own-box" => {
+                    let text = value("--own-box")?;
+                    opts.own_box = Some(OwnBox::parse(&text).with_context(|| {
+                        format!("--own-box {text:?}: give x_min,y_min,x_max,y_max in metres")
+                    })?);
+                }
                 "--screenshot" => opts.screenshot = Some(value("--screenshot")?.into()),
                 "--after" => {
                     let s: f64 = value("--after")?
@@ -186,11 +196,12 @@ fn main() -> Result<()> {
         window::print_monitors();
         return Ok(());
     }
-    let config = match &opts.config {
+    let mut config = match &opts.config {
         Some(path) => DebugConfig::from_yaml(&read(path)?)
             .with_context(|| format!("in {}", path.display()))?,
         None => DebugConfig::default(),
     };
+    config.own_box = opts.own_box;
     let car = match &opts.vehicle {
         Some(path) => CarShape::from_vehicle_yaml(&read(path)?)
             .with_context(|| format!("in {}", path.display()))?,
