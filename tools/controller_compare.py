@@ -591,9 +591,10 @@ def session(tour, follower, args, out_dir, body, used, run=1):
                                                      for x, y in pts[::4] + pts[-1:]]]
                                       for t, pts in leg['plans']]
                 if leg.get('planned', {}).get('path'):
-                    # The planner's own path, from where the car stood (--planners).
-                    drawn['planned'] = [[round(x, 2), round(y, 2)]
-                                        for x, y in leg['planned']['path'][::4]]
+                    # The planner's own path, from where the car stood (--planners): every
+                    # point, so its turns and cusps can be scored again from the file.
+                    drawn['planned'] = [[round(x, 3), round(y, 3)]
+                                        for x, y in leg['planned']['path']]
                 rows.append((tour, name, label, row, notes, drawn))
                 print(f'   {name}: ' + ('reached' if row['reached'] else 'NOT reached') +
                       f' in {row["time_s"]:.0f} s, {row["driven_m"]:.1f} m, off the path '
