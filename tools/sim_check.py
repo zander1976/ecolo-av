@@ -280,7 +280,7 @@ def seconds(stamp):
 
 def result(name, ok, detail):
     RESULTS.append((name, ok, detail))
-    print(f'{"PASS" if ok else "FAIL"}  {name}: {detail}', flush=True)
+    print(f'{"INFO" if ok is None else "PASS" if ok else "FAIL"}  {name}: {detail}', flush=True)
 
 
 def yaw_of(msg):
@@ -794,7 +794,7 @@ def check_voxels(probe):
     read_ms = timed(lambda: point_cloud2.read_points_numpy(
         clouds[-1], field_names=('x', 'y', 'z'), skip_nans=False))
     result('voxels vs scan', None,
-           f'one cloud ({len(points)} rays), here: reading it {read_ms:.1f} ms, then the flat '
+           f'one cloud ({len(points)} rays), here: reading it {read_ms:.2f} ms, then the flat '
            f'scan {scan_ms:.2f} ms, the cubes {cube_ms:.2f} ms')
 
 
