@@ -14,6 +14,8 @@ The real car. One launch file for every machine; a machine file picks the parts.
                            smac2d, navfn and theta_star ignore the turning radius, and are
                            refused here, with no way round it (vehicle.check_planner real)
       [lidar:=true]       (false: no lidar anywhere, whatever the machine file says)
+      [voxels:=false]     (true: Nav2 reads the lidar as 0.25 m cubes, aav_voxels, a trial
+                           not yet tried on the car: docs/designs/2026-10-30_voxels.md)
       [ghost:=false]      (true: a pretend person in Nav2's view, where Nav2 runs, for
                            stopping tests with nothing real to hit: pixi run ghost ahead 10)
       [geofence_radius:=30.0] [geofence_site:=] [stands:=false]
@@ -544,6 +546,7 @@ def launch_setup(context):
         actions.append(include('aav_navigation', 'navigation.launch.py',
                                map=arg('map') or empty_map, radar=on('radar'), planner=planner,
                                lidar=on('lidar'), ghost=flag('ghost'),
+                               voxels=bool(flag('voxels') and on('lidar')),
                                collision_monitor=(on('radar') or on('lidar') or flag('ghost')
                                                   or rear_camera),
                                camera_obstacles=on('camera_obstacles'),
@@ -604,6 +607,10 @@ def generate_launch_description():
                                           'lidar, whatever the machine file says'),
         # Off unless asked for: a pretend person, for stopping tests on the real car with
         # nothing real to hit (aav_ghost, docs/ghost-obstacles.md). Where Nav2 runs.
+        # A trial (docs/designs/2026-10-30_voxels.md): the cubes instead of the flat scan.
+        DeclareLaunchArgument('voxels', default_value='false',
+                              description='true (with the lidar): Nav2 reads the lidar as '
+                                          '0.25 m cubes (aav_voxels) instead of the flat scan'),
         DeclareLaunchArgument('ghost', default_value='false',
                               description="true: a pretend person in Nav2's view, placed "
                                           'with pixi run ghost ahead 10 (it only adds)'),

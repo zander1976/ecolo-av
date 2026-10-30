@@ -7,7 +7,7 @@
 <!-- Generated from docs/switches.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>Switches: what you can swap in the simulated car</h1>
-<div class="meta">4 min read · 5 sections</div></header>
+<div class="meta">5 min read · 5 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="overview.html">Overview</a>
 <a href="release-notes.html">Release notes</a>
@@ -290,6 +290,10 @@ others offer the EKFs only first.</p>
 <tr>
 <td><code>lidar:=false</code>, <code>radar:=false</code></td>
 <td>sensors off</td>
+</tr>
+<tr>
+<td><code>voxels:=true</code></td>
+<td>Nav2 sees the lidar as 0.25 m cubes, not a flat scan (a trial: <a href="trials.html#voxels-30-oct-the-lidar-as-cubes">Trials</a>)</td>
 </tr>
 </tbody>
 </table></div>

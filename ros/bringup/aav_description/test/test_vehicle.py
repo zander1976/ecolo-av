@@ -131,7 +131,9 @@ def test_nav2_rewrites_keys():
                       'controller_server.ros__parameters.FollowPath.allow_reversing',
                       'controller_server.ros__parameters.MPPI.vx_min',
                       'lidar_scan.ros__parameters.min_height',
-                      'lidar_scan.ros__parameters.max_height'}
+                      'lidar_scan.ros__parameters.max_height',
+                      'voxels.ros__parameters.min_height',
+                      'voxels.ros__parameters.max_height'}
     # The planner leaves the controller some steering; MPPI knows the car's real lock.
     assert float(r['minimum_turning_radius']) == pytest.approx(
         float(r['min_turning_r']) * vehicle.PLAN_TURN_MARGIN, abs=2e-3)
@@ -284,6 +286,21 @@ def test_the_planner_sees_the_sensors_but_not_the_ghost():
     # plan_around:=false: the planner sees only the map, for the stop zone's tests.
     assert layers(radar=True, lidar=True, plan_around=False)[0] == ['static_layer',
                                                                     'inflation_layer']
+
+
+def test_voxels_needs_the_lidar_and_reaches_the_planner_too():
+    v = {'max_reverse_speed': 0.4}
+    nav2 = yaml.safe_load(NAV2_YAML.read_text())
+    # Without the lidar there are no cubes: nothing changes.
+    assert vehicle.nav2_tuned(nav2, v, lidar=False, voxels=True) == vehicle.nav2_tuned(
+        nav2, v, lidar=False)
+    cfg = vehicle.nav2_tuned(nav2, v, radar=False, lidar=True, voxels=True)
+    planner = cfg['global_costmap']['global_costmap']['ros__parameters']['lidar_layer']
+    assert planner['observation_sources'] == 'voxels voxels_ground'
+    assert cfg['collision_monitor']['ros__parameters']['observation_sources'] == ['voxels']
+    # The file itself is left as it was: the scan stays the default.
+    local = nav2['local_costmap']['local_costmap']['ros__parameters']['lidar_layer']
+    assert local['observation_sources'] == 'lidar'
 
 
 def test_every_rewrite_lands_on_a_key_nav2_yaml_has():

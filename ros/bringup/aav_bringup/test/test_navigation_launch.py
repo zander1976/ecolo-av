@@ -409,3 +409,56 @@ def test_the_sim_passes_any_planner_and_the_car_only_car_shaped_ones():
     for planner in set(vehicle.PLANNERS) - set(vehicle.CAR_PLANNERS):
         with pytest.raises(ValueError, match='turning radius'):
             sent_to_navigation(CAR, machine='all', planner=planner)
+
+
+def test_the_scan_unless_voxels_is_asked_for():
+    nodes = nav_nodes(lidar='true')
+    assert 'lidar_scan' in nodes and 'voxels' not in nodes
+    assert local_costmap(lidar='true')['lidar_layer']['observation_sources'] == 'lidar'
+    with pytest.raises(ValueError, match='lidar:=true'):
+        nav_nodes(voxels='true')                        # no lidar: no cubes
+
+
+def test_voxels_swaps_the_scan_for_cubes_in_the_costmap_and_the_stop_zone():
+    nodes = nav_nodes(lidar='true', voxels='true')
+    assert 'voxels' in nodes and 'lidar_scan' not in nodes
+    s = settings(radar='true', lidar='true', voxels='true')
+    assert s['collision_monitor']['observation_sources'] == ['radar', 'voxels']
+    source = s['collision_monitor']['voxels']
+    assert (source['type'], source['topic']) == ('pointcloud', '/perception/voxels/cubes')
+    low, high = vehicle.obstacle_heights(vehicle.load()['vehicle'])
+    # Its stock defaults (0.05 to 0.5 m) would drop every cube over half a metre.
+    assert source['min_height'] < 0.0 and source['max_height'] > high + 1.0
+    assert (s['voxels']['min_height'], s['voxels']['max_height']) == (
+        pytest.approx(low), pytest.approx(high))
+    layer = local_costmap(lidar='true', voxels='true')['lidar_layer']
+    assert layer['observation_sources'] == 'voxels voxels_ground'
+    assert layer['voxels']['topic'] == '/perception/voxels/cubes'
+    assert (layer['voxels']['marking'], layer['voxels']['clearing']) == (True, True)
+    ground = layer['voxels_ground']
+    assert ground['topic'] == '/perception/voxels/ground'
+    assert (ground['marking'], ground['clearing']) == (False, True)
+    # Every bound lets the cubes through: the layer's own, and each source's (Nav2's
+    # per-source defaults, 0 to 0 m and 3 m of raytrace, would drop or cut them).
+    for bounds in (layer, layer['voxels'], ground):
+        assert bounds['min_obstacle_height'] <= -1.0 and bounds['max_obstacle_height'] >= 3.5
+    assert ground['raytrace_max_range'] >= layer['voxels']['obstacle_max_range']
+
+
+def test_amcl_keeps_its_scan_beside_the_cubes():
+    nodes = nav_nodes(lidar='true', voxels='true', amcl='true')
+    assert {'voxels', 'lidar_scan', 'amcl'} <= set(nodes)
+
+
+def test_the_sim_and_the_car_pass_voxels_on():
+    assert sent_to_navigation(SIM)['voxels'] == 'false'
+    assert sent_to_navigation(SIM, world='road', voxels='true')['voxels'] == 'true'
+    with pytest.raises(ValueError, match='needs the lidar'):
+        sent_to_navigation(SIM, voxels='true')          # the empty world: no lidar
+    with pytest.raises(ValueError, match='needs the lidar'):
+        sent_to_navigation(SIM, world='road', voxels='true', lidar='false')
+    assert sent_to_navigation(CAR, machine='all')['voxels'] == 'false'
+    assert sent_to_navigation(CAR, machine='all', voxels='true')['voxels'] == 'true'
+    # No lidar on the car: no cubes either, rather than a launch that refuses.
+    car = sent_to_navigation(CAR, machine='all', voxels='true', lidar='false')
+    assert car['voxels'] == 'false'

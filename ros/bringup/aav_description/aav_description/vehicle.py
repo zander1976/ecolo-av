@@ -438,6 +438,8 @@ def nav2_rewrites(v, reversing=False, planner=DEFAULT_PLANNER):
         'footprint': footprint(v),
         'lidar_scan.ros__parameters.min_height': f'{low:.3f}',
         'lidar_scan.ros__parameters.max_height': f'{high:.3f}',
+        'voxels.ros__parameters.min_height': f'{low:.3f}',
+        'voxels.ros__parameters.max_height': f'{high:.3f}',
         'minimum_turning_radius': f'{plan_turning_radius(v):.3f}',  # SmacPlannerHybrid
         'min_turning_r': f'{r:.3f}',            # MPPI AckermannConstraints: the car's own
         'collision_monitor.ros__parameters.StopZone.forward.points':
@@ -451,7 +453,7 @@ def nav2_rewrites(v, reversing=False, planner=DEFAULT_PLANNER):
 
 def nav2_tuned(nav2, v, reversing=False, max_speed=None, radar=True, lidar=False,
                ghost=False, controller=DEFAULT_CONTROLLER, plan_around=True, camera=False,
-               planner=DEFAULT_PLANNER, lattice_file=None):
+               planner=DEFAULT_PLANNER, lattice_file=None, voxels=False):
     """
     Return a copy of nav2.yaml's settings (`nav2`, loaded) with what RewrittenYaml can't write.
 
@@ -479,7 +481,10 @@ def nav2_tuned(nav2, v, reversing=False, max_speed=None, radar=True, lidar=False
       what's in its way: the stop zone's tests;
     - the planner (PLANNERS, DEFAULT_PLANNER): its block (PLANNER_BLOCKS) becomes GridBased,
       the name the behaviour trees ask for, and the spare blocks go. lattice also takes
-      `lattice_file` (the primitives) and, with `reversing`, may expand backwards.
+      `lattice_file` (the primitives) and, with `reversing`, may expand backwards;
+    - with `voxels` and `lidar` (aav_voxels, a trial): the lidar_layer reads the cubes and
+      the road they saw (sources voxels, voxels_ground) instead of the scan, and
+      collision_monitor's voxels source takes the lidar's place.
     """
     if controller not in CONTROLLERS:
         raise ValueError(f'controller:={controller}: pick one of {", ".join(CONTROLLERS)}')
@@ -512,12 +517,22 @@ def nav2_tuned(nav2, v, reversing=False, max_speed=None, radar=True, lidar=False
             mppi['critics'] = [c for c in mppi['critics'] if c != 'PreferForwardCritic']
         servers['FollowPath'] = mppi
     monitor = out['collision_monitor']['ros__parameters']
-    monitor['observation_sources'] = [name for name, on in (('radar', radar), ('lidar', lidar),
+    cubes = voxels and lidar
+    lidar_source = 'voxels' if cubes else 'lidar'
+    monitor['observation_sources'] = [name for name, on in (('radar', radar),
+                                                            (lidar_source, lidar),
                                                             ('camera', camera), ('ghost', ghost))
                                       if on]
     local = out['local_costmap']['local_costmap']['ros__parameters']
     gone = {layer for layer, on in (('lidar_layer', lidar), ('ghost_layer', ghost)) if not on}
     local['plugins'] = [p for p in local['plugins'] if p not in gone]
+    if cubes:
+        # The cubes stand up to the roof plus its margin: the layer, which bounds every
+        # source's heights too, must let them through.
+        layer = local['lidar_layer']
+        layer['observation_sources'] = 'voxels voxels_ground'
+        for bound in ('min_obstacle_height', 'max_obstacle_height'):
+            layer[bound] = float(layer['voxels'][bound])
     # The planner sees what the sensors see too, so it plans round an obstacle that isn't on
     # the map (docs/plan.md M5): a copy of each running sensor's layer, before the inflation.
     # Not the ghost: it tests the stop, and the car must stop for it, not steer round it.

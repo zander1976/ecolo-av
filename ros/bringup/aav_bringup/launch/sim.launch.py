@@ -8,7 +8,7 @@ The whole stack in Gazebo: same nodes and configs as the car, simulated hardware
       [obstacle:=false] [start_y:=0.0] [start_yaw:=0.0] [lidar:=true] [radar:=true]
       [actuator_model:=true] [speed_loop:=default|smooth|lqi] [sim_speed:=]
       [reversing:=true] [controller:=mppi] [planner:=hybrid] [tracker:=none]
-      [amcl:=false]
+      [amcl:=false] [voxels:=false]
       [ndt:=false] [ndt_ekf:=false] [ndt_map:=maps/ndt/test_lot.pcd]
       [plan_around:=true]
       [watchdog:=true] [geofence:=true] [geofence_radius:=200.0]
@@ -66,6 +66,9 @@ bench's argument names:
                       collision_monitor. Forward only: with reversing:=false (docs/trials.md)
   amcl:=true          stock AMCL beside the global EKF, scored only (docs/trials.md): only
                       in world:=test_lot with nav:=true and the lidar, from the start pose
+  voxels:=true        Nav2's local costmap and collision_monitor read the lidar as 0.25 m
+                      cubes (aav_voxels, a trial: docs/designs/2026-10-30_voxels.md)
+                      instead of the flat scan; only with the lidar
   ndt:=true           NDT on the saved lidar map (aav_ndt, Rust), scored only, never TF
                       (docs/designs/2026-10-29_ndt.md): only in world:=test_lot with the
                       lidar, from the start pose, and only once ndt_map (pixi run ndt-map
@@ -149,7 +152,7 @@ def launch_setup(context):
     flag = {n: arg(n).lower() == 'true'
             for n in ('nav', 'teleop', 'rviz', 'perception', 'camera_obstacles', 'hud',
                       'map', 'foxglove', 'reversing', 'watchdog', 'faults',
-                      'ghost', 'plan_around', 'watch_hud', 'geofence')}
+                      'ghost', 'plan_around', 'watch_hud', 'geofence', 'voxels')}
     lane = arg('lane').lower()
     if lane not in ('false', 'true', 'fake'):
         raise ValueError(f'lane:={lane}: use true (the lane finder), fake or false')
@@ -171,6 +174,9 @@ def launch_setup(context):
     if amcl and not (world == 'test_lot' and flag['nav'] and lidar):
         raise ValueError('amcl:=true needs world:=test_lot nav:=true lidar:=true: the only '
                          'world with a real map, and AMCL reads the lidar')
+    if flag['voxels'] and not lidar:
+        raise ValueError('voxels:=true needs the lidar (lidar:=true, world:=road or test_lot): '
+                         'the cubes come from it')
     if ndt and not (world == 'test_lot' and lidar):
         raise ValueError('ndt:=true (and ndt_ekf:=true) needs world:=test_lot lidar:=true: '
                          'the only world with '
@@ -222,6 +228,7 @@ def launch_setup(context):
                                use_sim_time='true',
                                map=os.path.join(nav_share, 'maps', MAPS[world]),
                                radar=radar, lidar=lidar, ghost=flag['ghost'],
+                               voxels=flag['voxels'],
                                collision_monitor=radar or lidar or flag['ghost'],
                                camera_obstacles=flag['camera_obstacles'],
                                max_speed=arg('sim_speed'),
@@ -380,6 +387,9 @@ def generate_launch_description():
         DeclareLaunchArgument('faults', default_value='false',
                               description='route the front left picture through '
                                           'gazebo_adapter, for fault.camera'),
+        DeclareLaunchArgument('voxels', default_value='false',
+                              description='true: Nav2 reads the lidar as 0.25 m cubes '
+                                          '(aav_voxels, a trial) instead of the flat scan'),
         DeclareLaunchArgument('ghost', default_value='false',
                               description="a pretend person in Nav2's view (aav_ghost); "
                                           'place it with pixi run ghost ahead 10'),
