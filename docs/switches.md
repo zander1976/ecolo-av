@@ -4,7 +4,7 @@ Every part we're trying out is a **switch** you give when you start. You don't n
 remember them: **`pixi run pick`** asks, in plain words, and runs it.
 
 ```
-pixi run pick          # a menu: what to start, the route, who steers, where-am-I, speed loop
+pixi run pick          # a menu: what to start, the route, who steers, obstacles, where-am-I, speed loop
 pixi run pick last     # the same again tomorrow
 pixi run pick list     # every switch, then stop
 ```

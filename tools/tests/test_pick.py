@@ -20,7 +20,8 @@ def _read(path):
 
 
 def _all_rows():
-    return pick.PLANNERS + pick.FOLLOWERS + pick.LOCALIZERS + pick.SPEED_LOOPS + pick.WORLDS
+    return (pick.PLANNERS + pick.FOLLOWERS + pick.LOCALIZERS + pick.OBSTACLES
+            + pick.SPEED_LOOPS + pick.WORLDS)
 
 
 def test_every_switch_is_a_sim_launch_argument():
@@ -71,26 +72,27 @@ def test_enter_takes_the_defaults():
 
 def test_debugdemo_still_offers_every_finder():
     said = []
-    answers = iter(['', '', '', '', ''])
+    answers = iter([''] * 6)
     pick.questions(read=lambda _: next(answers), say=said.append)
     for name, _, _ in pick.LOCALIZERS:
         assert any(f' {name} ' in line for line in said), name
 
 
 def test_demo_defaults_to_the_ekfs_only():
-    answers = iter(['2', '', '', '', ''])
+    answers = iter(['2'] + [''] * 5)
     cmd = pick.questions(read=lambda _: next(answers), say=lambda *_: None)
     assert cmd[2] == 'demo'
     assert 'ndt:=false' in cmd and 'amcl:=false' in cmd
 
 
 def test_sim_with_a_localizer_moves_to_the_test_lot():
-    answers = iter(['3', '3', '2', '6', '4', '2'])  # sim, empty, lattice, mpc, both, lqi
+    # sim, empty, lattice, mpc, both, cubes, lqi
+    answers = iter(['3', '3', '2', '6', '4', '2', '2'])
     said = []
     cmd = pick.questions(read=lambda _: next(answers), say=said.append)
     assert cmd[2] == 'sim'
     assert 'world:=test_lot' in cmd and 'tracker:=mpc' in cmd and 'speed_loop:=lqi' in cmd
-    assert 'planner:=lattice' in cmd
+    assert 'planner:=lattice' in cmd and 'voxels:=true' in cmd
     assert any('switching the world' in s for s in said)
 
 

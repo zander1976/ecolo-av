@@ -78,6 +78,13 @@ LOCALIZERS = [
      ['ndt:=true', 'ndt_ekf:=true', f'ndt_map:={NDT_MAP}', 'amcl:=false']),
 ]
 
+# How Nav2 sees obstacles: the flat lidar scan, or the lidar as cubes (aav_voxels).
+OBSTACLES = [
+    ('scan', 'the flat lidar scan (default)', ['voxels:=false']),
+    ('cubes', 'the lidar as 0.25 m cubes (trial: stopped 0.44 m before a post, 4 of 4 legs)',
+     ['voxels:=true']),
+]
+
 SPEED_LOOPS = [
     ('default', "today's speed loop (PI)", ['speed_loop:=default']),
     ('lqi', 'LQI: no overshoot, settles in 4-5 s', ['speed_loop:=lqi']),
@@ -135,6 +142,7 @@ def questions(read=input, say=print):
         say('  note: NDT and AMCL need the test lot; switching the world to it')
         rows[0] = WORLDS[0]
     rows.append(where)
+    rows.append(ask('How does Nav2 see obstacles?', OBSTACLES, read, say))
     rows.append(ask('Which speed loop?', SPEED_LOOPS, read, say))
     return command(program, rows)
 
@@ -144,7 +152,8 @@ def listing():
     lines = []
     for title, choices in [('What to start', PROGRAMS), ('World (sim only)', WORLDS),
                            ('Who draws the route', PLANNERS),
-                           ('Who steers', FOLLOWERS), ('Where am I', LOCALIZERS),
+                           ('Who steers', FOLLOWERS),
+                           ('Obstacles', OBSTACLES), ('Where am I', LOCALIZERS),
                            ('Speed loop', SPEED_LOOPS)]:
         lines.append(title)
         for row in choices:
