@@ -48,13 +48,15 @@ In `debugdemo`, keys 1-4 swap the tracker live. More: [Controllers](controllers.
 
 ## Where am I
 
-These run **beside** the EKFs and are only scored for now. They never steer.
+These run **beside** the EKFs and are only scored for now. They never steer, except
+`ndt_ekf:=true`: then the global EKF, which Nav2 plans by, takes NDT's pose too.
 
 | Switch | In plain words | Off from the truth |
 |---|---|---|
 | (nothing) | the EKFs: wheels, IMU and GPS | ~17 cm |
 | `ndt:=true ndt_map:=maps/ndt/test_lot.pcd` | the lidar slid onto a saved map | **1-3 cm** |
 | `amcl:=true` | many guesses; keep the ones that match the walls | 6-11 cm |
+| `ndt_ekf:=true ndt_map:=maps/ndt/test_lot.pcd` | NDT, and the global EKF **uses** it beside the GPS (a trial) | [trials](trials.md#ndt-into-the-global-ekf-30-oct) |
 
 NDT's map isn't in git: make it once with `pixi run ndt-map drive` (about 6 min).
 

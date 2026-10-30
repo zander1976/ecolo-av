@@ -57,7 +57,7 @@ def test_every_row_sets_both_localizers():
     # debugdemo turns AMCL and NDT on; the last value wins, so each row says both.
     for _, _, args in pick.LOCALIZERS:
         names = {a.split(':=')[0] for a in args}
-        assert {'ndt', 'amcl'} <= names
+        assert {'ndt', 'ndt_ekf', 'amcl'} <= names
 
 
 def test_enter_takes_the_defaults():

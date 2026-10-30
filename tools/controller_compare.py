@@ -21,7 +21,13 @@ The trials (docs/trials.md):
                     against the truth, as the EKF is)
     pixi run controller-compare --ndt              (NDT beside the EKF, ndt:=true, on the map
                     pixi run ndt-map drive made: its errors, the share of clouds that gave
-                    a pose, time over 1 m off, each match's wall-clock time)
+                    a pose, time over 1 m off, each match's wall-clock time; and its
+                    covariance against its errors: NEES, the k that would make it honest,
+                    and how far off each band of score per point was)
+    pixi run controller-compare --ndt-ekf          (the same, with NDT's pose into the global
+                    EKF, ndt_ekf:=true: compare its EKF numbers with --ndt's)
+    pixi run controller-compare --ndt --gps-off    (the GPS stops once the EKF has its first
+                    fix; with watchdog:=false, or the sensor watchdog would hold Nav2)
     pixi run controller-compare --planners hybrid lattice smac2d --tours lot
                     Nav2's planners (planner:=), each with MPPI unless --controllers or
                     --trackers says otherwise. Before each leg it also asks the planner
@@ -123,6 +129,7 @@ COLOURS = {'rpp': '#1f6fb4', 'mppi': '#e8590c', 'pure_pursuit': '#2b8a3e', 'stan
 PLAN_TIME = 15.0        # s (wall) for the planner alone to answer, before each leg
 # NDT's map of the test lot (tools/ndt_map.py; maps/ is not in git).
 NDT_MAP = os.path.join(ROOT, 'maps', 'ndt', 'test_lot.pcd')
+NDT_CONFIG = os.path.join(ROOT, 'ros', 'localization', 'aav_ndt', 'config', 'ndt.yaml')
 # The process to time for each kind of follower (its command line, in the run's group).
 PROCESS = {'controller': 'controller_server', 'tracker': 'lib/aav_track/track'}
 
@@ -171,7 +178,7 @@ class Recorder(Node):
         self.recording = False
         self.truth, self.plans, self.steering, self.asked = [], [], [], []
         self.belief, self.amcl, self.loops = [], [], []
-        self.ndt, self.ndt_status = [], []
+        self.ndt, self.ndt_status, self.ndt_fits = [], [], []
         self.last_truth = self.glob = None
         self.lock, self.locked, self.states = None, False, set()
         self.monitor, self.monitor_stops = None, 0
@@ -200,7 +207,7 @@ class Recorder(Node):
     def start(self):
         self.truth, self.plans, self.steering, self.asked = [], [], [], []
         self.belief, self.amcl, self.loops = [], [], []
-        self.ndt, self.ndt_status = [], []
+        self.ndt, self.ndt_status, self.ndt_fits = [], [], []
         self.locked, self.states, self.monitor_stops = False, set(), 0
         self.recording = True
 
@@ -236,6 +243,15 @@ class Recorder(Node):
             try:
                 self.ndt_status.append((self.now(), msg.level == DiagnosticStatus.OK,
                                         float(v['match_ms']), int(v['restarts'])))
+            except (KeyError, ValueError):
+                pass
+            # Every fit, good or poor, at its cloud's stamp: for NEES and the score floor.
+            try:
+                self.ndt_fits.append((
+                    float(v['stamp']), msg.level == DiagnosticStatus.OK,
+                    float(v['score_per_point']), float(v['x']), float(v['y']), float(v['yaw']),
+                    tuple(float(v[f'cov_{n}'])
+                          for n in ('xx', 'xy', 'xyaw', 'yy', 'yyaw', 'yawyaw'))))
             except (KeyError, ValueError):
                 pass
 
@@ -408,11 +424,56 @@ def drive_leg(rec, pgid, goal, speed, body, obstacle, process='controller_server
         leg['amcl'] = rec.amcl
     if ndt:
         leg['ndt'], leg['ndt_status'] = rec.ndt, rec.ndt_status
+        leg['ndt_fits'], leg['ndt_cov'] = rec.ndt_fits, ndt_cov()
     if rec.loops:
         leg['loops'] = rec.loops
     if planned is not None:
         leg['planned'] = planned
     return leg, notes
+
+
+def ndt_cov():
+    """Return NDT's (k, floor_xy, floor_yaw) from aav_ndt's config/ndt.yaml."""
+    with open(NDT_CONFIG) as f:
+        p = yaml.safe_load(f)['ndt']['ros__parameters']
+    return (p['covariance_scale'], p['variance_floor_xy'], p['variance_floor_yaw'])
+
+
+def ndt_calibration(results):
+    """
+    Return results.md's NDT section: its spread against its errors over every leg.
+
+    The k that would make the good fits' mean NEES 3 (with the floors kept), the NEES
+    with the k in use, and how far off each band of score per point was (good and poor).
+    """
+    errors = [e for *_, drawn in results for e in drawn.get('ndt_errors', [])]
+    if not errors:
+        return []
+    k, floor_xy, floor_yaw = ndt_cov()
+    fitted = drive_metrics.fit_scale(errors, floor_xy, floor_yaw)
+    lines = ['## NDT: its spread against its errors', '',
+             f'{sum(1 for ok, *_ in errors if ok)} good fits, '
+             f'{sum(1 for ok, *_ in errors if not ok)} poor, over every leg and run. '
+             'NEES: about 3 when the covariance is honest.', '',
+             '| | |', '|---|---|',
+             f'| k in use (config/ndt.yaml) | {k:g} |',
+             f'| NEES, mean, with it | '
+             f'{drive_metrics.mean_nees(errors, k, floor_xy, floor_yaw):.1f} |',
+             f'| k for NEES 3 (floors kept) | {fitted:.3g} |', '',
+             '| Score per point | Fits | Off, mean (m) | Off, worst (m) | Heading, worst (deg) |',
+             '|---|---|---|---|---|']
+    lines += [f'| {lo:g} to {hi:g} | {n} | {mean:.3f} | {worst:.2f} | {deg:.1f} |'
+              for lo, hi, n, mean, worst, deg in drive_metrics.score_bands(errors)]
+    return lines + ['']
+
+
+def gps_off(rec):
+    """Stop the GPS (aav_gazebo faults: gazebo_gps fault.gps stop); return a note."""
+    out = subprocess.run(['ros2', 'param', 'set', '/gazebo_gps', 'fault.gps', 'stop'],
+                         capture_output=True, text=True, timeout=60)
+    rec.spin_for(2.0)
+    return ('the GPS stopped' if out.returncode == 0 and 'successful' in out.stdout.lower()
+            else f'could not stop the GPS: {(out.stdout + out.stderr).strip()[:120]}')
 
 
 def private(used):
@@ -522,8 +583,13 @@ def session(tour, follower, args, out_dir, body, used, run=1):
         command.append(f'planner:={planner}')
     if args.amcl:
         command.append('amcl:=true')
-    if args.ndt:
+    if args.ndt_ekf:
+        command += ['ndt_ekf:=true', f'ndt_map:={NDT_MAP}']
+    elif args.ndt:
         command += ['ndt:=true', f'ndt_map:={NDT_MAP}']
+    if args.gps_off:
+        # The sensor watchdog would hold Nav2 with the GPS quiet: the drive is the test.
+        command.append('watchdog:=false')
     if plan['obstacle']:
         command.append('obstacle:=true')
     if args.speed:
@@ -549,6 +615,9 @@ def session(tour, follower, args, out_dir, body, used, run=1):
                 return [(tour, name, label, None, ['never came up'], {'run': run})
                         for name, *_ in tour_legs(tour, args)]
             rec.spin_for(SETTLE)
+            if args.gps_off:
+                # After the EKF's first fix (the wait above): it knows where it started.
+                print(f'   {gps_off(rec)}', flush=True)
             for name, x, y, heading in tour_legs(tour, args):
                 leg, notes = drive_leg(rec, launch.pid, (x, y, math.radians(heading)),
                                        args.speed or 1.0, body, obstacle,
@@ -576,6 +645,10 @@ def session(tour, follower, args, out_dir, body, used, run=1):
                     # The planner's own path, from where the car stood (--planners).
                     drawn['planned'] = [[round(x, 2), round(y, 2)]
                                         for x, y in leg['planned']['path'][::4]]
+                if leg.get('ndt_fits'):
+                    # Each fit's error at its own stamp, for ndt_calibration().
+                    drawn['ndt_errors'] = drive_metrics.fit_errors(leg['truth'],
+                                                                   leg['ndt_fits'])
                 rows.append((tour, name, label, row, notes, drawn))
                 print(f'   {name}: ' + ('reached' if row['reached'] else 'NOT reached') +
                       f' in {row["time_s"]:.0f} s, {row["driven_m"]:.1f} m, off the path '
@@ -620,7 +693,10 @@ def report(results, args, started):
              ('reversing allowed' if args.reversing else 'forward only') +
              (', AMCL beside the EKF' if args.amcl else '') +
              (", NDT beside the EKF (its map: tools/ndt_map.py; Gazebo's lidar has no sweep, "
-              "the car's does)" if args.ndt else '') +
+              "the car's does)" if args.ndt and not args.ndt_ekf else '') +
+             (", NDT's pose into the global EKF (ndt_ekf:=true)" if args.ndt_ekf else '') +
+             (', the GPS stopped after the first fix (watchdog:=false)'
+              if args.gps_off else '') +
              (f', planners: {", ".join(args.planners)} (planner:=; the planner alone '
               "asked once before each leg, its turns against the car's full lock of "
               f'{vehicle.min_turning_radius(vehicle.load()["vehicle"]):.2f} m)'
@@ -656,6 +732,8 @@ def report(results, args, started):
             lines += [f'- {c}' + (f' #{r}' if args.runs > 1 else '') + f': {"; ".join(notes)}'
                       for c, _, notes, r in legs if notes]
             lines.append('')
+    if args.ndt:
+        lines += ndt_calibration(results)
     return '\n'.join(lines)
 
 
@@ -708,6 +786,10 @@ def main():
     parser.add_argument('--ndt', action='store_true',
                         help='run NDT beside the EKF (ndt:=true) and score it too; needs '
                              'the map: pixi run ndt-map drive')
+    parser.add_argument('--ndt-ekf', action='store_true',
+                        help="as --ndt, and the global EKF takes NDT's pose (ndt_ekf:=true)")
+    parser.add_argument('--gps-off', action='store_true',
+                        help='stop the GPS once the EKF has its first fix (watchdog:=false)')
     parser.add_argument('--tours', nargs='+', choices=list(TOURS), default=list(TOURS))
     parser.add_argument('--speed', type=float, default=None,
                         help="m/s, up to 5: sim_speed:= (the car's own top speed: 1.0)")
@@ -728,6 +810,7 @@ def main():
         parser.error('--trackers drive forwards only: leave out --reversing')
     if args.runs < 1:
         parser.error('--runs must be 1 or more')
+    args.ndt = args.ndt or args.ndt_ekf
     if args.ndt and not os.path.isfile(NDT_MAP):
         parser.error(f'--ndt: no map at {NDT_MAP}; make it with pixi run ndt-map drive')
     started = datetime.datetime.now()

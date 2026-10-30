@@ -5,7 +5,7 @@ Neither EKF reads the other's topic. They meet only in TF: ekf_global publishes
 map -> odom, worked out on top of ekf_local's odom -> base_link.
 
   ros2 launch aav_localization localization.launch.py [gps:=true] [gps_heading:=true]
-      [start_x:=0.0] [start_y:=0.0] [start_yaw:=0.0] [use_sim_time:=false]
+      [ndt_ekf:=false] [start_x:=0.0] [start_y:=0.0] [start_yaw:=0.0] [use_sim_time:=false]
 
   /vehicle/odom, /sensors/imu/data ──> ekf_local ──> /localization/odom/local, TF odom -> base_link
   /vehicle/odom, /sensors/imu/data, /localization/gps/odom, /localization/gps/heading
@@ -15,6 +15,10 @@ map -> odom, worked out on top of ekf_local's odom -> base_link.
   /sensors/gps/fix_velocity, /vehicle/odom ──> gps_heading (aav_gps_heading)
       ──> /localization/gps/heading: the heading from the receiver's velocity, while the
       car moves (TODO 13). gps_heading:=false leaves it out
+
+ndt_ekf:=true (a trial, docs/trials.md): ekf_global also takes NDT's pose,
+/localization/ndt/pose (x, y, yaw), with config/ekf_global_ndt.yaml on top of
+ekf_global.yaml. NDT itself is aav_ndt's: sim.launch.py ndt_ekf:=true starts both.
 
 start_x, start_y, start_yaw: where the car is when this starts, in the map frame
 (metres east and north of the datum, yaw in radians counter-clockwise from east).
@@ -43,13 +47,15 @@ def global_ekf(context):
                  for n in ('start_x', 'start_y', 'start_yaw'))
     config = PathJoinSubstitution([FindPackageShare('aav_localization'), 'config'])
     initial_state = [x, y, 0.0, 0.0, 0.0, yaw] + [0.0] * 9
+    files = [PathJoinSubstitution([config, 'ekf_global.yaml'])]
+    if LaunchConfiguration('ndt_ekf').perform(context).lower() == 'true':
+        files.append(PathJoinSubstitution([config, 'ekf_global_ndt.yaml']))
     return [Node(
         package='robot_localization',
         executable='ekf_node',
         name='ekf_global',
-        parameters=[PathJoinSubstitution([config, 'ekf_global.yaml']),
-                    {'initial_state': initial_state,
-                     'use_sim_time': LaunchConfiguration('use_sim_time')}],
+        parameters=files + [{'initial_state': initial_state,
+                             'use_sim_time': LaunchConfiguration('use_sim_time')}],
         remappings=([('odometry/filtered', '/localization/odom/global')]
                     + ekf_services('ekf_global')),
         condition=IfCondition(LaunchConfiguration('gps')),
@@ -62,6 +68,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('gps', default_value='true'),
         DeclareLaunchArgument('gps_heading', default_value='true'),
+        DeclareLaunchArgument('ndt_ekf', default_value='false',
+                              description="ekf_global also takes NDT's pose (a trial)"),
         DeclareLaunchArgument('start_x', default_value='0.0'),
         DeclareLaunchArgument('start_y', default_value='0.0'),
         DeclareLaunchArgument('start_yaw', default_value='0.0'),

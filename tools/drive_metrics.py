@@ -17,6 +17,11 @@ One leg is one Nav2 goal. It records, on Gazebo's clock:
   amcl      [(t, x, y, yaw)]        optional: AMCL's pose (/localization/amcl/pose), a trial
   ndt       [(t, x, y, yaw)]        optional: NDT's pose (/localization/ndt/pose), a trial
   ndt_status [(t, ok, match_ms, restarts)]  optional: NDT's status, one per cloud
+  ndt_fits  [(stamp, ok, score, x, y, yaw, (xx, xy, xyaw, yy, yyaw, yawyaw))]  optional:
+            every fit NDT made, good (ok) or poor, at its cloud's stamp, with its score
+            per point and its raw covariance -H^-1 (before k and the floors)
+  ndt_cov   (k, floor_xy m^2, floor_yaw rad^2)  optional: NDT's covariance settings
+            (aav_ndt config/ndt.yaml), for the NEES of what it published
   loops     [(t, loop_ms, loop_ms_max, missed)]  optional: aav_track's status, each tick
   planned   optional: one plan asked of the planner alone before the leg, from where the
             car stood (controller_compare.py --planners, /compute_path_to_pose):
@@ -280,6 +285,104 @@ def localizer_row(name, truth, poses, start, end):
     }
 
 
+# NDT's covariance, checked against its errors (the NDT design: k fitted so Gazebo's
+# errors match the spread). NEES = e' P^-1 e for each pose, e its error (x, y, yaw) from
+# the truth, P the covariance it published: for 3 numbers, honest poses average 3.
+NEES_DOF = 3
+
+
+def truth_at(truth, t):
+    """Return (x, y, yaw) at t, between the two samples round it; None outside them."""
+    times = [s[0] for s in truth]
+    i = bisect.bisect_left(times, t)
+    if i < len(times) and times[i] == t:
+        return truth[i][1:]
+    if i == 0 or i == len(times):
+        return None
+    (t0, x0, y0, a0), (t1, x1, y1, a1) = truth[i - 1], truth[i]
+    f = (t - t0) / (t1 - t0)
+    return (x0 + f * (x1 - x0), y0 + f * (y1 - y0), a0 + f * angle_diff(a1, a0))
+
+
+def fit_errors(truth, fits):
+    """
+    Return [(ok, score, (ex, ey, eyaw), cov6)]: each NDT fit's error from the truth.
+
+    fits as the leg's ndt_fits. Fits outside the truth, or with no covariance, are left out.
+    """
+    out = []
+    for stamp, ok, score, x, y, yaw, cov in fits:
+        at = truth_at(truth, stamp)
+        if at is None or cov is None:
+            continue
+        tx, ty, tyaw = at
+        out.append((ok, score, (x - tx, y - ty, angle_diff(yaw, tyaw)), tuple(cov)))
+    return out
+
+
+def published(cov, k, floor_xy, floor_yaw):
+    """Return the 3x3 covariance NDT publishes from raw -H^-1 (as ndt-core covariance())."""
+    xx, xy, xa, yy, ya, aa = (k * v for v in cov)
+    return [[max(xx, floor_xy), xy, xa], [xy, max(yy, floor_xy), ya],
+            [xa, ya, max(aa, floor_yaw)]]
+
+
+def nees(e, p):
+    """Return e' P^-1 e for a 3-vector and a 3x3 covariance; nan if P can't be inverted."""
+    (a, b, c), (d, f, g), (h, i, j) = p
+    det = a * (f * j - g * i) - b * (d * j - g * h) + c * (d * i - f * h)
+    if not det > 0.0:
+        return math.nan
+    inv = [[(f * j - g * i) / det, (c * i - b * j) / det, (b * g - c * f) / det],
+           [(g * h - d * j) / det, (a * j - c * h) / det, (c * d - a * g) / det],
+           [(d * i - f * h) / det, (b * h - a * i) / det, (a * f - b * d) / det]]
+    return sum(e[r] * inv[r][k] * e[k] for r in range(3) for k in range(3))
+
+
+def mean_nees(errors, k, floor_xy, floor_yaw):
+    """Return the mean NEES of the good fits, with NDT's covariance at scale k."""
+    values = [nees(e, published(cov, k, floor_xy, floor_yaw))
+              for ok, _, e, cov in errors if ok]
+    values = [v for v in values if not math.isnan(v)]
+    return sum(values) / len(values) if values else math.nan
+
+
+def fit_scale(errors, floor_xy, floor_yaw, lo=1e-3, hi=1e6):
+    """
+    Return k so that the good fits' mean NEES is 3 (their errors match their spread).
+
+    The mean NEES falls as k grows (the floors only slow it), so halve the range in log.
+    nan with no good fit.
+    """
+    if math.isnan(mean_nees(errors, 1.0, floor_xy, floor_yaw)):
+        return math.nan
+    for _ in range(80):
+        mid = math.sqrt(lo * hi)
+        if mean_nees(errors, mid, floor_xy, floor_yaw) > NEES_DOF:
+            lo = mid
+        else:
+            hi = mid
+    return math.sqrt(lo * hi)
+
+
+def score_bands(errors, edges=(0.0, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, math.inf)):
+    """
+    Return how far off the fits of each band of score per point were.
+
+    [(low, high, fits, mean error m, worst error m, worst heading deg)], good and poor
+    fits together.
+    """
+    out = []
+    for low, high in zip(edges, edges[1:]):
+        band = [e for _, score, e, _ in errors if low <= score < high]
+        if not band:
+            continue
+        gaps = [math.hypot(e[0], e[1]) for e in band]
+        out.append((low, high, len(band), sum(gaps) / len(gaps), max(gaps),
+                    math.degrees(max(abs(e[2]) for e in band))))
+    return out
+
+
 # How tight a path turns: the circle through three points this far apart along it (m).
 # Over 1 m, a Hybrid or Lattice arc reads its own radius; a grid planner's corner reads
 # well under a metre.
@@ -433,6 +536,13 @@ def summary(leg):
             'ndt_match_ms_max': max(times),
             'ndt_restarts': max(r for *_, r in status) - min(r for *_, r in status),
         })
+    fits = fit_errors(truth, leg.get('ndt_fits') or [])
+    if fits and leg.get('ndt_cov'):
+        # NDT's published spread against its errors: about 3 if honest (fit_scale).
+        row['ndt_nees_mean'] = mean_nees(fits, *leg['ndt_cov'])
+        good = [e for ok, _, e, _ in fits if ok]
+        if good:
+            row['ndt_fit_mean_m'] = sum(math.hypot(e[0], e[1]) for e in good) / len(good)
     loops = leg.get('loops')
     if loops:
         row.update({
@@ -500,6 +610,8 @@ COLUMNS = [
     ('ndt_match_ms_mean', "NDT's match: mean (ms, wall clock)", '{:.1f}'),
     ('ndt_match_ms_max', "NDT's match: worst (ms, wall clock)", '{:.1f}'),
     ('ndt_restarts', 'NDT restarts after LOST', '{:d}'),
+    ('ndt_fit_mean_m', 'NDT at its own stamps: off, mean (m)', '{:.3f}'),
+    ('ndt_nees_mean', "NDT's spread against its errors: NEES, mean (3 is honest)", '{:.1f}'),
     ('belief_grid_mean_m', 'The EKF on the 10 Hz grid: off, mean (m)', '{:.2f}'),
     ('amcl_grid_mean_m', 'AMCL on the 10 Hz grid: off, mean (m)', '{:.2f}'),
     ('ndt_grid_mean_m', 'NDT on the 10 Hz grid: off, mean (m)', '{:.3f}'),

@@ -493,3 +493,63 @@ def test_a_whole_tour_in_one_row():
     text = m.table([('hybrid', out)], columns=m.OVERALL)
     assert 'Legs finished' in text and '**no**' in text
     assert m.overall([None]) == {'legs': '0/1'}
+
+
+def ndt_fits(truth, sd, k_true, seed=3):
+    """
+    Return made-up NDT fits along truth.
+
+    Each is off by noise of sd (m) in x and y, sd/10 rad in yaw, and says its raw spread
+    is k_true times too small (raw = sd^2 / k_true).
+    """
+    import random
+    rng = random.Random(seed)
+    raw = (sd * sd / k_true, 0.0, 0.0, sd * sd / k_true, 0.0, (sd / 10) ** 2 / k_true)
+    return [(t, True, 3.0, x + rng.gauss(0, sd), y + rng.gauss(0, sd),
+             yaw + rng.gauss(0, sd / 10), raw) for t, x, y, yaw in truth]
+
+
+def test_truth_is_interpolated_between_its_samples():
+    truth = [(0.0, 0.0, 0.0, 0.0), (1.0, 2.0, 0.0, 0.2)]
+    assert m.truth_at(truth, 0.5) == pytest.approx((1.0, 0.0, 0.1))
+    assert m.truth_at(truth, 1.0) == (2.0, 0.0, 0.2)
+    assert m.truth_at(truth, 1.5) is None and m.truth_at(truth, -0.1) is None
+
+
+def test_nees_of_a_known_covariance():
+    p = [[4.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.25]]
+    assert m.nees((2.0, 1.0, 0.5), p) == pytest.approx(3.0)
+    assert math.isnan(m.nees((1.0, 0.0, 0.0), [[0.0] * 3] * 3))
+    # The floors lift only the diagonal, after the scale.
+    assert m.published((1e-6, 2e-7, 0, 1e-6, 0, 1e-9), 10.0, 4e-4, 7.6e-5) == [
+        [4e-4, 2e-6, 0], [2e-6, 4e-4, 0], [0, 0, 7.6e-5]]
+
+
+def test_the_scale_k_is_found_from_errors_and_spread():
+    truth = straight(seconds=60.0)
+    fits = m.fit_errors(truth, ndt_fits(truth, sd=0.05, k_true=40.0))
+    assert len(fits) == len(truth)
+    # No floors: k comes back near the 40 put in, and NEES is 3 there.
+    k = m.fit_scale(fits, 0.0, 0.0)
+    assert k == pytest.approx(40.0, rel=0.15)
+    assert m.mean_nees(fits, k, 0.0, 0.0) == pytest.approx(3.0, rel=1e-3)
+    assert m.mean_nees(fits, 1.0, 0.0, 0.0) > 30          # k = 1: far too sure
+    assert math.isnan(m.fit_scale([], 0.0, 0.0))
+
+
+def test_score_bands_say_how_far_off_each_score_was():
+    errors = [(True, 3.2, (0.01, 0.0, 0.0), None), (True, 3.4, (0.03, 0.0, 0.0), None),
+              (False, 1.2, (2.0, 0.0, 0.5), None)]
+    bands = m.score_bands(errors)
+    assert [(b[0], b[2]) for b in bands] == [(1.0, 1), (3.0, 2)]
+    assert bands[1][3] == pytest.approx(0.02) and bands[0][4] == pytest.approx(2.0)
+
+
+def test_a_leg_with_ndt_fits_reports_its_nees():
+    truth = straight(seconds=20.0)
+    leg = {'truth': truth, 'plans': [], 'steering': [], 'start': 0.0, 'end': 20.0,
+           'goal': (20.0, 0.0, 0.0), 'reached': True, 'body': BODY,
+           'ndt_fits': ndt_fits(truth, sd=0.05, k_true=1.0), 'ndt_cov': (1.0, 0.0, 0.0)}
+    row = m.summary(leg)
+    assert row['ndt_nees_mean'] == pytest.approx(3.0, rel=0.25)
+    assert 0.03 < row['ndt_fit_mean_m'] < 0.1

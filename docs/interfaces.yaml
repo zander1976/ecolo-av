@@ -619,13 +619,13 @@ topics:
   /localization/ndt/pose:
     type: geometry_msgs/msg/PoseWithCovarianceStamped
     pub: [ndt]
-    sub: [debug_hud]
-    note: A trial (docs/designs/2026-10-29_ndt.md) - where NDT (aav_ndt, Rust) puts base_link on the saved lidar map, map frame, stamped with the cloud's own stamp. Only good fits (score per point above min_score_per_point, converged); x, y and yaw only, height, roll and pitch held at 0. Covariance - the x, y, yaw block k (-H^-1) with a floor, the rest 1e3. Only with ndt:=true (sim.launch.py world:=test_lot lidar:=true, the map file present). Nothing reads it to drive, and it never publishes TF, until it wins the trials. The debug HUD draws it (a purple car).
+    sub: [debug_hud, ekf_global]
+    note: A trial (docs/designs/2026-10-29_ndt.md) - where NDT (aav_ndt, Rust) puts base_link on the saved lidar map, map frame, stamped with the cloud's own stamp. Only good fits (score per point above min_score_per_point, converged, and while tracking no further than max_correction_m / max_correction_deg from the odometry's guess); x, y and yaw only, height, roll and pitch held at 0. Covariance - the x, y, yaw block k (-H^-1) with a floor, the rest 1e3; k fitted in Gazebo (NEES, docs/trials.md). Only with ndt:=true or ndt_ekf:=true (sim.launch.py world:=test_lot lidar:=true, the map file present). With ndt_ekf:=true (a trial, off by default) ekf_global fuses its x, y and yaw beside the GPS (pose0, refused past 5 sigma; aav_localization config/ekf_global_ndt.yaml); otherwise nothing reads it to drive. It never publishes TF. The debug HUD draws it (a purple car).
   /localization/ndt/status:
     type: diagnostic_msgs/msg/DiagnosticStatus
     pub: [ndt]
     sub: [debug_hud]
-    note: NDT's state after every cloud - name ndt, level OK (a good fit), WARN (a poor fit, or no start yet) or ERROR (LOST), message TRACKING, WAITING or LOST and why; values score_per_point, overlap, iterations, match_ms (wall clock, the match alone), points (after the filters), poor_in_row, restarts (from ekf_global after LOST), clouds_dropped (arrived while one was being matched), x, y, yaw. The debug HUD's panel shows it.
+    note: NDT's state after every cloud - name ndt, level OK (a good fit), WARN (a poor fit, or no start yet) or ERROR (LOST), message TRACKING, WAITING or LOST and why; values stamp (the cloud's, s), score_per_point, overlap, iterations, match_ms (wall clock, the match alone), points (after the filters), poor_in_row, restarts (from ekf_global after LOST), clouds_dropped (arrived while one was being matched), x, y, yaw, and for a fit cov_xx, cov_xy, cov_xyaw, cov_yy, cov_yyaw, cov_yawyaw (-H^-1 before the scale k and the floors, to fit k). WARN's why says which poor fit - score too low, out of iterations, or jumped from the guess. The debug HUD's panel shows it; controller-compare --ndt scores it.
   /localization/ndt/initial_pose:
     type: geometry_msgs/msg/PoseWithCovarianceStamped
     pub: []

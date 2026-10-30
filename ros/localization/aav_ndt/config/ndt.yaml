@@ -12,6 +12,9 @@ ndt:
     thin: 1.0                   # m: one point per cube of the scan
     min_score_per_point: 2.0    # below: a poor fit. Good fits scored 3.1-3.7 on the made-up
                                 # test lot, a wrong one 1.2 (ndt-core tests). TODO fit in Gazebo
+    max_correction_m: 0.5       # while tracking, a fit further than this from the guess (last
+    max_correction_deg: 5.0     # good pose moved on by the local EKF) is poor: a jump. Not
+                                # after a start or a restart, which may be off by more
     lost_after: 5               # poor fits in a row, then LOST and a restart from ekf_global
     max_iterations: 30          # Newton steps per cube size
     step_m: 0.1                 # the step cap
