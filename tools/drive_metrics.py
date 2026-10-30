@@ -371,6 +371,17 @@ def reversals(truth, moving=STILL):
     return sum(a != b for a, b in zip(signs, signs[1:]))
 
 
+def reversed_distance(truth, moving=STILL):
+    """Return the distance (m) the car covered backwards (faster than `moving` in reverse)."""
+    out = 0.0
+    for a, b in zip(truth, truth[1:]):
+        dt = b[0] - a[0]
+        step = (b[1] - a[1]) * math.cos(b[3]) + (b[2] - a[2]) * math.sin(b[3])
+        if dt > 0.0 and step / dt <= -moving:
+            out += math.hypot(b[1] - a[1], b[2] - a[2])
+    return out
+
+
 def clearance(truth, obstacle, body):
     """Return the smallest gap (m) between the car's outline and the box, or None."""
     if obstacle is None or not truth:
@@ -406,6 +417,7 @@ def summary(leg):
         'steering_rms': rms_rate(leg['steering']),
         'stops': stops(truth),
         'reversals': reversals(truth),
+        'reversed_m': reversed_distance(truth),
         'clearance_m': clearance(truth, leg.get('obstacle'), leg['body']),
         'cpu_percent': leg.get('cpu'),
         'route_switches': switched,
@@ -475,6 +487,7 @@ COLUMNS = [
     ('steering_rms', 'Steering work (rad/s RMS)', '{:.3f}'),
     ('stops', 'Stops', '{:d}'),
     ('reversals', 'Reversals', '{:d}'),
+    ('reversed_m', 'Driven in reverse (m)', '{:.1f}'),
     ('clearance_m', 'Closest to the box (m)', '{:.2f}'),
     ('cpu_percent', 'follower CPU (%): controller_server, or aav_track', '{:.0f}'),
     ('route_switches', 'The planner changed its route (times)', '{:d}'),
@@ -558,6 +571,7 @@ OVERALL = [
     ('legs', 'Legs finished', '{}'),
     ('time_s', 'Time, all legs (s)', '{:.0f}'),
     ('driven_m', 'Driven, all legs (m)', '{:.1f}'),
+    ('reversed_m', 'Driven in reverse, all legs (m)', '{:.1f}'),
     ('plan_m', 'The planner alone: path length, all legs (m)', '{:.1f}'),
     ('plan_ms', 'The planner alone: planning time, mean (ms)', '{:.0f}'),
     ('plan_ms_max', 'The planner alone: planning time, worst (ms)', '{:.0f}'),
@@ -577,7 +591,7 @@ def overall(rows):
         return [r[key] for r in done if isinstance(r.get(key), (int, float))
                 and not isinstance(r.get(key), bool) and not math.isnan(r[key])]
 
-    for key in ('time_s', 'driven_m', 'plan_m', 'plan_too_tight_m'):
+    for key in ('time_s', 'driven_m', 'reversed_m', 'plan_m', 'plan_too_tight_m'):
         if numbers(key):
             out[key] = sum(numbers(key))
     if numbers('plan_ms'):

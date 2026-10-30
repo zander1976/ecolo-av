@@ -493,3 +493,14 @@ def test_a_whole_tour_in_one_row():
     text = m.table([('hybrid', out)], columns=m.OVERALL)
     assert 'Legs finished' in text and '**no**' in text
     assert m.overall([None]) == {'legs': '0/1'}
+
+
+def test_metres_driven_in_reverse():
+    forward = straight(speed=1.0, seconds=5.0)
+    t_end = forward[-1][0]
+    # Then back 1.5 m at 0.5 m/s, still facing east.
+    back = [(t_end + i / 10.0, 5.0 - 0.05 * i, 0.0, 0.0) for i in range(1, 31)]
+    assert m.reversed_distance(forward) == 0.0
+    assert m.reversed_distance(forward + back) == pytest.approx(1.5)
+    rows = [{'reached': True, 'reversed_m': 1.5}, {'reached': True, 'reversed_m': 2.0}]
+    assert m.overall(rows)['reversed_m'] == pytest.approx(3.5)
