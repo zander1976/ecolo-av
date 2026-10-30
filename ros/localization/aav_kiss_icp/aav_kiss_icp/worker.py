@@ -9,6 +9,7 @@ environment has only Python, NumPy and kiss-icp (MIT, PRBonn; pixi.toml).
 """
 
 import os
+import signal
 import sys
 import time
 
@@ -36,6 +37,8 @@ def settings_from(given):
 def main():
     from kiss_icp.kiss_icp import KissICP
     from kiss_icp.preprocess import get_preprocessor
+    # Ctrl-C reaches the whole process group: the node closes the pipe, and that ends us.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
     line = stdin.readline()
     if not line:
