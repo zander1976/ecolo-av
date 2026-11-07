@@ -29,7 +29,9 @@ A Cargo workspace that colcon builds through `CMakeLists.txt`. More in docs/hud.
 docs/car-screens.md.
 
 **Colours (1 Nov):** all four screens share one theme (`hud_core::theme`), each chosen
-by `theme:` in its own yaml: `mocha` (dark, the default), `latte` (light, daytime) or
+by `theme:` in its own yaml: `initial_d` (black, white and Carleton's red, sharp: the
+HUD's default since 1 Nov, its speed an arcade gauge, a tribute to Initial D's arcade
+gauges), `mocha` (dark, the other screens' default), `latte` (light, daytime) or
 `calm` (a placeholder copy of Mocha until Ben gives his colours). Mocha and Latte are [Catppuccin](https://catppuccin.com)'s palettes,
 MIT licence. Panels are frosted glass (`hud_app::paint`); the map blurs what's behind
 its boxes (`map-app/src/frost.rs`, `blur`); the debug screen's legends are glass too.
@@ -66,7 +68,9 @@ NDT purple). docs/hud.md, "Themes".
 | pub | `estop_topic`: `/safety/estop` (only `true`) | std_msgs/Bool |
 | pub | `heartbeat_topic`: `/hud/heartbeat` (10 Hz while it draws) | std_msgs/UInt64 |
 
-Parameters `stale_after` (1.0 s): a quieter topic shows STALE; `theme` (`mocha`, `latte`, `calm`).
+Parameters `stale_after` (1.0 s): a quieter topic shows STALE; `max_speed` (1.0 m/s, ego's
+cap: the gauge's red blocks start there; `hud.launch.py` reads it from aav_ego's
+`ego.yaml`, or `max_speed:=`); `theme` (`initial_d`, `mocha`, `latte`, `calm`).
 
 ### Node `map` (topic names from `config/map.yaml`)
 
@@ -137,7 +141,7 @@ it; never vehicle.yaml).
 
 | Command | Starts |
 |---|---|
-| `pixi run hud [fullscreen:=true] [monitor:=HDMI-1]` | `hud.launch.py` |
+| `pixi run hud [fullscreen:=true] [monitor:=HDMI-1] [max_speed:=0.3]` | `hud.launch.py` |
 | `pixi run map [fullscreen:=true] [monitor:=HDMI-1] [streets:=] [places:=]` | `map.launch.py`, with `vehicle.yaml` and `navsat.yaml` |
 | `cargo run -p hud-app --no-default-features -- --demo` | the HUD with pretend data, no ROS |
 | `cargo run -p map-app --no-default-features -- --demo [--bench 6]` | the map with pretend data; `--bench` prints the frame rate (the blur's test) |

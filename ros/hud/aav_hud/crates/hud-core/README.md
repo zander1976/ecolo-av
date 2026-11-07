@@ -10,7 +10,7 @@ keeps. `map-core` shares its health, origin, watchdog and formatting code.
 
 | Module | Holds |
 |---|---|
-| `config` | `HudConfig` from `config/hud.yaml` (`BUILT_IN_YAML`, built in); `Topic`, `NODE_NAME` = `hud` |
+| `config` | `HudConfig` from `config/hud.yaml` (`BUILT_IN_YAML`, built in), with `max_speed` and its `gauge()`; `Topic`, `NODE_NAME` = `hud` |
 | `units` | speed in m/s and km/h, angles |
 | `vehicle` | `/vehicle/status`: mode (`Mode`: MANUAL 0, RC 1, COMPUTER 2, TEST 3; any other number shows as `MODE n?`), gear letter, fault names |
 | `gps` | a fix: what kind, how accurate (`Fix`, `RawFix`) |
@@ -24,7 +24,10 @@ keeps. `map-core` shares its health, origin, watchdog and formatting code.
 | `state` | `HudState::new`, `apply(Update, now)`, `estop_pressed`, `take_new_picture` |
 | `format` | numbers as short text for the screen |
 | `screen` | which monitor a window opens on (`--monitor HDMI-1`) |
-| `theme` | every colour of the four screens (HUD, map, debug screen, hardware panel): `Theme`, `ThemeName` (`mocha`, `latte`, `calm`), `Rgba` with `contrast` (WCAG); Catppuccin's palettes (MIT) |
+| `theme` | every colour of the four screens (HUD, map, debug screen, hardware panel): `Theme`, `ThemeName` (`initial_d`, `mocha`, `latte`, `calm`), `Style` (`Glass`, `Arcade`), `Rgba` with `contrast` (WCAG); Catppuccin's palettes (MIT); `CARLETON_RED` |
+| `gauge` | the arcade speed gauge: `Scale::for_max_speed` (km/h dial, ticks, redline blocks, angles), `Needle::follow` (smooth, no overshoot), `readout`, `GearBox` |
+| `segments` | 7-segment digits: `Lit::of`, `cells` (right-aligned, decimal points), `Digit::polygon` (slanted hexagons) |
+| `silhouette` | a mid-80s hatchback coupe's side view as lines (our own drawing) |
 
 ## Invariants
 

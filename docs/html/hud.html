@@ -7,7 +7,7 @@
 <!-- Generated from docs/hud.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>The HUD (in-car screen)</h1>
-<div class="meta">57 min read · 7 sections</div></header>
+<div class="meta">62 min read · 7 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="overview.html">Overview</a>
 <a href="release-notes.html">Release notes</a>
@@ -1294,7 +1294,12 @@ the panels are <strong>frosted glass</strong>.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>mocha</code> (default)</td>
+<td><code>initial_d</code> (the HUD's default, 1 Nov)</td>
+<td>the car: black, white and Carleton's red, sharp; the speed as an arcade gauge</td>
+<td><img alt="initial_d HUD" src="../img/hud-initial-d.png" /></td>
+</tr>
+<tr>
+<td><code>mocha</code> (the other screens' default)</td>
 <td>night, and glare in the cabin: dark</td>
 <td>the "After" pictures above</td>
 </tr>
@@ -1312,6 +1317,146 @@ the panels are <strong>frosted glass</strong>.</p>
 </table></div>
 <p>Mocha and Latte are <a href="https://catppuccin.com">Catppuccin</a>'s palettes (MIT licence), with
 its official colour values.</p>
+<h3 id="initial_d-the-arcade-look">initial_d: the arcade look</h3>
+<p><em>A tribute to Initial D's arcade gauges</em>, for the team's Initial D fan (Ben, 1 Nov:
+"Maybe not catppuccin as it's kind of not sharp"; Carleton is red and black).</p>
+<p><img alt="The HUD in initial_d" src="../img/hud-initial-d.png" /></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Colours</td>
+<td>black, white, and Carleton's red <code>#e91c24</code></td>
+</tr>
+<tr>
+<td>Panels</td>
+<td>black, thin white edges, small corners; no glow, no blur</td>
+</tr>
+<tr>
+<td>Speed</td>
+<td>an arcade gauge: white ticks, italic numbers, a thin red needle (it swings smoothly), red blocks from the top speed up</td>
+</tr>
+<tr>
+<td>Digital box</td>
+<td>the speed in km/h, 7-segment digits; unlit segments faint</td>
+</tr>
+<tr>
+<td>GEAR box</td>
+<td>D, R or P; <strong>E-STOP</strong> when the e-stop is on</td>
+</tr>
+<tr>
+<td>Logo</td>
+<td>ours (below), over the dial</td>
+</tr>
+<tr>
+<td>Behind</td>
+<td>a mid-80s hatchback coupe in faint lines, behind TOPICS and GPS</td>
+</tr>
+</tbody>
+</table></div>
+<p>The rest of the HUD (the GO / STOP panel, the e-stop button, TOPICS, GPS) is the same
+as in the other themes, in these colours. The map, debug screen and hardware panel can
+use <code>initial_d</code> too: they keep Mocha's streets and localizer colours, on black.</p>
+<h4 id="the-gauges-scale">The gauge's scale</h4>
+<p>The car is slow, so the dial fits <strong><code>max_speed</code></strong> (m/s), not a car's 180 km/h. The red
+blocks start at <code>max_speed</code>, about the top fifth of the dial.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th><code>max_speed</code></th>
+<th>Dial</th>
+<th>Numbers every</th>
+<th>Red from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.0 m/s (ego's cap today)</td>
+<td>0-5 km/h</td>
+<td>1</td>
+<td>3.6 km/h</td>
+</tr>
+<tr>
+<td>3.0 m/s</td>
+<td>0-20 km/h</td>
+<td>2</td>
+<td>10.8 km/h</td>
+</tr>
+<tr>
+<td>5.0 m/s</td>
+<td>0-25 km/h</td>
+<td>5</td>
+<td>18 km/h</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>hud.launch.py</code> reads <code>max_speed</code> from aav_ego's <code>config/ego.yaml</code>; <code>max_speed:=0.3</code>
+sets it by hand. The maths (scale, ticks, redline, needle, digits) is in
+<code>hud_core::gauge</code> and <code>hud_core::segments</code>, with tests.</p>
+<h4 id="carletons-red-to-check">Carleton's red: to check</h4>
+<p><code>#e91c24</code> (RGB 233, 28, 36) is the "Red" swatch in the RGB logo files of
+<a href="https://carleton.ca/brand/wp-content/uploads/sites/155/22-307-Carleton-Logo-Guide-2023.pdf">Carleton's Logo Guide 2023</a>.
+<strong>Check it against the brand guide's colour page</strong> (<a href="https://carleton.ca/brand/">https://carleton.ca/brand/</a>)
+before calling it official. Change only <code>CARLETON_RED</code> in <code>hud_core::theme</code>, then
+<code>tools/make_logo.py</code>'s <code>RED</code>.</p>
+<p>Small red words are a little lighter than the red, so they keep 4.5 : 1 over the
+car's faint lines; the e-stop's fill is a little deeper, for its white words.</p>
+<h4 id="the-logo">The logo</h4>
+<p>Our own homage, not a copy: no Initial D, Sega, Kodansha, Carleton or Ravens artwork.
+A small bracketed <strong>カールトン</strong> (Carleton, in katakana) above a heavy slanted word, a
+big red italic <strong>V</strong>, and speed lines. Both read "AAV".</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Katakana-led: エーエー V</th>
+<th>Latin-led: AA V (on the HUD)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img alt="Katakana-led logo" src="../img/logo-katakana.png" /></td>
+<td><img alt="Latin-led logo" src="../img/logo-latin.png" /></td>
+</tr>
+</tbody>
+</table></div>
+<p><code>tools/make_logo.py</code> draws both (SVG and PNG in <code>docs/img/</code>, and
+<code>ros/hud/aav_hud/assets/hud-logo.png</code>, built into the HUD):</p>
+<pre class="highlight"><code class="language-sh">pixi run python3 tools/make_logo.py</code></pre>
+<h4 id="fonts-and-licences">Fonts and licences</h4>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Font</th>
+<th>Used for</th>
+<th>Licence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/google/fonts/tree/main/ofl/delagothicone">Dela Gothic One</a></td>
+<td>the katakana</td>
+<td>SIL Open Font Licence 1.1</td>
+</tr>
+<tr>
+<td><a href="https://github.com/google/fonts/tree/main/ofl/kanit">Kanit</a> Black Italic</td>
+<td>AA and V</td>
+<td>SIL Open Font Licence 1.1</td>
+</tr>
+<tr>
+<td>the computer's own bold italic (Verdana, Arial or DejaVu Sans)</td>
+<td>the gauge's numbers</td>
+<td>the system's</td>
+</tr>
+</tbody>
+</table></div>
+<p>The fonts are <strong>not</strong> in git: the script downloads them, with their <code>OFL.txt</code>, into
+<code>vendor/fonts/</code> from google/fonts at a fixed commit. The HUD only needs the logo's
+PNG. The OFL lets anyone use pictures made with a font.</p>
 <h3 id="switch-theme">Switch theme</h3>
 <div class="table-wrap"><table>
 <thead>

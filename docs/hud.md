@@ -493,12 +493,89 @@ the panels are **frosted glass**.
 
 | Theme | When | Picture |
 |---|---|---|
-| `mocha` (default) | night, and glare in the cabin: dark | the "After" pictures above |
+| `initial_d` (the HUD's default, 1 Nov) | the car: black, white and Carleton's red, sharp; the speed as an arcade gauge | ![initial_d HUD](img/hud-initial-d.png) |
+| `mocha` (the other screens' default) | night, and glare in the cabin: dark | the "After" pictures above |
 | `latte` | daytime: light | ![Latte HUD](img/hud-latte.png) ![Latte map](img/map-latte.png) ![Latte debug screen](img/debug-hud-latte.png) ![Latte hardware panel](img/hw-panel-latte.png) |
 | `calm` | Ben's own theme, from his Carleton web work | **not yet**: a copy of Mocha until Ben gives its colours |
 
 Mocha and Latte are [Catppuccin](https://catppuccin.com)'s palettes (MIT licence), with
 its official colour values.
+
+### initial_d: the arcade look
+
+*A tribute to Initial D's arcade gauges*, for the team's Initial D fan (Ben, 1 Nov:
+"Maybe not catppuccin as it's kind of not sharp"; Carleton is red and black).
+
+![The HUD in initial_d](img/hud-initial-d.png)
+
+| Part | What it is |
+|---|---|
+| Colours | black, white, and Carleton's red `#e91c24` |
+| Panels | black, thin white edges, small corners; no glow, no blur |
+| Speed | an arcade gauge: white ticks, italic numbers, a thin red needle (it swings smoothly), red blocks from the top speed up |
+| Digital box | the speed in km/h, 7-segment digits; unlit segments faint |
+| GEAR box | D, R or P; **E-STOP** when the e-stop is on |
+| Logo | ours (below), over the dial |
+| Behind | a mid-80s hatchback coupe in faint lines, behind TOPICS and GPS |
+
+The rest of the HUD (the GO / STOP panel, the e-stop button, TOPICS, GPS) is the same
+as in the other themes, in these colours. The map, debug screen and hardware panel can
+use `initial_d` too: they keep Mocha's streets and localizer colours, on black.
+
+#### The gauge's scale
+
+The car is slow, so the dial fits **`max_speed`** (m/s), not a car's 180 km/h. The red
+blocks start at `max_speed`, about the top fifth of the dial.
+
+| `max_speed` | Dial | Numbers every | Red from |
+|---|---|---|---|
+| 1.0 m/s (ego's cap today) | 0-5 km/h | 1 | 3.6 km/h |
+| 3.0 m/s | 0-20 km/h | 2 | 10.8 km/h |
+| 5.0 m/s | 0-25 km/h | 5 | 18 km/h |
+
+`hud.launch.py` reads `max_speed` from aav_ego's `config/ego.yaml`; `max_speed:=0.3`
+sets it by hand. The maths (scale, ticks, redline, needle, digits) is in
+`hud_core::gauge` and `hud_core::segments`, with tests.
+
+#### Carleton's red: to check
+
+`#e91c24` (RGB 233, 28, 36) is the "Red" swatch in the RGB logo files of
+[Carleton's Logo Guide 2023](https://carleton.ca/brand/wp-content/uploads/sites/155/22-307-Carleton-Logo-Guide-2023.pdf).
+**Check it against the brand guide's colour page** (<https://carleton.ca/brand/>)
+before calling it official. Change only `CARLETON_RED` in `hud_core::theme`, then
+`tools/make_logo.py`'s `RED`.
+
+Small red words are a little lighter than the red, so they keep 4.5 : 1 over the
+car's faint lines; the e-stop's fill is a little deeper, for its white words.
+
+#### The logo
+
+Our own homage, not a copy: no Initial D, Sega, Kodansha, Carleton or Ravens artwork.
+A small bracketed **カールトン** (Carleton, in katakana) above a heavy slanted word, a
+big red italic **V**, and speed lines. Both read "AAV".
+
+| Katakana-led: エーエー V | Latin-led: AA V (on the HUD) |
+|---|---|
+| ![Katakana-led logo](img/logo-katakana.png) | ![Latin-led logo](img/logo-latin.png) |
+
+`tools/make_logo.py` draws both (SVG and PNG in `docs/img/`, and
+`ros/hud/aav_hud/assets/hud-logo.png`, built into the HUD):
+
+```sh
+pixi run python3 tools/make_logo.py
+```
+
+#### Fonts and licences
+
+| Font | Used for | Licence |
+|---|---|---|
+| [Dela Gothic One](https://github.com/google/fonts/tree/main/ofl/delagothicone) | the katakana | SIL Open Font Licence 1.1 |
+| [Kanit](https://github.com/google/fonts/tree/main/ofl/kanit) Black Italic | AA and V | SIL Open Font Licence 1.1 |
+| the computer's own bold italic (Verdana, Arial or DejaVu Sans) | the gauge's numbers | the system's |
+
+The fonts are **not** in git: the script downloads them, with their `OFL.txt`, into
+`vendor/fonts/` from google/fonts at a fixed commit. The HUD only needs the logo's
+PNG. The OFL lets anyone use pictures made with a font.
 
 ### Switch theme
 

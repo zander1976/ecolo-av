@@ -18,6 +18,10 @@ Espressif's QEMU lives here too, in `vendor/qemu/` (about 22 MB): the ESP32 emul
 conda-forge). `pixi run esp-qemu-tools` fills it, checked by the published SHA-256s; macOS
 on Apple silicon only so far. `pixi run esp-qemu-check` uses it (docs/esp32-bench.md).
 
+Two fonts live in `vendor/fonts/` (about 7 MB), with their licences (SIL OFL 1.1):
+Dela Gothic One and Kanit Black Italic, from google/fonts at a fixed commit.
+`tools/make_logo.py` downloads them to draw the team's logo (docs/hud.md, Themes).
+
 ## Rules
 
 - **Look, don't touch.** Never edit, build or commit anything in here. Our code lives in

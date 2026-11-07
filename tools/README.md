@@ -93,6 +93,7 @@ The `Task` column is `pixi run <task>`; "-" means run the script itself.
 | `stream_check.py` | the camera stream end to end, without the car | `stream-check` |
 | `sim_frames.py` | camera pictures of the sim's stop sign, for the detectors | - |
 | `make_stop_sign.py` | the road world's stop-sign mesh and picture | - |
+| `make_logo.py` | the team's arcade logo, two variants (`docs/img/logo-*.svg`, `.png`) and the HUD's copy; fonts (OFL) into `vendor/fonts/` | - |
 | `make_map.py` | a Nav2 map (PGM + YAML) from a short spec | - |
 
 ### Network
@@ -190,6 +191,7 @@ Each lands outside git, checksum pinned where the script says.
 | `car_day_build.sh` | writes `car-day/esp32/` and `docs/html/` |
 | `build_docs.py`, `graph_picture.py`, `vehicle_model.py`, `state_space_demo.py`, `measure_map.py` | write `docs/html/`, `docs/img/` (`measure_map.py` also its table in `docs/measure-the-car.md`) |
 | `make_stop_sign.py`, `make_map.py` | write the stop sign's files in `ros/sim/aav_gazebo/models/`; a map's PGM and YAML |
+| `make_logo.py` | downloads two fonts into `vendor/fonts/`; writes `docs/img/logo-*` and `ros/hud/aav_hud/assets/hud-logo.png` |
 | `record.sh` | writes `bags/` |
 | `esp32.sh flash`, `legacy_firmware.sh -t upload` | write a board's flash (bench only) |
 | `legacy_firmware.sh` | with no `src/secrets.h`, copies `secrets.h.example` there (placeholders, untracked) |
