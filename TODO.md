@@ -9,8 +9,12 @@ Ben, 13 Nov: "How can we make all of this fit together better", and lane lines "
 
 | # | Task | Status |
 |---|---|---|
-| 147 | **One shape** ([design](docs/designs/2026-11-13_one-shape.md)): six slots, one world model (one costmap, one pose), one boss (the behaviour planner), `stack:=` profiles, one scorecard | ⬜ proposed 13 Nov; decisions D1-D3 Ben's; EGM review |
-| 148 | **The lane layer**: `lanes.yaml` to a mask for Nav2's keepout filter (soft costs: right lane free, the centre and edge lines and the left lane cost more), then a `lanes` layer in `aav_costmap` with the camera's lines; scored by `measure lane` and the wiggle (TODO 124) | ⬜ after the design |
+| 147 | **One shape** ([design](docs/designs/2026-11-13_one-shape.md)): nine levels, one world model (costmap, a list of things, one pose), one boss with a contract, 36 switches down to 8 | ✅ 13 Nov proposed; Fable reviewed (go, with changes; folded in). ⬜ Ben: D1-D7 |
+| 148 | **The lane layer**: drawn per route as a ramp (lowest at the right lane's centre) into a mask for Nav2's keepout filter on the global costmap, so the planner keeps right and MPPI follows; compared with a lane-centre planner (`path:=lane`); then a `lanes` layer in `aav_costmap` with the camera's lines | ⬜ after D2 |
+| 149 | **The wiggle, alone** (TODO 124): truth pose; one plan, no replanning (the single-goal tree replans at 1 Hz); the command before and after the smoother; score the swing in metres | ⬜ |
+| 150 | **The league** (`stacks.yaml`, `stack:=best/car/stock/ours`, `pixi run measure league`): one champion per level, challengers scored on the same routes and recordings; a swap needs a margin on 3+ runs and a person's yes | ⬜ after D6 |
+| 151 | **Placeholder cameras** (`sim_cameras --placeholder`) so GitHub's nightly drive check runs our simulator, not Gazebo; then real pictures on Mesa's software renderer | ⬜ after D7 |
+| 152 | **Our planner faster** (cache each square's check per heading, outlines per heading at start-up, several cores: 180 ms against Nav2's 150 ms on long campus plans) and **MPPI with lag** (slow earlier near the goal with `stop_law.py`; fewer futures; timed on the Orin) | ⬜ |
 
 ## A heavier car: the adaptive brake (8 Nov)
 
