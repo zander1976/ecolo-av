@@ -3,6 +3,15 @@
 The current work list, newest first. Tick items off as they land; each tick = a commit.
 Ben's messages, word for word: `docs/history/messages-*.md`.
 
+## One shape, and lanes as soft costs (13 Nov)
+
+Ben, 13 Nov: "How can we make all of this fit together better", and lane lines "it can cross but only if it needs to and to stay on the right side". The page: [one shape](docs/designs/2026-11-13_one-shape.md).
+
+| # | Task | Status |
+|---|---|---|
+| 147 | **One shape** ([design](docs/designs/2026-11-13_one-shape.md)): six slots, one world model (one costmap, one pose), one boss (the behaviour planner), `stack:=` profiles, one scorecard | ⬜ proposed 13 Nov; decisions D1-D3 Ben's; EGM review |
+| 148 | **The lane layer**: `lanes.yaml` to a mask for Nav2's keepout filter (soft costs: right lane free, the centre and edge lines and the left lane cost more), then a `lanes` layer in `aav_costmap` with the camera's lines; scored by `measure lane` and the wiggle (TODO 124) | ⬜ after the design |
+
 ## A heavier car: the adaptive brake (8 Nov)
 
 Ben, 8 Nov: "if we brake without a person vs with a person ... we are going to need to dynamically realize that we aren't braking as fast as we expect and start applying more force. We don't want to overwhelm the brakes though, so we might want to know what the max values are like the steering system." The page: [a heavier car](docs/stopping.md#4-a-heavier-car-the-adaptive-brake).
