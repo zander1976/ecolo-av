@@ -144,3 +144,8 @@ def test_mppi_is_the_baseline_with_no_barrier():
     assert 'tracker:=mppi_lag' in switches
     assert not any(s.startswith('mpc_barrier') for s in switches)
     assert 'tracker:=mpc_lag_rs' in br.launch_switches('barrier', 2.0)
+
+
+def test_a_car_that_never_set_off_is_no_answer_not_a_stop():
+    still = br.verdict(drive([(0.0, 0.0, 0.0)] * 5), BODY, CENTRE, RADIUS)
+    assert still.outcome == 'never drove'

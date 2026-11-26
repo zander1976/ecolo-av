@@ -185,6 +185,9 @@ def verdict(samples, body, centre, radius):
     elif passed:
         # Past it without touching: by steering round, or it was never in the way.
         outcome = 'went round' if max(abs(s.y) for s in samples) >= SWERVED else 'passed beside'
+    elif not driving(samples):
+        # It never set off (26 Nov: a simulator that came up too late): no answer.
+        outcome = 'never drove'
     elif abs(last.v) < STILL:
         outcome = 'stopped'
     else:

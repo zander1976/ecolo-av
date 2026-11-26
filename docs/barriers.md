@@ -278,20 +278,23 @@ that cell, earlier ones too.
 | 21 | **The step is the worst to watch**: it stops closest (0.23 m once), stops for a ghost 1.0 m aside that the others pass, and once backed up and crept round | what a barrier adds to a plain limit, in one picture |
 | 22 | **One plain run passed 0.96 m beside the ghost on the line**: the car was lost, 1.8 m off its line from the start | localization, not the follower. The likely cause, not proved: the follower's log shows its map-to-odom correction jumping by 10° to 25° in 6 of the last 23 runs. `truth_pose:=true` takes it out |
 | 23 | **On a busy computer a tick overruns** (25 Nov): the pretend-car run that goes round the object, 53.7 ms mean and 403 ms worst with a Rust build beside it on Ben's MacBook (the 50 ms tick); one GitHub ARM run failed the same test. The test `a_tick_with_a_barrier_fits_well_inside_the_period` (under 25 ms mean) is now run by hand on a quiet machine (`-- --ignored`) | the solver's time is the next thing to fix before the barrier could drive (finding 5, 14) |
-| 24 | **Four followers past the ghost, 1-3 m/s, on the line and 0.4 m left** (26 Nov, Ben's MacBook, nothing else running; one run each; `log/barrier-matrix-20261126/`). The least gap from the car's body, m (below 0: inside it): see the table below | the barrier is the only one that never touched and went round from 2 m/s; MPPI slows for the ghost but touched at 3 m/s; plain touched 5 of 6 |
+| 24 | **Four followers past the ghost, 1-3 m/s, on the line and 0.4 m left** (26 Nov, Ben's MacBook, nothing else running; 3 runs each; `log/barrier-matrix-20261126/`). The least gap from the car's body, m (below 0: inside it): see the table below | touched: plain 14 of 18, MPPI 3 of 18 (all at 3 m/s), step 0, barrier 0; the barrier went round from 2 m/s, step stopped; MPPI slows for the ghost but passes 0.06-0.25 m beside it |
 
 ### Finding 24: the table (26 Nov)
 
-`pixi run barrier-watch <mode> --speed S --offset O --headless`, every safety lock on.
+`pixi run barrier-watch <mode> --speed S --offset O --headless`, every safety lock on,
+**3 runs each** (72 runs; two MPPI runs that never set off were run again). Each cell: how
+the runs ended, and the least gap from the car's body (m; below 0: inside the ghost).
+Touched, in bold: plain 14 of 18, step 0 of 18, barrier 0 of 18, MPPI 3 of 18.
 
 | Speed, ghost | plain `mpc_lag_rs` | step (gamma 1) | barrier (gamma 0.05) | `mppi_lag` (the default) |
 |---|---|---|---|---|
-| 1 m/s, on the line | TOUCHED -0.01 | STOPPED 0.66 | STOPPED 0.81 | STOPPED 0.74 |
-| 1 m/s, 0.4 m left | STOPPED 0.14 | STOPPED 0.71 | STOPPED 0.63 | STOPPED 0.18 |
-| 2 m/s, on the line | **THROUGH -0.75** | STOPPED 0.31 | STOPPED 0.69 | STOPPED 0.64 |
-| 2 m/s, 0.4 m left | TOUCHED -0.25 | STOPPED 0.30 | **WENT ROUND 1.01** | PASSED BESIDE 0.15 |
-| 3 m/s, on the line | **THROUGH -0.67** | STOPPED 0.29 | **WENT ROUND 1.37** | **TOUCHED -0.67** |
-| 3 m/s, 0.4 m left | TOUCHED -0.24 | STOPPED 0.41 | **WENT ROUND 1.16** | PASSED BESIDE 0.18 |
+| 1 m/s, on the line | **2 touched, 1 stopped (-0.03 to +0.18)** | 3 stopped (+0.64 to +0.66) | 3 stopped (+0.80 to +0.82) | 2 stopped, 1 passed beside (+0.06 to +0.74) |
+| 1 m/s, 0.4 m left | 3 stopped (+0.12 to +0.22) | 3 stopped (+0.58 to +0.71) | 3 stopped (+0.63 to +0.82) | 2 stopped, 1 passed beside (+0.08 to +0.18) |
+| 2 m/s, on the line | **3 touched (-0.75 to -0.46)** | 3 stopped (+0.24 to +0.31) | 2 stopped, 1 went round (+0.69 to +0.75) | 3 stopped (+0.63 to +0.80) |
+| 2 m/s, 0.4 m left | **3 touched (-0.38 to -0.16)** | 3 stopped (+0.30 to +0.49) | 3 went round (+0.73 to +1.01) | 3 passed beside (+0.15 to +0.24) |
+| 3 m/s, on the line | **3 touched (-0.67 to -0.35)** | 2 stopped, 1 went round (+0.29 to +0.44) | 3 went round (+1.21 to +1.37) | **2 touched, 1 stopped (-0.72 to +0.62)** |
+| 3 m/s, 0.4 m left | **3 touched (-0.24 to -0.22)** | 3 stopped (+0.41 to +0.57) | 3 went round (+0.87 to +1.59) | **2 passed beside, 1 touched (-0.17 to +0.25)** |
 
 | Who acted first | |
 |---|---|
@@ -300,7 +303,7 @@ that cell, earlier ones too.
 
 - **MPPI slows itself** (the ghost is in its costmap): to about 0.5 m/s before the stop zone at 1 and 2 m/s on the line. At 3 m/s it was still at 2 m/s when the zone fired.
 - **Going round costs room off the line**: the barrier swung 1.4-2.2 m off it; step swung 0.69 m at 3 m/s while stopping.
-- One run each: a first look, not a claim. Next: 3 runs each, and a ghost that walks.
+- Next: a ghost that walks, and the barrier's swing off the line (1.4-2.2 m) against the lane's edges.
 
 
 **What stops a go-round, and what does not**
