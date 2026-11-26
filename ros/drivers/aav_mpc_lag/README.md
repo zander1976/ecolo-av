@@ -110,8 +110,16 @@ lag. The camera's lines (`/perception/lane/geometry`) are left for where there i
 
 ```sh
 pixi run measure controllers --trackers mpc_lag_rs --tours university --reversing \
-  --launch path:=lane mpc_lag_corridor:=true
+  --runs 2 --launch path:=lane mpc_lag_corridor:=true
 ```
+
+| University Drive, 26 Nov (2 runs, `path:=lane`) | Legs | Sway (m/s²) | The straight's sway | In the lane | Over the centre line | Past the kerb |
+|---|---|---|---|---|---|---|
+| the tube (0.3 m, the default) | 6/6 | 0.171 | 0.107 | 100 % | 0 % | 0 % |
+| the corridor | 5/6 | 0.175 | 0.137 | 100 % | 0 % | 0 % |
+
+The lost leg: the car stopped 1 m off its lane's centre at a goal (the goal check is 1 m),
+and the next plan found the car didn't fit at its start. Not yet better than the tube.
 
 Tested: `corridor.rs` (a straight lane, a lopsided one, one narrower than the car, no lane,
 the lane map through a frame); `closed_loop.rs` `in_the_corridor_it_holds_its_line_and_outside_it_comes_back`
