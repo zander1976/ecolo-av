@@ -7,7 +7,7 @@
 <!-- Generated from docs/league-results-2026-11-20.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>The league, scored: 20 Nov (stage 2)</h1>
-<div class="meta">9 min read · 7 sections</div></header>
+<div class="meta">11 min read · 8 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="what-we-built.html">What we built</a>
 <a href="overview.html">Overview</a>
@@ -143,7 +143,7 @@
 <a href="car_measurements.html">Car numbers</a>
 <a href="hud.html">HUD</a></nav>
 <main>
-<nav class="toc"><span>On this page:</span><a href="#what-changed">What changed</a><a href="#each-challenger-against-what-it-would-replace">Each challenger against what it would replace</a><a href="#the-planners-behind-plain-mppi_lag">The planners (behind plain mppi_lag)</a><a href="#lanes-university-drive-toolslane_scorepy">Lanes: University Drive (tools/lane_score.py)</a><a href="#mpc-against-mppi-21-nov-todo-213">MPC against MPPI (21 Nov, TODO 213)</a><a href="#position-and-the-checks">Position and the checks</a><a href="#what-next">What next</a></nav>
+<nav class="toc"><span>On this page:</span><a href="#what-changed">What changed</a><a href="#each-challenger-against-what-it-would-replace">Each challenger against what it would replace</a><a href="#the-planners-behind-plain-mppi_lag">The planners (behind plain mppi_lag)</a><a href="#lanes-university-drive-toolslane_scorepy">Lanes: University Drive (tools/lane_score.py)</a><a href="#mpc-against-mppi-21-nov-todo-213">MPC against MPPI (21 Nov, TODO 213)</a><a href="#position-and-the-checks">Position and the checks</a><a href="#what-next">What next</a><a href="#the-night-of-26-nov-the-league-again">The night of 26 Nov: the league again</a></nav>
 <div class="lead"><p>Ben, 20 Nov: "Please work on phase 2". Stage 2 scores what stage 1 built, in Ravensim,
 reversing on, <strong>3 runs each</strong>, on Ben's Mac (M4 Max), one job at a time, overnight.
 Scores are tracked, not gates (<a href="league.html#how-a-challenger-wins">the league</a>).</p>
@@ -546,7 +546,133 @@ the IMU disagreed), not the follower.</p>
 <td>The camera's lanes where they miss lines; then <code>path:=lane</code> with the camera's lanes</td>
 </tr>
 </tbody>
-</table></div></section>
+</table></div>
+</section>
+<section class="card"><h2 id="the-night-of-26-nov-the-league-again">The night of 26 Nov: the league again</h2>
+<p>Ben's MacBook, one simulator at a time, nothing else running; 2 runs each. Raw:
+<code>log/controller-compare/20261126-*</code>.</p>
+<h3 id="every-follower-on-the-lot">Every follower on the lot</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;"><code>mppi_lag</code></th>
+<th style="text-align: right;"><code>stanley</code></th>
+<th style="text-align: right;"><code>lqr</code></th>
+<th style="text-align: right;"><code>mpc_lag_rs</code></th>
+<th style="text-align: right;"><code>pure_pursuit</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Legs reached</td>
+<td style="text-align: right;">8/8</td>
+<td style="text-align: right;">8/8</td>
+<td style="text-align: right;">8/8</td>
+<td style="text-align: right;">8/8</td>
+<td style="text-align: right;">6/8 *</td>
+</tr>
+<tr>
+<td>Sway (m/s²)</td>
+<td style="text-align: right;"><strong>0.030</strong></td>
+<td style="text-align: right;">0.034</td>
+<td style="text-align: right;">0.051</td>
+<td style="text-align: right;">0.053</td>
+<td style="text-align: right;">0.044</td>
+</tr>
+<tr>
+<td>Off the path, mean / worst (m)</td>
+<td style="text-align: right;">0.20 / 1.12</td>
+<td style="text-align: right;">0.18 / 0.83</td>
+<td style="text-align: right;"><strong>0.12 / 0.82</strong></td>
+<td style="text-align: right;">0.14 / 1.00</td>
+<td style="text-align: right;">0.19 / 2.13</td>
+</tr>
+<tr>
+<td>Time (s)</td>
+<td style="text-align: right;">357</td>
+<td style="text-align: right;"><strong>307</strong></td>
+<td style="text-align: right;">327</td>
+<td style="text-align: right;">352</td>
+<td style="text-align: right;">355</td>
+</tr>
+</tbody>
+</table></div>
+<p>* Run 2's last leg, home: the follower gave up (error 105).</p>
+<h3 id="university-drive-as-on-21-nov-reversing-launch-pathlane">University Drive, as on 21 Nov (<code>--reversing --launch path:=lane</code>)</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;"><code>mppi_lag</code></th>
+<th style="text-align: right;"><code>mpc_lag_rs</code> (tube 0.3 m)</th>
+<th style="text-align: right;"><code>mpc_lag_rs</code>, tube 0.8 m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Legs reached</td>
+<td style="text-align: right;">6/6</td>
+<td style="text-align: right;">6/6</td>
+<td style="text-align: right;">5/6 *</td>
+</tr>
+<tr>
+<td>Sway (m/s²)</td>
+<td style="text-align: right;"><strong>0.129</strong> (21 Nov: 0.132)</td>
+<td style="text-align: right;">0.191 (21 Nov: 0.160)</td>
+<td style="text-align: right;">0.181</td>
+</tr>
+<tr>
+<td>In the lane, over the centre line, past the kerb</td>
+<td style="text-align: right;">100 %, 0 %, 0 %</td>
+<td style="text-align: right;">100 %, 0 %, 0 %</td>
+<td style="text-align: right;">100 %, 0 %, 0 %</td>
+</tr>
+</tbody>
+</table></div>
+<p>* "The car doesn't fit at the start" (planner error 205): it had drifted near an edge.
+A tube of 1.2 m is refused by the launch (0 to 1 m). The corridor idea (two lines, not one):
+<a href="../designs/2026-11-26_corridor.md">the design</a>.</p>
+<p>Without <code>path:=lane</code> (the planner's own path) the same tour swayed much more: MPPI 0.223,
+Stanley 0.355, <code>mpc_lag_rs</code> 0.418, all 6/6. So the lane's centre is what calms it.</p>
+<h3 id="our-planner-against-diffusion-the-lot">Our planner against diffusion (the lot)</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;"><code>own</code></th>
+<th style="text-align: right;"><code>diffusion</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Legs reached</td>
+<td style="text-align: right;"><strong>8/8</strong></td>
+<td style="text-align: right;">6/8 *</td>
+</tr>
+<tr>
+<td>Sway (m/s²)</td>
+<td style="text-align: right;">0.037</td>
+<td style="text-align: right;"><strong>0.027</strong></td>
+</tr>
+<tr>
+<td>Mean speed (m/s)</td>
+<td style="text-align: right;"><strong>0.92</strong></td>
+<td style="text-align: right;">0.62</td>
+</tr>
+</tbody>
+</table></div>
+<p>* Run 1: stuck on "turn back" (cancelled after 116 s); then "home" could not start (the car
+didn't fit). Every diffusion plan came from the model (none from the lattice).</p>
+<h3 id="what-it-says">What it says</h3>
+<ul>
+<li><strong>MPPI stays the default</strong>: calmest on both tours, every leg.</li>
+<li><code>mpc_lag_rs</code> reaches every leg but sways more than on 21 Nov (0.191 against 0.160, 2 runs
+  against 3): to watch, not yet a change.</li>
+<li>A wider tube calms the MPC only a little and cost a leg: the corridor needs the lane's own
+  edges, not a wider band.</li>
+<li>Diffusion is calmer but slower and got stuck once: it stays a challenger.</li>
+</ul></section>
 <nav class="prevnext"><a class="prev" href="league-results-2026-11-16.html"><small>Previous</small>← League scores, 16 Nov</a>
 <a class="next" href="mppi-lag.html"><small>Next</small>MPPI with lag →</a></nav>
 </main>

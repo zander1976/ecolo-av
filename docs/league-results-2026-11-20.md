@@ -122,3 +122,54 @@ the IMU disagreed), not the follower.
 | 2 | `mppi_lag_1k` timed on the Orin, then into `stack:=car` |
 | 3 | A 2D map for the campus (`map-drive` makes one), so AMCL can be scored there |
 | 4 | The camera's lanes where they miss lines; then `path:=lane` with the camera's lanes |
+
+## The night of 26 Nov: the league again
+
+Ben's MacBook, one simulator at a time, nothing else running; 2 runs each. Raw:
+`log/controller-compare/20261126-*`.
+
+### Every follower on the lot
+
+| | `mppi_lag` | `stanley` | `lqr` | `mpc_lag_rs` | `pure_pursuit` |
+|---|---:|---:|---:|---:|---:|
+| Legs reached | 8/8 | 8/8 | 8/8 | 8/8 | 6/8 * |
+| Sway (m/s²) | **0.030** | 0.034 | 0.051 | 0.053 | 0.044 |
+| Off the path, mean / worst (m) | 0.20 / 1.12 | 0.18 / 0.83 | **0.12 / 0.82** | 0.14 / 1.00 | 0.19 / 2.13 |
+| Time (s) | 357 | **307** | 327 | 352 | 355 |
+
+\* Run 2's last leg, home: the follower gave up (error 105).
+
+### University Drive, as on 21 Nov (`--reversing --launch path:=lane`)
+
+| | `mppi_lag` | `mpc_lag_rs` (tube 0.3 m) | `mpc_lag_rs`, tube 0.8 m |
+|---|---:|---:|---:|
+| Legs reached | 6/6 | 6/6 | 5/6 * |
+| Sway (m/s²) | **0.129** (21 Nov: 0.132) | 0.191 (21 Nov: 0.160) | 0.181 |
+| In the lane, over the centre line, past the kerb | 100 %, 0 %, 0 % | 100 %, 0 %, 0 % | 100 %, 0 %, 0 % |
+
+\* "The car doesn't fit at the start" (planner error 205): it had drifted near an edge.
+A tube of 1.2 m is refused by the launch (0 to 1 m). The corridor idea (two lines, not one):
+[the design](designs/2026-11-26_corridor.md).
+
+Without `path:=lane` (the planner's own path) the same tour swayed much more: MPPI 0.223,
+Stanley 0.355, `mpc_lag_rs` 0.418, all 6/6. So the lane's centre is what calms it.
+
+### Our planner against diffusion (the lot)
+
+| | `own` | `diffusion` |
+|---|---:|---:|
+| Legs reached | **8/8** | 6/8 * |
+| Sway (m/s²) | 0.037 | **0.027** |
+| Mean speed (m/s) | **0.92** | 0.62 |
+
+\* Run 1: stuck on "turn back" (cancelled after 116 s); then "home" could not start (the car
+didn't fit). Every diffusion plan came from the model (none from the lattice).
+
+### What it says
+
+- **MPPI stays the default**: calmest on both tours, every leg.
+- `mpc_lag_rs` reaches every leg but sways more than on 21 Nov (0.191 against 0.160, 2 runs
+  against 3): to watch, not yet a change.
+- A wider tube calms the MPC only a little and cost a leg: the corridor needs the lane's own
+  edges, not a wider band.
+- Diffusion is calmer but slower and got stuck once: it stays a challenger.
