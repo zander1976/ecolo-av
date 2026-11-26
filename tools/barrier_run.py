@@ -18,16 +18,19 @@ from dataclasses import dataclass
 import math
 import statistics
 
-MODES = ('plain', 'step', 'barrier')
-# The launch switches of each mode (sim.launch.py), after tracker:=mpc_lag_rs ghost:=true.
-#   plain    the follower alone
+MODES = ('plain', 'step', 'barrier', 'mppi')
+# The launch switches of each mode (sim.launch.py), after ghost:=true and its tracker.
+#   plain    the follower (mpc_lag_rs) alone
 #   step     the barrier's rule with gamma 1: only "never inside", a plain distance limit
 #   barrier  the rule with the tracker's own gamma (0.05)
+#   mppi     the default follower (mppi_lag), no barrier: the capstone's baseline (26 Nov)
 MODE_SWITCHES = {
     'plain': (),
     'step': ('mpc_barriers:=true', 'mpc_barrier_gamma:=1'),
     'barrier': ('mpc_barriers:=true',),
+    'mppi': (),
 }
+TRACKERS = {'mppi': 'mppi_lag'}   # every other mode drives mpc_lag_rs
 SWERVED = 1.0       # m off the start's line, before the object: the car steered round
 STILL = 0.02        # m/s: standing
 MOVING = 0.3        # m/s: the drive has begun
@@ -210,7 +213,8 @@ def launch_switches(mode, speed, gamma=None):
         raise ValueError(f'mode {mode}: pick one of {", ".join(MODES)}')
     if not 0.0 < speed <= 5.0:
         raise ValueError(f'speed {speed}: above 0, up to 5 m/s (sim_speed:=)')
-    out = ['world:=road', 'rviz:=false', 'tracker:=mpc_lag_rs', 'ghost:=true',
+    out = ['world:=road', 'rviz:=false',
+           f'tracker:={TRACKERS.get(mode, "mpc_lag_rs")}', 'ghost:=true',
            *MODE_SWITCHES[mode]]
     if gamma is not None:
         if mode != 'barrier':

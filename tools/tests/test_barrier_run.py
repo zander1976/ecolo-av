@@ -137,3 +137,10 @@ def test_wrong_settings_are_refused():
                                ('barrier', 1.0, 1.5)):
         with pytest.raises(ValueError):
             br.launch_switches(mode, speed, gamma)
+
+
+def test_mppi_is_the_baseline_with_no_barrier():
+    switches = br.launch_switches('mppi', 2.0)
+    assert 'tracker:=mppi_lag' in switches
+    assert not any(s.startswith('mpc_barrier') for s in switches)
+    assert 'tracker:=mpc_lag_rs' in br.launch_switches('barrier', 2.0)
