@@ -37,6 +37,13 @@
 //!             0.05 m/s), or after standing 2 s within 1.5 m. The goal is checked on the
 //!             last stretch only; the progress check starts again at each stretch.
 //!
+//! Corridor   (Ben, 26 Nov; a challenger, off unless corridor.lane_map is set: the
+//!             launch's mpc_lag_corridor:=true) the lane map (a lanes.yaml, read once at
+//!             start) gives each forward stretch the room each side to its lane's two
+//!             lines, less half the car (corridor.half_width, vehicle.yaml's) and
+//!             corridor.margin; e_y is costed only outside it. No lane there, or
+//!             backwards: the ±tube. The status gains corridor_left_m, corridor_right_m.
+//!
 //! navigation.launch.py tracker:=mpc_lag_rs starts it in mppi_lag's place. Everything
 //! after cmd_vel_nav is unchanged. The maths is the `mpc-lag` crate (`Geared`); the map
 //! correction and Nav2's goal and progress checks are `mppi-lag`'s (aav_mppi_lag); this
@@ -53,8 +60,8 @@ use car_model::ActuatorConfig;
 use ego_core::stop_law::{StopCurve, INPUT_DELAY};
 use futures::channel::oneshot;
 use mpc_lag::{
-    wrap, Command as MpcCommand, CuspRules, Direction, Geared, Limits, MpcLag, Observed, Rules,
-    Settings,
+    wrap, Command as MpcCommand, CuspRules, Direction, Frame, Geared, Keep, Lanes, Limits, MpcLag,
+    Observed, Rules, Settings,
 };
 use mppi_lag::follower::{GoalCheck, ProgressCheck};
 use mppi_lag::map_correction::{into_map, into_odom, Correction};
@@ -81,7 +88,23 @@ fn main() -> Result<()> {
     let (config, _params) = Config::declare(&node)?;
     let mpc = MpcLag::new(config.limits, config.car, config.settings)
         .map_err(|e| anyhow::anyhow!("mpc_lag: {e}"))?;
-    let mpc = Geared::new(mpc, config.max_reverse_speed, CuspRules::default());
+    let mut mpc = Geared::new(mpc, config.max_reverse_speed, CuspRules::default());
+    // The corridor (corridor.lane_map set): the lane map's lines, read once.
+    if let Some((file, keep)) = config.corridor.as_ref() {
+        let lanes = Lanes::load(file, *keep)
+            .map_err(|e| anyhow::anyhow!("corridor.lane_map {file}: {e}"))?;
+        log_info!(
+            node.logger(),
+            "the corridor: {} roads from {file}; {} m kept from each line (half the car {} m, \
+             margin {} m); elsewhere the ±{} m tube",
+            lanes.roads(),
+            keep.half_width + keep.margin,
+            keep.half_width,
+            keep.margin,
+            config.settings.tube
+        );
+        mpc.set_lanes(Some(lanes));
+    }
 
     // Latched: true while a path runs, so ego's lead doesn't cancel the lags twice.
     let lag_pub = node.create_publisher::<Bool>(
@@ -455,8 +478,25 @@ impl Core {
             let driving = self.job.as_ref().is_some_and(|j| j.in_map);
             let frame = self.correction.for_new_path(odom_in_map, driving);
             poses = poses.iter().map(|p| into_odom(p, &frame)).collect();
+            self.set_lanes_frame(Some(frame));
+        } else {
+            // A path in odom: the lane map's through the held map -> odom, if any.
+            let held = self
+                .correction
+                .held()
+                .or(self.map_to_odom.map(|(pose, _)| pose));
+            self.set_lanes_frame(held);
         }
         Ok((poses.iter().map(|p| (p.x, p.y, p.yaw)).collect(), in_map))
+    }
+
+    /// Where odom is in the map, for the corridor of the path about to be followed.
+    fn set_lanes_frame(&mut self, odom_in_map: Option<Pose>) {
+        self.mpc.set_frame(odom_in_map.map(|p| Frame {
+            x: p.x,
+            y: p.y,
+            yaw: p.yaw,
+        }));
     }
 
     fn cancel(&mut self, id: u64) {
@@ -658,6 +698,16 @@ impl Core {
             ("barrier_m", format!("{:.3}", r.barrier.unwrap_or(f64::NAN))),
             ("barrier_slack_m2", format!("{:.4}", r.barrier_slack)),
             ("barrier_stop", u8::from(r.barrier_stop).to_string()),
+            // The corridor: m each side the car may be off the plan here (nan: none, or
+            // no lane known here: the ±tube).
+            (
+                "corridor_left_m",
+                format!("{:.3}", r.room.map_or(f64::NAN, |room| room.left)),
+            ),
+            (
+                "corridor_right_m",
+                format!("{:.3}", r.room.map_or(f64::NAN, |room| room.right)),
+            ),
         ];
         let msg = DiagnosticStatus {
             level: if loop_ms > period_ms {
@@ -706,6 +756,9 @@ struct Config {
     map_correction: SlewLimits,
     /// The barriers (barriers.topic set): `None`, the tracker as it always was.
     barriers: Option<Barriers>,
+    /// The corridor (corridor.lane_map set): the lanes.yaml, and what is kept from its
+    /// lines. `None`: the ±tube everywhere.
+    corridor: Option<(String, Keep)>,
 }
 
 /// The barriers' settings (`mpc-lag`'s `barrier`).
@@ -912,6 +965,21 @@ impl Config {
                 margin,
             })
         };
+        // The corridor: off unless corridor.lane_map is set (navigation.launch.py's
+        // mpc_lag_corridor:=true sets it, and half_width from vehicle.yaml).
+        let lane_map = d.text("corridor.lane_map", "")?;
+        let keep = Keep {
+            half_width: d.number("corridor.half_width", 0.0)?,
+            margin: d.number("corridor.margin", 0.2)?,
+        };
+        let corridor = if lane_map.is_empty() {
+            None
+        } else {
+            if !(keep.valid() && keep.half_width > 0.0) {
+                bail!("corridor: half_width above 0 (half the car), margin 0 or more");
+            }
+            Some((lane_map, keep))
+        };
         let config = Self {
             rate_hz,
             odom_topic: d.text("odom_topic", "/localization/odom/local")?,
@@ -933,6 +1001,7 @@ impl Config {
             settings,
             map_correction,
             barriers,
+            corridor,
         };
         Ok((
             config,

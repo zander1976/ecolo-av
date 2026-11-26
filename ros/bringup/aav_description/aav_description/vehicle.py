@@ -1598,6 +1598,26 @@ def check_mpc_lag_tube(value):
     return tube
 
 
+def check_mpc_lag_corridor(value):
+    """Return mpc_lag_corridor:= as a bool: 'true' or 'false' (empty too: off)."""
+    text = str(value).strip().lower()
+    if text not in ('', 'true', 'false'):
+        raise ValueError(f'mpc_lag_corridor:={value}: true or false')
+    return text == 'true'
+
+
+def mpc_lag_corridor_params(cfg, lane_map):
+    """
+    Return mpc_lag_rs's corridor parameters (Ben, 26 Nov; docs/designs/2026-11-26_corridor.md).
+
+    lane_map: the lanes.yaml whose lines bound the corridor; half_width: half the car's
+    body width, from vehicle.yaml (never copied). The margin is the node's own
+    (config/mpc_lag_rs.yaml, corridor.margin).
+    """
+    return {'corridor.lane_map': str(lane_map),
+            'corridor.half_width': float(cfg['vehicle']['body']['width']) / 2.0}
+
+
 def check_mppi_lag_sampling(value):
     """Return mppi_lag_sampling:= checked: correlated or smooth (TODO 212)."""
     value = str(value).strip() or MPPI_LAG_SAMPLINGS[0]

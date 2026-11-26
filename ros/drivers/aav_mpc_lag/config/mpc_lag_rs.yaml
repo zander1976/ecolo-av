@@ -23,3 +23,7 @@ mpc_lag_rs:
                               # added to the dead times
       # speed_loop: the spine's profile it predicts comes from the launch (sim.launch.py
       # speed_loop:=, vehicle.mpc_lag_rs_params), never from here: this file would win.
+    # The corridor (Ben, 26 Nov; a challenger): off unless the launch's
+    # mpc_lag_corridor:=true gives corridor.lane_map and corridor.half_width (vehicle.yaml).
+    corridor:
+      margin: 0.2             # m kept from each lane line beyond half the car

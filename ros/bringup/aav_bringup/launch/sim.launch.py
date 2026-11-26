@@ -125,6 +125,9 @@ bench's argument names:
                       a tick may use (empty: 0.05; 1: a plain distance limit)
                       mpc_lag_tube:=0: mpc_lag_rs's tube off (empty: 0.3 m, tuned
                       21 Nov: it leaves the car alone that near the path, less sway)
+                      mpc_lag_corridor:=true: mpc_lag_rs keeps between its lane's two
+                      lines, from the world's lane map (with path:=lane or
+                      lane_costs:=true; a challenger, Ben 26 Nov); the tube elsewhere
                       mppi_lag_sampling:=smooth: mppi_lag samples the steering's
                       change, so its commands come out smooth (TODO 212, a challenger)
                       lattice_moves:=smooth|smooth_fast: the lattice's trial moves,
@@ -736,6 +739,7 @@ def launch_setup(context):
                                mppi_lag_batch=arg('mppi_lag_batch'),
                                mppi_lag_sampling=arg('mppi_lag_sampling'),
                                mpc_lag_tube=arg('mpc_lag_tube'),
+                               mpc_lag_corridor=arg('mpc_lag_corridor'),
                                mpc_barriers=arg('mpc_barriers'),
                                mpc_barrier_gamma=arg('mpc_barrier_gamma'),
                                lattice_moves=arg('lattice_moves'),
@@ -1225,6 +1229,11 @@ def generate_launch_description():
                               description='with mpc_barriers:=true: the share of the room '
                                           'a tick may use, above 0 up to 1 (empty: 0.05; '
                                           '1: a plain distance limit; research)'),
+        DeclareLaunchArgument('mpc_lag_corridor', default_value='false',
+                              description='with tracker:=mpc_lag_rs: true, it keeps between '
+                                          "its lane's two lines, from the world's lane map "
+                                          '(path:=lane or lane_costs:=true; a challenger, '
+                                          'Ben 26 Nov)'),
         DeclareLaunchArgument('mpc_lag_tube', default_value='',
                               description='with tracker:=mpc_lag_rs: m each side of the '
                                           'path where being off it costs nothing (the '

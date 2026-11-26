@@ -389,6 +389,26 @@ def test_smooth_sampling_reaches_mppi_lag():
     assert step['barriers.gamma'] == 1.0
     with pytest.raises(ValueError, match='mpc_barrier_gamma'):
         nav_nodes(tracker='mpc_lag_rs', mpc_barriers='true', mpc_barrier_gamma='0')
+    # The corridor (Ben, 26 Nov; a challenger): off unless asked; then the lane map the
+    # planner reads, and half the car's width from vehicle.yaml.
+    assert 'corridor.lane_map' not in given(nav_nodes(tracker='mpc_lag_rs')['mpc_lag_rs'])
+    lanes = os.path.join(get_package_share_directory('aav_sim_models'), 'worlds',
+                         'road.lanes.yaml')
+    walls = given(nav_nodes(tracker='mpc_lag_rs', mpc_lag_corridor='true',
+                            lane_route=lanes)['mpc_lag_rs'])
+    assert walls['corridor.lane_map'] == lanes
+    # Without the planner's, the behaviour planner's lane map.
+    other = given(nav_nodes(tracker='mpc_lag_rs', mpc_lag_corridor='true',
+                            lane_map='/x/lanes.yaml')['mpc_lag_rs'])
+    assert other['corridor.lane_map'] == '/x/lanes.yaml'
+    width = vehicle.load()['vehicle']['body']['width']
+    assert walls['corridor.half_width'] == width / 2.0
+    assert walls['mpc_lag.tube'] == 0.3
+    # No lane map: the tube only.
+    alone = given(nav_nodes(tracker='mpc_lag_rs', mpc_lag_corridor='true')['mpc_lag_rs'])
+    assert 'corridor.lane_map' not in alone
+    with pytest.raises(ValueError, match='mpc_lag_corridor'):
+        nav_nodes(tracker='mpc_lag_rs', mpc_lag_corridor='yes')
     p = given(nav_nodes(tracker='mppi_lag', mppi_lag_sampling='smooth')['mppi_lag'])
     assert p['sampling'] == 'smooth'
     with pytest.raises(ValueError, match='mppi_lag_sampling'):

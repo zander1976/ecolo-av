@@ -24,7 +24,7 @@ navigator --FollowPath--> mpc_lag_rs --cmd_vel_nav--> velocity_smoother
 | Estimate | `car_model.step`, Python's speed loop (f64) | `car-model`'s step, spine-core's own speed loop (f32) |
 | QP | OSQP's ADMM, numpy, dense | OSQP's ADMM, dense P, sparse A (`qp.rs`) |
 | A tick on a Mac (U-turn at 2 m/s) | 5.3 ms mean, 26 ms worst | 0.75 ms mean, 2.4 ms worst |
-| Lane keeping (`road_ahead_topic`, TODO 169) | yes, with `behaviour:=true` and a lane map | not yet |
+| Lane keeping (`road_ahead_topic`, TODO 169) | yes, with `behaviour:=true` and a lane map | the corridor, a challenger (`mpc_lag_corridor:=true`, below) |
 | Live swap | yes (`live_swap`) | no: chosen at launch |
 | Reversing | yes (TODO 174, `gears.py`) | yes since 20 Nov (TODO 213, `gears.rs`): the same cut and mirror; it stands at each cusp (under 0.05 m/s, not 0.15) and plans backwards at the reverse limit |
 | Our simulator, the lot tour (15 Nov, one run) | 4 of 4 legs; a tick 3.7-7.7 ms; 28-35 % CPU | 4 of 4 legs; a tick 0.7-1.3 ms; 4-6 % CPU |
@@ -72,6 +72,53 @@ oscillate so much."
 
 Tested: `closed_loop.rs` `in_the_tube_it_holds_its_line_and_outside_it_comes_back` (0.15 m
 off: it keeps its line and steers less; 1 m off: back inside 0.25 m, at 1 and 3 m/s).
+
+### The corridor (Ben, 26 Nov; a challenger, off by default)
+
+Ben: "maybe instead of a line we use two lines and the car just needs to stay between
+them" ([design](../../../docs/designs/2026-11-26_corridor.md)).
+
+```text
+   left line  ─────────────────────────────────────
+              ↑ left room = to the line − half the car − margin
+   the plan   ═════════════════════════════════════   free anywhere in between
+              ↓ right room
+   right line ─────────────────────────────────────
+```
+
+| Part | What |
+|---|---|
+| The clip | e_y's target is e_y clipped to **[−right room, +left room]** at each point of the horizon, not to ±tube. The same QP |
+| The room | to that side's lane line, less half the car (vehicle.yaml's `body.width`, never copied) and `corridor.margin` (0.2 m); below 0 is 0 (a lane narrower than the car: keep to the plan) |
+| The lines | the lane map (`lanes.yaml`, read once by `behaviour-core`'s reader, as the behaviour planner reads it): the car's own lane, its two painted lines, measured from the plan's point (a plan off-centre gets a lopsided room) |
+| No lane there | the ±tube, as before. Backwards stretches: the tube too |
+| The goal | the room shrinks to 0 over the last 5 m, so the car comes to the goal (Nav2's 1 m check) |
+| `corridor.rs` | `Corridor` (a room every 0.5 m along the path), `Room`, `Keep`, `Lines`, `Lanes` (the map, `Frame`: odom in map), `target` |
+| `Geared` | `set_lanes`, `set_frame`: each forward stretch's corridor made when the path comes (in m along it, so the map correction's moves don't change it) |
+| Status | `corridor_left_m`, `corridor_right_m` (nan: no lane here) |
+
+| Switch | What |
+|---|---|
+| `mpc_lag_corridor:=true` | sim.launch.py and navigation.launch.py: the corridor on. Its lane map: `lane_route:=`'s (the sim's `path:=lane`), else `lane_costs:=`'s, else `lane_map:=`'s. None: a warning, the tube only |
+| `corridor.lane_map`, `corridor.half_width` | the node's: set by the launch (`vehicle.mpc_lag_corridor_params`) |
+| `corridor.margin` | `config/mpc_lag_rs.yaml`: 0.2 m |
+
+Why the lane map, not `/world/road_ahead`'s edges or the camera's lines: it is there on
+University Drive with `path:=lane` (the planner reads the same file), needs no
+`behaviour:=true lane_map:=` (which also moves the road ahead's line), and no frame-by-frame
+lag. The camera's lines (`/perception/lane/geometry`) are left for where there is no map.
+
+```sh
+pixi run measure controllers --trackers mpc_lag_rs --tours university --reversing \
+  --launch path:=lane mpc_lag_corridor:=true
+```
+
+Tested: `corridor.rs` (a straight lane, a lopsided one, one narrower than the car, no lane,
+the lane map through a frame); `closed_loop.rs` `in_the_corridor_it_holds_its_line_and_outside_it_comes_back`
+(1.2 m left in a lopsided lane: held, where the tube pulls it back; 1.2 m right: back
+inside 0.55 m; its body never over a line; 1 and 3 m/s), `a_lane_narrower_than_the_car_keeps_it_on_the_plan`,
+`with_no_lane_known_the_corridor_is_the_tube` (the same commands); `geared.rs` (forwards
+only).
 
 ### Barriers (outside the capstone's scope: Ben's MASc research; 22 Nov)
 
@@ -171,6 +218,7 @@ Python's defaults). `aav_navigation`'s `test_launch_params.py` checks they match
 | `tracker.rs` | `MpcLag`: the estimate, the nominal plan, linearise, condense, one QP, the command | `trackers/mpc_lag.py` |
 | `gears.rs` | `Gears`: the path cut at its cusps, which stretch the car is on; `mirror` | `gears.py` |
 | `barrier.rs` | `Circle`, `Rules`: keep-out circles and their rule (a trial) | none |
+| `corridor.rs` | `Corridor`, `Lanes`: the room each side to the lane's lines (a trial) | none |
 | `geared.rs` | `Geared`: the MPC forward and back, a stretch at a time | `track_node.py`'s gears |
 
 ## Invariants
@@ -184,6 +232,8 @@ Python's defaults). `aav_navigation`'s `test_launch_params.py` checks they match
   0..cruise forwards, 0..-max_reverse_speed backwards, and the smoother's ramps.
 - Nothing in the safety path changes: the smoother, the stop zone, twist_mux's slot,
   the locks and e-stops all sit after `cmd_vel_nav`. It doesn't read the costmap.
+- The corridor changes nothing unless `mpc_lag_corridor:=true` gives it a lane map; it
+  only moves e_y's target (a cost), never a limit, and is not a safety lock.
 - Barriers change nothing unless circles are set; they are not a safety lock, and none
   of the locks depends on them.
 - The maths has no ROS; the node has no maths. Rust API Guidelines; `cargo fmt` and
@@ -207,6 +257,7 @@ pixi run python3 ros/drivers/aav_mpc_lag/crates/mpc-lag/gen_vectors.py   # after
 | `qp.rs` | hand answers: free, a box, an equality, a coupling row; the warm start (the same 400 and 50 iterations as `qp.py`); bad problems |
 | `path.rs`, `model.rs`, `tracker.rs` | the foot past the ends, a circle's curvature; the motor's rate, the brake never reversing, the drift on a bend; `interp`, `D'D`, the queues |
 | `gears.rs`, `geared.rs` | the cut at each cusp, the mirror, when the next stretch is taken (and not while rolling); a reversing path refused forward only; backwards within the reverse limit; a forward path gives `MpcLag`'s own commands |
+| `corridor.rs`, `tests/closed_loop.rs` (corridor) | the room on a straight, lopsided and too-narrow lane, none known (the tube), shrinking to the goal, the lane map through a frame; on the pretend car: held inside, back from outside, the same commands with no lane |
 | `barrier.rs`, `tests/barrier.rs` | H's sign and slope, the reach, the bend held, the room to stop, the rule's induction; on the pretend car: through the object without barriers and never touching with (3 objects, 1 and 3 m/s, with 0.2 s of dead time), round it at speed and back on the path, stopped short when slow and head on, a smaller gamma turning sooner, the stop rule alone, a far object changing nothing, bad rules refused |
 | `tests/closed_loop.rs` | a pretend car (ego's ramps, the shared car model at 100 Hz): straight at 1 and 3 m/s, no speed overshoot, a 1 m offset, an 8 m bend, the U-turn at 2 m/s with vehicle.yaml's lags (0.10 m) and doubled (0.18 m), the stop at the end, the dead-time queues, the tick time, bad numbers. Forward and back (a pretend ego both ways): 8 m straight back (under 0.05 m off), 6 m on, a stop at the cusp (0.02 m short, 0.03 m/s), back round a 5 m bend (0.007 m off); forward, back, forward (each gear changed within 0.11 m of its cusp, standing) |
 

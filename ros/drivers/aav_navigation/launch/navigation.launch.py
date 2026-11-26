@@ -61,6 +61,9 @@ Switches:
   mppi_lag_batch:=1000        mppi_lag's samples a tick (empty: 2000; TODO 152)
   mppi_lag_sampling:=smooth   mppi_lag samples the steering's change (TODO 212)
   mpc_lag_tube:=0             mpc_lag_rs's tube off (empty: 0.3 m, tuned 21 Nov)
+  mpc_lag_corridor:=true      mpc_lag_rs keeps between its lane's two lines (a challenger,
+                              off by default): the room from the lane map (lane_route:=,
+                              else lane_costs:=, else lane_map:=); the tube elsewhere
   mpc_barriers:=true          mpc_lag_rs keeps off the ghost (research: off by default)
   mpc_barrier_gamma:=1        with mpc_barriers: the share of the room a tick may use, above
                               0 up to 1 (empty: 0.05; 1: a plain distance limit, the "step")
@@ -588,6 +591,17 @@ def nodes(context):
         # Barriers (outside the capstone's scope: Ben's MASc research; off by default): the
         # plan may only creep up to the ghost's keep-out circle, and goes round it where
         # it can.
+        # The corridor (Ben, 26 Nov; a challenger, off by default): the room each side to
+        # the lane's two lines, from the lane map the planner or the costmap reads.
+        if vehicle.check_mpc_lag_corridor(
+                LaunchConfiguration('mpc_lag_corridor').perform(context)):
+            lanes_file = (lane_route or lane_costs
+                          or LaunchConfiguration('lane_map').perform(context).strip())
+            if lanes_file:
+                extra.update(vehicle.mpc_lag_corridor_params(cfg, lanes_file))
+            else:
+                print('[navigation.launch.py] mpc_lag_corridor:=true, but no lane map '
+                      '(lane_route:=, lane_costs:= or lane_map:=): the tube only', flush=True)
         if LaunchConfiguration('mpc_barriers').perform(context).strip().lower() == 'true':
             extra['barriers.topic'] = '/safety/ghost/marker'
             gamma = LaunchConfiguration('mpc_barrier_gamma').perform(context).strip()
@@ -823,6 +837,10 @@ def generate_launch_description():
                                           'to the ghost a tick may use, above 0 up to 1; '
                                           "empty: the tracker's 0.05. 1: only a distance "
                                           'limit (research, as mpc_barriers)'),
+        DeclareLaunchArgument('mpc_lag_corridor', default_value='false',
+                              description='with tracker:=mpc_lag_rs: true, it keeps between '
+                                          "its lane's two lines (the lane map's; a "
+                                          'challenger, Ben 26 Nov); false: the tube only'),
         DeclareLaunchArgument('mpc_lag_tube', default_value='',
                               description='with tracker:=mpc_lag_rs: m each side of the '
                                           'path where being off it costs nothing; empty: '

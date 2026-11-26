@@ -7,7 +7,7 @@
 <!-- Generated from docs/acknowledgements.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>Acknowledgements: what we built on</h1>
-<div class="meta">32 min read · 11 sections</div></header>
+<div class="meta">33 min read · 11 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="what-we-built.html">What we built</a>
 <a href="overview.html">Overview</a>
@@ -744,6 +744,12 @@ Each has a TODO row to port its idea.</p>
 <td>Apache-2.0</td>
 <td>idea</td>
 <td>a steering-rate cost and reverse for <code>mpc_lag_rs</code> (TODO 213)</td>
+</tr>
+<tr>
+<td><strong>Apollo's path bounds decider</strong> (Baidu: each point's lateral bounds from the lane and the drivable area, for its piecewise-jerk path optimizer); <strong>Autoware's path optimizer</strong> (the Autoware Foundation: its model-predictive trajectory keeps the lateral offset inside the drivable area's left and right bounds, point by point)</td>
+<td>Apache-2.0</td>
+<td>idea</td>
+<td>the corridor in <code>mpc_lag_rs</code> (<code>aav_mpc_lag</code> <code>corridor.rs</code>, <code>mpc_lag_corridor:=true</code>, TODO 284): e_y's target clipped to the room to each lane line, per point of the horizon, not one ±tube. Ours is the simpler cost-free band from the lane map's painted lines; no code taken</td>
 </tr>
 <tr>
 <td><strong>Vector Pursuit</strong> (<code>vector_pursuit_controller</code>, Black Coffee Robotics)</td>
