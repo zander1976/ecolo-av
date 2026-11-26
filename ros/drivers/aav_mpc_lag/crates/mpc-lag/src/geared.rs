@@ -18,6 +18,7 @@
 //! command is the same as without this.
 
 use crate::barrier::Rules;
+use crate::corridor::{Corridor, Frame, Lanes};
 use crate::gears::{mirror, CuspRules, Direction, Gears, Pose};
 use crate::path::PathError;
 use crate::tracker::{Command, MpcLag, Observed, TrackError};
@@ -61,6 +62,12 @@ pub struct Geared {
     rules: CuspRules,
     /// Round things to keep off, (x, y, radius) in the path's frame, and how (`barrier`).
     fence: Option<Fence>,
+    /// The lane map, for each forward stretch's corridor (none: the ±tube).
+    lanes: Option<Lanes>,
+    /// Where the path's frame is in the lane map's, for the next path (none: no corridor).
+    frame: Option<Frame>,
+    /// Each stretch's corridor, made when the path came (backwards: none).
+    corridors: Vec<Option<Corridor>>,
     /// m/s: the MPC's cruise forwards (its settings' when made).
     forward: f64,
     /// m/s: the most backwards (0: never).
@@ -77,6 +84,9 @@ impl Geared {
             gears: None,
             rules,
             fence: None,
+            lanes: None,
+            frame: None,
+            corridors: Vec::new(),
             reverse: reverse_speed.max(0.0),
         }
     }
@@ -98,6 +108,18 @@ impl Geared {
     /// barriers. Forward stretches only.
     pub fn set_things(&mut self, rules: Rules, things: &[(f64, f64, f64)]) {
         self.fence = (!things.is_empty()).then(|| (rules, things.to_vec()));
+    }
+
+    /// Keep between the lane map's lines from the next path on (`corridor`): forward
+    /// stretches only. None: the ±tube, as always.
+    pub fn set_lanes(&mut self, lanes: Option<Lanes>) {
+        self.lanes = lanes;
+    }
+
+    /// Where the next path's frame (odom) is in the lane map's (map). None: no corridor
+    /// for it (the ±tube).
+    pub fn set_frame(&mut self, frame: Option<Frame>) {
+        self.frame = frame;
     }
 
     /// Forget the MPC's estimate and plan ([`MpcLag::forget`]).
@@ -133,7 +155,22 @@ impl Geared {
             self.mpc.turn_round();
         }
         self.set_cruise(gears.direction());
+        // Each forward stretch's corridor, while the frame is the one the path came by: a
+        // corridor is along the path (m), so the map correction's moves don't change it.
+        self.corridors = match (&self.lanes, self.frame) {
+            (Some(lanes), Some(frame)) => gears
+                .parts()
+                .iter()
+                .map(|part| match (part.direction(), part.path()) {
+                    (Direction::Forward, Ok(path)) => Some(lanes.corridor(&path, frame)),
+                    _ => None,
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
         self.mpc.reset(path);
+        self.mpc
+            .set_corridor(self.corridors.first().cloned().flatten());
         self.gears = Some(gears);
         Ok(())
     }
@@ -160,6 +197,7 @@ impl Geared {
             return false;
         }
         let after = gears.direction();
+        let index = gears.index();
         match gears.current().path() {
             Ok(path) => {
                 if after != before {
@@ -167,6 +205,8 @@ impl Geared {
                 }
                 self.set_cruise(after);
                 self.mpc.reset(path);
+                self.mpc
+                    .set_corridor(self.corridors.get(index).cloned().flatten());
                 true
             }
             // Can't happen: every stretch has two poses or more, all numbers.
@@ -301,6 +341,53 @@ mod tests {
             .report
             .barrier
             .is_none());
+    }
+
+    #[test]
+    fn the_corridor_is_set_forwards_and_not_backwards() {
+        use crate::corridor::{Frame, Keep, Lanes};
+        // A two-way road along x, 8 m wide: the lane driving east is y in [-3.5, 0].
+        let map = behaviour_core::lanes::from_yaml(
+            "roads:\n- name: road\n  width: 8.0\n  lanes: 2\n  points: [[-20.0, 0.0], [100.0, 0.0]]\n",
+        )
+        .expect("a map");
+        let keep = Keep {
+            half_width: 0.5,
+            margin: 0.2,
+        };
+        let east: Vec<Pose> = (0..=200).map(|i| (i as f64 * 0.1, 0.0, 0.0)).collect();
+        // No lanes, or no frame: no corridor.
+        let mut g = geared(0.5);
+        g.follow(&east).expect("a path");
+        assert!(g.mpc().corridor().is_none());
+        g.set_lanes(Some(Lanes::new(map, keep).expect("lanes")));
+        g.follow(&east).expect("a path");
+        assert!(g.mpc().corridor().is_none());
+        // odom 1.75 m south of map's origin: the path on the lane's centre, 1.05 m each side.
+        g.set_frame(Some(Frame {
+            x: 0.0,
+            y: -1.75,
+            yaw: 0.0,
+        }));
+        g.follow(&east).expect("a path");
+        let room = g
+            .step(&Observed::default(), 0.05)
+            .expect("a tick")
+            .report
+            .room
+            .expect("a room");
+        assert!((room.left - 1.05).abs() < 1e-9 && (room.right - 1.05).abs() < 1e-9);
+        // A path that reverses: the forward stretch has one, the backwards one none.
+        g.follow(&forward_then_back()).expect("a path");
+        assert!(g.mpc().corridor().is_some());
+        let back = Observed {
+            x: 4.0,
+            ..Observed::default()
+        };
+        assert!(g.advance(back.x, back.y, 0.0, 0.0));
+        assert_eq!(g.direction(), Direction::Backward);
+        assert!(g.mpc().corridor().is_none());
+        assert!(g.step(&back, 0.05).expect("a tick").report.room.is_none());
     }
 
     fn forward_then_back() -> Vec<Pose> {

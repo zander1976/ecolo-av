@@ -6,8 +6,11 @@ use std::f64::consts::PI;
 use std::time::Instant;
 
 use car_model::{ActuatorConfig, CarState, Command as CarCommand, SpeedLoop, SpeedLoopProfile};
+use mpc_lag::corridor::Lines;
 use mpc_lag::model::lags_scaled;
-use mpc_lag::{wrap, CuspRules, Geared, Limits, MpcLag, Observed, Path, Settings, TrackError};
+use mpc_lag::{
+    wrap, Corridor, CuspRules, Geared, Keep, Limits, MpcLag, Observed, Path, Settings, TrackError,
+};
 
 /// sim_car.py's LIMITS: ego's steering rate is the tighter one.
 const LIMITS: Limits = Limits {
@@ -89,14 +92,21 @@ fn tracker(cruise: f64) -> MpcLag {
 
 /// Drive the pretend car along `poses` from the start, its lags `lag_scale` times
 /// vehicle.yaml's (the tracker keeps vehicle.yaml's).
-fn follow(
+fn follow(mpc: MpcLag, poses: &[(f64, f64, f64)], start: (f64, f64, f64), lag_scale: f64) -> Run {
+    follow_in(mpc, poses, start, lag_scale, |_| None)
+}
+
+/// As [`follow`], with the path's corridor from `corridor`.
+fn follow_in(
     mut mpc: MpcLag,
     poses: &[(f64, f64, f64)],
     start: (f64, f64, f64),
     lag_scale: f64,
+    corridor: impl Fn(&Path) -> Option<Corridor>,
 ) -> Run {
     let path = Path::new(poses).expect("a path");
     mpc.reset(path.clone());
+    mpc.set_corridor(corridor(&path));
     let car = lags_scaled(&ActuatorConfig::default(), lag_scale);
     let car = ActuatorConfig {
         // lags_scaled scales the dead times too: vehicle.yaml's are 0.
@@ -284,6 +294,128 @@ fn in_the_tube_it_holds_its_line_and_outside_it_comes_back() {
             .fold(0.0, f64::max);
         assert!(worst_late < 0.25, "{worst_late} m off at {cruise} m/s");
         run.check_limits(cruise);
+    }
+}
+
+/// The corridor test's car: 1 m wide (vehicle.yaml's), 0.2 m kept from each line.
+const KEEP: Keep = Keep {
+    half_width: 0.5,
+    margin: 0.2,
+};
+
+/// A straight lane along x, its lines at y = `right` and y = `left`.
+fn lane(right: f64, left: f64) -> impl Fn(&Path) -> Option<Corridor> {
+    move |path| {
+        Some(Corridor::along(path, KEEP, |_, y, _| {
+            Some(Lines {
+                left: left - y,
+                right: y - right,
+            })
+        }))
+    }
+}
+
+#[test]
+fn in_the_corridor_it_holds_its_line_and_outside_it_comes_back() {
+    let with_tube = |cruise| {
+        let settings = Settings {
+            cruise,
+            tube: 0.2,
+            ..Settings::default()
+        };
+        MpcLag::new(LIMITS, ActuatorConfig::default(), settings).expect("a tracker")
+    };
+    let late = |run: &Run| {
+        let rows: Vec<f64> = run
+            .rows
+            .iter()
+            .filter(|r| r[1] > 25.0)
+            .map(|r| r[6])
+            .collect();
+        rows.iter().sum::<f64>() / rows.len() as f64
+    };
+    // A lopsided lane: the plan 0.5 m right of its centre (lines at -1.2 and +2.2 m), so
+    // 1.5 m of room to the left and 0.5 m to the right.
+    for cruise in [1.0, 3.0] {
+        // 1.2 m left: inside the corridor (outside the tube), so it holds its line.
+        let held = follow_in(
+            with_tube(cruise),
+            &straight(40.0),
+            (0.0, 1.2, 0.0),
+            1.0,
+            lane(-1.2, 2.2),
+        );
+        assert!(held.reached);
+        assert!(late(&held) > 1.0, "{} m: pulled to the plan", late(&held));
+        // The tube alone pulls it back.
+        let tube = follow(with_tube(cruise), &straight(40.0), (0.0, 1.2, 0.0), 1.0);
+        assert!(late(&tube) < 0.25, "{} m with the tube", late(&tube));
+        // 1.2 m right: past the right room, back to it and no further.
+        let back = follow_in(
+            with_tube(cruise),
+            &straight(40.0),
+            (0.0, -1.2, 0.0),
+            1.0,
+            lane(-1.2, 2.2),
+        );
+        assert!(back.reached);
+        let worst_late = back
+            .rows
+            .iter()
+            .filter(|r| r[1] > 25.0)
+            .map(|r| -r[6])
+            .fold(0.0, f64::max);
+        assert!(worst_late < 0.55, "{worst_late} m right at {cruise} m/s");
+        // Its body never crossed either line once inside (half the car: 0.5 m).
+        for run in [&held, &back] {
+            for r in run.rows.iter().filter(|r| r[1] > 25.0) {
+                assert!(r[6] + 0.5 < 2.2 && r[6] - 0.5 > -1.2, "{} m", r[6]);
+            }
+            run.check_limits(cruise);
+        }
+    }
+}
+
+#[test]
+fn a_lane_narrower_than_the_car_keeps_it_on_the_plan() {
+    // Lines 1.2 m apart: no room (the car and its margins need 1.4 m). The tube's 0.2 m
+    // is not used there: 0.15 m off is pulled back to the plan, as with no tube.
+    let settings = Settings {
+        cruise: 1.0,
+        tube: 0.2,
+        ..Settings::default()
+    };
+    let mpc = MpcLag::new(LIMITS, ActuatorConfig::default(), settings).expect("a tracker");
+    let run = follow_in(mpc, &straight(30.0), (0.0, 0.15, 0.0), 1.0, lane(-0.6, 0.6));
+    assert!(run.reached);
+    let late: Vec<f64> = run
+        .rows
+        .iter()
+        .filter(|r| r[1] > 20.0)
+        .map(|r| r[6].abs())
+        .collect();
+    let mean = late.iter().sum::<f64>() / late.len() as f64;
+    assert!(mean < 0.05, "{mean} m off the plan");
+}
+
+#[test]
+fn with_no_lane_known_the_corridor_is_the_tube() {
+    // A corridor with no lane anywhere: the same commands as the tube alone.
+    let with_tube = || {
+        let settings = Settings {
+            cruise: 1.0,
+            tube: 0.2,
+            ..Settings::default()
+        };
+        MpcLag::new(LIMITS, ActuatorConfig::default(), settings).expect("a tracker")
+    };
+    let none = |path: &Path| Some(Corridor::along(path, KEEP, |_, _, _| None));
+    let a = follow_in(with_tube(), &straight(20.0), (0.0, 0.6, 0.0), 1.0, none);
+    let b = follow(with_tube(), &straight(20.0), (0.0, 0.6, 0.0), 1.0);
+    assert_eq!(a.rows.len(), b.rows.len());
+    for (ra, rb) in a.rows.iter().zip(&b.rows) {
+        assert_eq!(ra[5], rb[5]);
+        assert_eq!(ra[7], rb[7]);
     }
 }
 

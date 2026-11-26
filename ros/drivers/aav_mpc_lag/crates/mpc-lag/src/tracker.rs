@@ -41,6 +41,7 @@ use car_model::{ActuatorConfig, CarState, Command as CarCommand, SpeedLoop};
 use spine_core::speed_loop::SpeedLoopProfile;
 
 use crate::barrier::{room_to_stop, Circle, Rules};
+use crate::corridor::{self, Corridor, Room};
 use crate::model::{self, row, Input, PiLoop, State, NU, NX};
 use crate::path::{wrap, Foot, Path};
 use crate::qp::{self, RowMatrix};
@@ -228,6 +229,9 @@ pub struct Report {
     /// The stop rule asked a stop this tick: straight on, the car could no longer stand
     /// still short of a barrier a tick later.
     pub barrier_stop: bool,
+    /// m each side the corridor leaves the car where it is now; `None` with no corridor,
+    /// or no lane known here (then the ±tube).
+    pub room: Option<Room>,
 }
 
 /// One tick's command.
@@ -282,6 +286,8 @@ pub struct MpcLag {
     /// The keep-out circles, in the path's frame (none: the tracker as it always was).
     barriers: Vec<Circle>,
     rules: Rules,
+    /// The room each side along the path (none: the ±tube everywhere).
+    corridor: Option<Corridor>,
 }
 
 impl MpcLag {
@@ -362,6 +368,7 @@ impl MpcLag {
             holding: false,
             barriers: Vec::new(),
             rules: Rules::new(stop),
+            corridor: None,
         })
     }
 
@@ -452,9 +459,23 @@ impl MpcLag {
     }
 
     /// Take a new path. The estimate and the plan carry on: it starts where the car is.
+    /// Its corridor goes with the last path: set the new one's after ([`MpcLag::set_corridor`]).
     pub fn reset(&mut self, path: Path) {
         self.path = Some(path);
         self.hint = 0;
+        self.corridor = None;
+    }
+
+    /// The room each side along the path now running (`corridor`): e_y's target is clipped
+    /// into it, not into ±tube, wherever a lane is known. `None`: the ±tube everywhere.
+    pub fn set_corridor(&mut self, corridor: Option<Corridor>) {
+        self.corridor = corridor;
+    }
+
+    /// The corridor held now.
+    #[must_use]
+    pub fn corridor(&self) -> Option<&Corridor> {
+        self.corridor.as_ref()
     }
 
     /// Move the path (the held map -> odom moved), keeping the place on it.
@@ -831,6 +852,7 @@ impl MpcLag {
                     .reduce(f64::min),
                 barrier_slack: slack,
                 barrier_stop,
+                room: self.corridor.as_ref().and_then(|c| c.room_at(x0[row::S])),
             },
         })
     }
@@ -879,9 +901,14 @@ impl MpcLag {
         let mut weights = vec![0.0; 4 * n];
         let mut err = vec![0.0; 4 * n];
         for k in 0..n {
-            // In the tube the target is where the plan already is: no pull to the centre.
+            // In the tube (or the corridor, where a lane is known) the target is where the
+            // plan already is: no pull to the centre.
             let e_y = xs[k][row::E_Y];
-            let target = [model::clip(e_y, -s.tube, s.tube), 0.0, r[k], v_lim[k]];
+            let room = self
+                .corridor
+                .as_ref()
+                .and_then(|c| c.room_at(xs[k][row::S]));
+            let target = [corridor::target(e_y, room, s.tube), 0.0, r[k], v_lim[k]];
             let scale = if k + 1 == n { s.terminal } else { 1.0 };
             for c in 0..4 {
                 weights[k * 4 + c] = q[c] * scale;
