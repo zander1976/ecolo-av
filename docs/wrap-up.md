@@ -60,10 +60,11 @@ ros messaging system."
 
 | Want to | Today | The one command |
 |---|---|---|
-| Start the virtual car | `sim`, `demo`, `dry-run`, `ravensim`, `sim-cameras` | **`pixi run sim`**: Ravensim as the car, every topic the car has (step 1) |
+| Start the virtual car | `sim`, `demo`, `dry-run`, `ravensim`, `sim-cameras` | **`pixi run virtualcar`**: everything the car provides, no windows (step 1; 26 Nov) |
+| Watch it | `ravensim`, `dev-window --live` | **`pixi run ravensim`**: window 4, watching the virtual car (26 Nov) |
 | Start the real car | `car` | **`pixi run car <computer>`** |
-| Open the screens | `hud`, `map`, `debug-hud`, `hw-panel`, `dev-window`, `nav-view`, `ladder-window`, `rviz` | **`pixi run screens`**: windows 1, 2 and 4 below, for whichever car runs |
-| Run the tests | `ladder`, `car-test`, `actuator-test`, `sim-check`, `bench-check`, `measure` | **`pixi run ladder`**: window 3; `ladder all --sim` is the full suite on the virtual car, one report |
+| Open the screens | `hud`, `map`, `debug-hud`, `hw-panel`, `dev-window`, `nav-view`, `ladder-window`, `rviz` | **`pixi run screens`**: windows 1 and 2 below (and 4 for the real car), for whichever car runs |
+| Run the tests | `ladder`, `car-test`, `actuator-test`, `sim-check`, `bench-check`, `measure` | **`pixi run ladder`**: window 3, a screen; `ladder all --sim` is the full suite on the virtual car, one report |
 
 The rest stay as what a rung runs, or as tools (maps, firmware, set-up). The old names keep
 working until the new ones have been used for a while; then they go. `sim.launch.py`'s 127
@@ -124,14 +125,28 @@ ellipses. `debug-hud`, `nav-view` and the `.rviz` layouts stay until step 5.
 [Every command](../README.md#the-four-commands); every old name still works, marked "old
 name: use ...".
 
-| Command | What it does now |
+Ben, 26 Nov: "a ravensim that is just the monitoring everything and displays the results.
+THats it. Next we have a pixi run virtualcar ... everything the car would be providing";
+"why is the testing screen now a command prompt instead of a screen"; "Maybe we can create
+a consinstent map between all 3." (TODO 288)
+
+| Command | What it does now (26 Nov) |
 |---|---|
-| `pixi run sim` | `sim.launch.py setup:=car`: the road world and the ESP32, the virtual car. A named set-up (`aav_description` `setups.py`), not a new default: with no `setup:=` the launch file keeps `world:=empty esp32:=false`, so `sim-check`, `car-test --sim`, `dry-run`, `measure` and the launch tests start what they did. A switch by hand wins |
-| `pixi run screens` | the world view, the HUD and the map window, each in its own process group; `--sim`, `--car` or asks `/system/source`. The real car is only watched: the world view `--watch`, the map without its hardware page, no HUD |
+| `pixi run virtualcar` | `sim.launch.py setup:=car`: everything the car provides, no windows. Carleton's campus (`world:=campus`), the ESP32 stand-in, the Motor Pi's bridge, the Orin's stack with the stop-sign detector (`perception:=true detector_impl:=rust`). A named set-up (`aav_description` `setups.py`), not a new default: with no `setup:=` the launch file keeps `world:=empty esp32:=false perception:=false`, so `sim-check`, `car-test --sim`, `dry-run`, `measure` and the launch tests start what they did. A switch by hand wins. `pixi run sim` is its old name |
+| `pixi run ravensim` | the world view (window 4) on the running virtual car: no simulator of its own. It asks the simulator which world it runs and draws that world's maps |
+| `pixi run screens` | the HUD and the map window, each in its own process group; `--sim`, `--car` or asks `/system/source`. The virtual car's world view is `ravensim`'s (`--only world` opens one here). The real car is only watched: the world view `--watch`, the map without its hardware page, no HUD |
+| `pixi run ladder` | the tests window (window 3). Any word after it is the text tool: `ladder table`, `ladder next`, `ladder run 1` |
 | `pixi run ladder all --sim` | every built rung in turn, one report (`ladder-all.html`); not built yet: skipped, saying so; `--car` refused. Only rung 1 is built |
 
+**One map for all three** (26 Nov): the virtual car runs on the campus, so the world view,
+the map window (its `/map` is `campus.pgm`; its street map is the real Carleton) and the
+simulator show the same place. `pixi run campus` puts a stop sign at each of
+OpenStreetMap's (85 on the campus), facing the traffic, its painted line before the road it
+meets, and writes the lines into `lanes.yaml`: the behaviour planner stops at each from the
+map, and the detector sees the sign.
+
 `debug-hud`, `nav-view`, `ladder-window`, `rviz`, `view`, `demo`, `dry-run` and
-`ravensim` go once the new commands have been used for a while.
+`sim` go once the new commands have been used for a while.
 
 ## 5. The final report
 

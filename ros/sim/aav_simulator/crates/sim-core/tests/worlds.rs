@@ -166,13 +166,20 @@ fn the_campus_if_made() {
         }
     };
     let t = Instant::now();
-    let w = World::load(&path, &[], Surfaces::Visual).expect("campus");
+    // Its stop signs are aav_sim_models's (model://stop_sign, 26 Nov).
+    let models = [gazebo().join("models")];
+    let w = World::load(&path, &models, Surfaces::Visual).expect("campus");
     println!(
         "campus: {} triangles in {:?}",
         w.scene.triangle_count(),
         t.elapsed()
     );
     assert!(w.scene.triangle_count() > 100_000);
+    assert!(
+        w.models.iter().any(|m| m.starts_with("stop_sign_")),
+        "{:?}",
+        w.models
+    );
     let lidar = Pose::new(Vec3::new(0.49, 0.0, 1.52), Rot3::IDENTITY);
     let t = Instant::now();
     let scan = Scan::cast(&LidarSpec::ROOF, &w.scene, &lidar, &mut Noise::new(1), 4);

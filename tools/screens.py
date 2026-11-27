@@ -2,18 +2,24 @@
 """
 The screens, for whichever car is running (wrap-up step 5; Ben, 25 Nov: "eight become four").
 
-    pixi run screens                    the three windows, for the car that announces itself
-    pixi run screens --sim              for Ravensim on this computer (pixi run sim)
+    pixi run screens                    the windows, for the car that announces itself
+    pixi run screens --sim              for the virtual car on this computer (pixi run
+                                        virtualcar): the HUD and the map window
     pixi run screens --car              for the real car, on this network: listen only
     pixi run screens --only world       one window: world, hud or map
     pixi run screens --print            say what it would start, and start nothing
     Ctrl-C, or closing a window         stops every window it started
 
   Window      Program                      Virtual car (--sim)        Real car (--car)
-  world       the world view (Bevy)        dev_window.sh --live       dev_window.sh --watch
+  world       the world view (Bevy)        not opened: pixi run       dev_window.sh --watch
+                                           ravensim (--only world:
+                                           dev_window.sh --live)
   hud         the HUD (raylib)             hud.launch.py, here only   not opened (below)
   map         the map + HARDWARE (F2;      map.launch.py, here only   map.launch.py
               its LADDER tab: the tests)                              hardware:=false
+
+The virtual car's world view is pixi run ravensim's (Ben, 26 Nov: "a ravensim that is just
+the monitoring everything"), so screens doesn't open a second one unless --only world asks.
 
 Which car: --sim or --car; with neither, it asks /system/source (tools/jacks.py's check),
 first on this computer, then on the network. SIM here: the virtual car. REAL: the real car.
@@ -51,6 +57,8 @@ WINDOWS = ('world', 'hud', 'map')
 SIM, CAR = 'sim', 'car'
 LOCAL = ('tools/ros.sh', '--local')
 NETWORK = ('tools/ros.sh',)
+WORLD_ON_SIM = ("the world view is pixi run ravensim's for the virtual car "
+                '(--only world opens it here)')
 HUD_ON_CAR = ('the HUD is not opened beside the real car: the sensor watchdog trusts '
               "/hud/heartbeat, and a laptop's HUD would hide a frozen car screen")
 
@@ -84,6 +92,9 @@ def plan(car, only=()):
     windows, notes = [], []
     for name in wanted:
         if name == 'world':
+            if car == SIM and not only:
+                notes.append(WORLD_ON_SIM)
+                continue
             mode = '--live' if car == SIM else '--watch'
             windows.append(Window('world', 'the world view', ('tools/dev_window.sh', mode)))
         elif name == 'hud':

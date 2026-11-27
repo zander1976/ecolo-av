@@ -40,6 +40,23 @@ you read by hand are for checking it.
 | `maps/campus/lanes.yaml` | the painted roads' centre lines and widths: `lane_score.py` scores keeping right by them; the lane map (`sim world:=campus behaviour:=true lane_map:=world`): the road ahead on the right lane's centre |
 | `maps/ndt/campus.pcd` | NDT's map, **a guess**: points on the same shapes |
 
+**The stop signs (26 Nov):** one at each of OpenStreetMap's `highway=stop` that binds a road
+end (85 on the campus), so the camera, the map and the behaviour planner agree.
+
+```text
+   road met ║                     ┌ the sign: 1 m past the right kerb, facing the traffic
+   ═════════╬═══════   ──▶ ──▶   ▣│   (Ravensim's stop_sign)
+            ║  ◀── set back ──▶   █│ the white line, set back: half the road met + 1 m
+```
+
+| Where the line is | Who reads it |
+|---|---|
+| `campus.sdf`: the sign (`stop_sign_<n>`) and the painted bar | Ravensim's cameras: the detector sees the sign |
+| `campus.osm` (Lanelet2): a stop line and a `traffic_sign` rule | the planner with `lane_graph:=lanelet2` |
+| `lanes.yaml`, `stops:` (x, y, heading) | the behaviour planner (`map_stops`, on in `pixi run virtualcar`) |
+
+Until 26 Nov the line sat on the junction's middle (the road crossed), and no sign stood there.
+
 **The paint (8 Nov):** big roads (trunk to tertiary) have a dashed yellow centre line and a
 solid white line 0.5 m in from each edge, so the lane finder sees both sides of its lane.
 Other roads have none.

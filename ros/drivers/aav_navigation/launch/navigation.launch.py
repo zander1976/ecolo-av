@@ -87,7 +87,8 @@ Switches:
                           costmap's kerb_layer and the stop zone's steps source (TODO 119)
   behaviour:=true         the behaviour planner (aav_behaviour_rs):
                           the states and a speed cap, in /world/road_ahead's limits; lane_map:=
-                          a lanes.yaml for the road ahead's line
+                          a lanes.yaml for the road ahead's line; map_stops:= a lanes.yaml
+                          whose stops (the map's stop lines) it stops at too
   lane_costs:=, lane_source:=, costmap_chunks:=, local_chunks:=true, lane_route:=,
   lane_pass:=, lane_corners:=, lane_pass_shape:=jerk,
   lane_graph:=            our costmap's lanes and chunks, our planner's lane-centre route
@@ -394,6 +395,8 @@ def nodes(context):
                                                  speed_loop),
                         {'obstacles': lidar and not voxels, 'use_sim_time': use_sim_time,
                          'lane_map': LaunchConfiguration('lane_map').perform(context),
+                         # The map's stop lines (lanes.yaml's stops): stand 2 s at each.
+                         'map_stops': LaunchConfiguration('map_stops').perform(context),
                          # The things: wait only for what moves, a parked thing is the
                          # planner's to go round (behaviour.py moving_ahead).
                          'things': things,
@@ -878,6 +881,9 @@ def generate_launch_description():
         DeclareLaunchArgument('lane_map', default_value='',
                               description="with behaviour: a lanes.yaml, so the road ahead's "
                                           "line is the lane's centre; empty: /plan's line"),
+        DeclareLaunchArgument('map_stops', default_value='',
+                              description='with behaviour: a lanes.yaml whose stops (the '
+                                          "map's stop lines) are stops too; empty: none"),
         DeclareLaunchArgument('lane_costs', default_value='',
                               description='with costmap:=own: a lanes.yaml, drawn into our '
                                           'global costmap as soft costs, lowest at the right '

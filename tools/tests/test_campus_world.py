@@ -210,3 +210,17 @@ def test_textures_tile_and_bump_maps_are_flat_on_a_flat_picture():
     assert abs(noise[0] - noise[-1]).max() < 3.0 * abs(noise[1:] - noise[:-1]).max()
     flat = c.normal_map(np.zeros((8, 8)), 5.0)
     assert (flat[..., 2] == 255).all() and (flat[..., 0] == 127).all()
+
+
+def test_the_world_has_a_stop_sign_at_each_stop_facing_the_traffic():
+    sdf = c.world_sdf(['grass'], (45.386, -75.696), signs=[(10.0, -4.5, math.pi)])
+    assert sdf.count('<uri>model://stop_sign</uri>') == 1
+    assert '<name>stop_sign_0</name>' in sdf
+    assert '<pose>10.00 -4.50 0 0 0 3.1416</pose>' in sdf
+    assert 'model://stop_sign' not in c.world_sdf(['grass'], (45.386, -75.696))
+
+
+def test_lanes_yaml_keeps_each_stop_line_and_its_way():
+    stops = [{'x': 45.5123, 'y': 0.0, 'heading': 0.123456, 'road': 'East',
+              'right': (45.5, -3.5), 'left': (45.5, 3.5), 'sign': (45.5, -4.5, math.pi)}]
+    assert c.lane_stops(stops) == [{'x': 45.51, 'y': 0.0, 'heading': 0.1235, 'road': 'East'}]

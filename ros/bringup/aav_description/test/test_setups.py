@@ -12,20 +12,24 @@ PIXI = os.path.join(HERE, '..', '..', '..', '..', 'pixi.toml')
 NOT_GIVEN = {name: setups.CHOSEN for name in setups.FALLBACK}
 
 
+OLD = {'world': 'empty', 'esp32': 'false', 'perception': 'false', 'detector_impl': 'python'}
+CAR = {'world': 'campus', 'esp32': 'true', 'perception': 'true', 'detector_impl': 'rust'}
+
+
 def test_no_setup_keeps_the_launch_files_old_defaults():
-    assert setups.resolve('', NOT_GIVEN) == {'world': 'empty', 'esp32': 'false'}
+    assert setups.resolve('', NOT_GIVEN) == OLD
 
 
-def test_car_is_the_road_world_with_the_esp32():
-    assert setups.resolve('car', NOT_GIVEN) == {'world': 'road', 'esp32': 'true'}
-    assert setups.resolve(' Car ', {}) == {'world': 'road', 'esp32': 'true'}
+def test_car_is_the_campus_with_the_esp32_and_the_detector():
+    """Ben, 26 Nov: everything the car provides, on one map the screens share."""
+    assert setups.resolve('car', NOT_GIVEN) == CAR
+    assert setups.resolve(' Car ', {}) == CAR
 
 
 def test_a_switch_given_by_hand_wins_over_the_setup():
-    assert setups.resolve('car', {'world': 'test_lot', 'esp32': ''}) == {
-        'world': 'test_lot', 'esp32': 'true'}
-    assert setups.resolve('car', {'world': 'empty', 'esp32': 'false'}) == {
-        'world': 'empty', 'esp32': 'false'}
+    assert setups.resolve('car', {'world': 'road', 'esp32': ''}) == dict(CAR, world='road')
+    assert setups.resolve('car', {'world': 'empty', 'esp32': 'false', 'perception': 'false'}) \
+        == dict(CAR, world='empty', esp32='false', perception='false')
 
 
 def test_an_unknown_setup_is_refused_by_name():
@@ -49,13 +53,16 @@ def test_sim_launch_declares_the_setup_switches_empty():
 
 
 @pytest.mark.skipif(not os.path.isfile(PIXI), reason='no pixi.toml beside this package')
-def test_pixi_run_sim_is_the_virtual_car():
+def test_pixi_run_virtualcar_is_the_virtual_car_and_sim_its_old_name():
     with open(PIXI) as f:
-        line = next(t for t in f if t.startswith('sim = '))
-    assert f'setup:={setups.CAR}' in line
+        lines = f.readlines()
+    for task in ('virtualcar = ', 'sim = '):
+        line = next(t for t in lines if t.startswith(task))
+        assert f'setup:={setups.CAR}' in line, task
 
 
 def test_describe_says_what_the_setup_gave():
     values = setups.resolve('car', NOT_GIVEN)
-    assert setups.describe('car', values) == 'setup:=car: world:=road esp32:=true'
+    assert setups.describe('car', values) == ('setup:=car: world:=campus esp32:=true '
+                                              'perception:=true detector_impl:=rust')
     assert setups.describe('', setups.resolve('', NOT_GIVEN)).startswith('no set-up')

@@ -12,9 +12,11 @@
 #   spine = sim.launch.py world:=road spine:=true: the road world with the spine in the
 #   loop (spine_bridge, the CAN topics, spine_sim on Ravensim's car). Whatever is live in
 #   sim and road must be live there too
-#   virtual = sim.launch.py world:=road esp32:=true: Ravensim as today's car, so the screens
-#   and tests see the car's own graph (docs/wrap-up.md, step 1). Whatever is live in sim,
-#   road and car must be live there too, except a topic marked not_virtual: <why>
+#   virtual = pixi run virtualcar (sim.launch.py setup:=car: world:=campus esp32:=true
+#   perception:=true detector_impl:=rust; until 26 Nov world:=road, no detector): everything
+#   the car provides, so the screens and tests see the car's own graph (docs/wrap-up.md,
+#   step 1). Whatever is live in sim, road and car must be live there too, except a topic
+#   marked not_virtual: <why>
 # drop_in: what a stream must be, beyond name and type, so anything can replace what makes it:
 #   Ravensim, the real sensor (Ben, 5 Nov). The floors are Gazebo's rates (Ravensim's
 #   model, until it went on 16 Nov) measured 5 Nov, less a margin; the ceilings are the car's (docs/bandwidth.md) plus a margin.
@@ -655,8 +657,7 @@ topics:
     pub: [stop_sign_watcher]
     sub: [twist_mux, hud, language_drive, behaviour]
     live: [car]
-    not_virtual: "needs the object detector: sim perception:=true in the ml environment (pixi run -e ml)"
-    note: true while the car stops for a stop sign. A twist_mux lock at priority 30 - it holds navigation and the AI slot, never a person; never expires on silence. On the car, the stop_signs part - one watcher, on the machine with the mux. Since 17 Nov aav_stop_sign_rs (Rust) publishes it; the Python node removed 22 Nov.
+    note: true while the car stops for a stop sign. A twist_mux lock at priority 30 - it holds navigation and the AI slot, never a person; never expires on silence. On the car, the stop_signs part - one watcher, on the machine with the mux. Since 17 Nov aav_stop_sign_rs (Rust) publishes it; the Python node removed 22 Nov. The virtual car runs it since 26 Nov (perception:=true, the Rust detector), so it is live there too; without models/rf-detr-nano.onnx the watcher still runs and says false.
   /perception/stop_sign/distance:
     type: geometry_msgs/msg/PointStamped
     pub: [stop_sign_watcher]

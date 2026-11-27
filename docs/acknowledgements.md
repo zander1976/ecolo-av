@@ -109,7 +109,7 @@ Each package's `PROVENANCE.md` says which repository and commit; `docs/older-cod
 
 | Source | Licence | Kind | Where we used it |
 |---|---|---|---|
-| **OpenStreetMap** contributors | ODbL | data | the campus world, its roads and buildings (`pixi run campus`) |
+| **OpenStreetMap** contributors | ODbL | data | the campus world, its roads, buildings and stop signs (`highway=stop`: the signs, the stop lines and `lanes.yaml`'s stops; `pixi run campus`) |
 | **OSRM**; **Valhalla** | BSD-2; MIT | runs | street routes (`aav_routes`) |
 | Contraction Hierarchies: R. Geisberger et al., WEA 2008 | paper | idea | how OSRM answers fast; noted for the route planner |
 | **Lanelet2** (F. Poggenhans et al., ITSC 2018) | BSD-3 | idea | the lane map's shape and its `.osm` format (lanelets, their left and right bounds, `traffic_sign` rules with a `ref_line` stop line); its routing graph's idea (a lanelet's followers, its neighbours over a dashed line, a lane change's cost); tried on RoboStack; our own Rust reader and router, `lanelet-map`, which the route level routes on with `lane_graph:=lanelet2` (TODO 175) |

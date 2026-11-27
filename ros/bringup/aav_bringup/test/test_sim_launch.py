@@ -248,11 +248,29 @@ def test_the_stacks_switches_are_declared_empty_so_a_hand_set_one_is_seen():
 
 
 def test_setup_car_is_the_virtual_car_and_a_switch_by_hand_still_wins():
-    """Start what `pixi run sim` does (setup:=car, wrap-up step 5): the road, the ESP32."""
-    car = included(started(SIM, setup='car'))
+    """
+    Start what `pixi run virtualcar` does (setup:=car): the ESP32, the stop-sign watcher.
+
+    Its world is the campus (test_setups.py), which pixi run campus makes outside git: here
+    the road world by hand, as CI has no campus.
+    """
+    actions = started(SIM, setup='car', world='road')
+    car = included(actions)
     assert car['ravensim.launch.py']['world'] == 'road'
     assert car['ravensim.launch.py']['esp32'] == 'true'
     assert car['geofence.launch.py']['backend'] == 'sim_esp32'
+    # perception:=true: the watcher always; the Rust detector only where its model is.
+    assert 'stop_sign_watcher' in names(actions)
+    model = os.path.join(os.environ.get('PIXI_PROJECT_ROOT', os.getcwd()), 'models',
+                         'rf-detr-nano.onnx')
+    if os.path.isfile(model):
+        assert car['detector.launch.py']['detector_impl'] == 'rust'
+    else:
+        assert 'detector.launch.py' not in car
+    # The behaviour planner reads the world's lane map's stops (map_stops:=world).
+    assert car['navigation.launch.py']['map_stops'].endswith('road.lanes.yaml')
+    assert included(started(SIM, setup='car', world='road', map_stops='false'))[
+        'navigation.launch.py']['map_stops'] == ''
     lot = included(started(SIM, setup='car', world='test_lot'))
     assert lot['ravensim.launch.py']['world'] == 'test_lot'
     assert lot['ravensim.launch.py']['esp32'] == 'true'

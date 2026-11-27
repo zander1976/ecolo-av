@@ -16,15 +16,17 @@ NOTHING = {'simulator': False, 'message': 'no simulator heard on this computer'}
 REAL = {'simulator': False, 'message': '/system/source says REAL (legacy_uart_bridge): ...'}
 
 
-def test_the_virtual_car_gets_all_three_windows_on_this_computer_only():
+def test_the_virtual_car_gets_the_hud_and_the_map_on_this_computer_only():
+    """Its world view is pixi run ravensim's (Ben, 26 Nov), not a second one here."""
     windows, notes = screens.plan(screens.SIM)
-    assert [w.name for w in windows] == ['world', 'hud', 'map']
-    assert notes == []
-    assert windows[0].cmd == ('tools/dev_window.sh', '--live')   # --live is local inside
-    for w in windows[1:]:
+    assert [w.name for w in windows] == ['hud', 'map']
+    assert notes == [screens.WORLD_ON_SIM]
+    for w in windows:
         assert w.cmd[:2] == ('tools/ros.sh', '--local'), w.name
-    assert windows[1].cmd[-1] == 'hud.launch.py'
-    assert windows[2].cmd[-1] == 'map.launch.py'     # with its HARDWARE page (F2)
+    assert windows[0].cmd[-1] == 'hud.launch.py'
+    assert windows[1].cmd[-1] == 'map.launch.py'     # with its HARDWARE page (F2)
+    (world,), _ = screens.plan(screens.SIM, ['world'])
+    assert world.cmd == ('tools/dev_window.sh', '--live')   # --live is local inside
 
 
 def test_the_real_car_is_only_watched():

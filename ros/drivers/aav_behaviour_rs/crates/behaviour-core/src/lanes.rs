@@ -24,6 +24,7 @@ use serde_yaml_ng::Value;
 
 use crate::paths::Point;
 use crate::road::{resample, RoadError, Strip};
+use crate::stop_lines::MapStop;
 use crate::{hypot, py_max, py_min, py_sum};
 
 /// m: one lane, when the file doesn't say how many.
@@ -239,6 +240,13 @@ pub enum LanesError {
         /// What is wrong.
         what: String,
     },
+    /// A stop's field (`stops`: x, y, heading).
+    Stop {
+        /// Which stop (0 the first).
+        stop: usize,
+        /// What is missing.
+        what: String,
+    },
 }
 
 impl fmt::Display for LanesError {
@@ -247,6 +255,7 @@ impl fmt::Display for LanesError {
             LanesError::Read(e) => write!(f, "lanes.yaml: {e}"),
             LanesError::Yaml(e) => write!(f, "lanes.yaml: {e}"),
             LanesError::Field { road, what } => write!(f, "lanes.yaml, road {road}: {what}"),
+            LanesError::Stop { stop, what } => write!(f, "lanes.yaml, stop {stop}: {what}"),
         }
     }
 }
@@ -330,6 +339,45 @@ pub fn from_yaml(text: &str) -> Result<LaneMap, LanesError> {
         });
     }
     Ok(LaneMap::new(roads))
+}
+
+/// The stop lines in a lanes.yaml (`stops`: x, y in m, heading in rad, the way the
+/// traffic that stops drives; `tools/campus_world.py` writes the campus's). None: empty.
+///
+/// # Errors
+///
+/// [`LanesError`] if the file can't be read, isn't YAML, or a stop lacks x, y or heading.
+pub fn load_stops(path: impl AsRef<Path>) -> Result<Vec<MapStop>, LanesError> {
+    let text = std::fs::read_to_string(path).map_err(LanesError::Read)?;
+    stops_from_yaml(&text)
+}
+
+/// The stop lines from lanes.yaml's text.
+///
+/// # Errors
+///
+/// As [`load_stops`].
+pub fn stops_from_yaml(text: &str) -> Result<Vec<MapStop>, LanesError> {
+    let data: Value = serde_yaml_ng::from_str(text).map_err(LanesError::Yaml)?;
+    let list = match data.get("stops") {
+        Some(Value::Sequence(list)) => list.as_slice(),
+        _ => &[],
+    };
+    list.iter()
+        .enumerate()
+        .map(|(i, s)| {
+            let get = |key: &str| {
+                s.get(key).and_then(number).ok_or_else(|| LanesError::Stop {
+                    stop: i,
+                    what: format!("no {key}"),
+                })
+            };
+            Ok(MapStop {
+                at: (get("x")?, get("y")?),
+                heading: get("heading")?,
+            })
+        })
+        .collect()
 }
 
 /// m (x, y) is left of the lane's centre (+ left), the way the lane runs.
@@ -460,6 +508,21 @@ pub fn with_edges(mut strip: Strip, lanes: &LaneMap, passing: bool) -> Strip {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lanes_yaml_may_carry_its_stop_lines() {
+        let text = "roads: []\nstops:\n- {x: 45.5, y: 0, heading: 1.25, road: East}\n";
+        let stops = stops_from_yaml(text).expect("read");
+        assert_eq!(stops.len(), 1);
+        assert!((stops[0].at.0 - 45.5).abs() < 1e-12 && stops[0].at.1 == 0.0);
+        assert!((stops[0].heading - 1.25).abs() < 1e-12);
+        assert!(stops_from_yaml("roads: []\n").expect("none").is_empty());
+        let bad = stops_from_yaml("stops:\n- {x: 1, y: 2}\n");
+        assert!(
+            matches!(bad, Err(LanesError::Stop { stop: 0, .. })),
+            "{bad:?}"
+        );
+    }
 
     const TWO_WAY: &str =
         "roads:\n- name: road\n  width: 8.0\n  lanes: 2\n  points: [[-20.0, 0.0], [100.0, 0.0]]\n";

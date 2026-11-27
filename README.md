@@ -53,7 +53,7 @@ New to the team? Do these in order, on a Mac or on Linux.
 | 3 | Get the code: fork `AAV-2025-2026/ecolo-av` on GitHub, then clone your fork ([CONTRIBUTING.md](CONTRIBUTING.md)) | a minute |
 | 4 | `pixi install` | the first time, a few minutes: about 7 GB |
 | 5 | `pixi run build`, then `pixi run test` | a few minutes the first time |
-| 6 | `pixi run turtle`, or `pixi run sim` | ready |
+| 6 | `pixi run turtle`, or `pixi run virtualcar` | ready |
 
 The same steps, as commands:
 
@@ -100,15 +100,23 @@ reaches a real car on the same network. A family is one command and a word after
 
 ### The four commands
 
-Four for every day (Ben, 25 Nov; [the plan](docs/wrap-up.md#3-the-commands-71-today-four-for-every-day)).
-The rest are below, grouped by which of the four they belong to.
+For every day (Ben, 25 and 26 Nov; [the plan](docs/wrap-up.md#3-the-commands-71-today-four-for-every-day)).
+The rest are below, grouped by which of these they belong to.
+
+```text
+pixi run virtualcar  ──▶  everything the car provides, no windows (Carleton's campus)
+   pixi run ravensim      the world view: watch it          ┐
+   pixi run screens       the HUD and the map (F2: hardware) ├ all on the same map
+   pixi run ladder        the tests window                  ┘
+```
 
 | Want to | Command | What it does |
 |---|---|---|
-| Start the virtual car | `sim` | Ravensim as today's car (`setup:=car`: the road world and the simulated ESP32), every topic the car has (`pixi run check virtual`), driven by our own stack. A switch by hand wins: `sim world:=test_lot`, `sim stack:=best`, `sim_speed:=3`. With no GPU: `tools/software_gl.sh pixi run sim`. This computer only |
+| Start the virtual car | `virtualcar` | everything the car provides, and no windows: Ravensim's physics and sensors on Carleton's campus (`setup:=car`: `world:=campus`, the street map's own place), the ESP32 stand-in, the Motor Pi's bridge, the Orin's whole stack (localization, the stop-sign detector, planning, behaviour), the battery. Every topic the car has (`pixi run check virtual`), driven by our own stack. A switch by hand wins: `virtualcar world:=road`, `virtualcar perception:=false`, `stack:=best`. With no GPU: `tools/software_gl.sh pixi run virtualcar`. `sim` is its old name. This computer only |
+| Watch it | `ravensim` | the world view (Bevy), live on the virtual car running here, on its world's own maps: the scene, the lidar, the map, the console. It starts no simulator. A click sends a goal, only while every sensor says SIM; `--screenshot FILE` |
 | Start the real car | `car` | `car orin` (or `motor_pi`, `laptop`, `all`) |
-| Open the screens | `screens` | the world view (Bevy), the HUD and the map window (F2: its hardware page; its LADDER tab is the test bench), for whichever car runs: it asks `/system/source`, or say `--sim` or `--car`. The real car is only watched (no HUD: its heartbeat is the car screen's). `--only world`, `hud` or `map`; `--print`; Ctrl-C stops all three |
-| Run the tests | `ladder` | the test ladder: ten rungs named for what the car can do, the progress kept between days. `ladder all --sim`: the full suite on the virtual car, one report. `ladder next`, `ladder run 1`, `ladder report 1 --open`, `ladder run code`, `ladder record 1 pass --car`. It never moves the car ([Proving it](docs/proving-it.md)) |
+| Open the screens | `screens` | the HUD and the map window (F2: its hardware page; its LADDER tab is the test bench), for whichever car runs: it asks `/system/source`, or say `--sim` or `--car`. For the real car the world view too, listen only (no HUD: its heartbeat is the car screen's); the virtual car's world view is `ravensim`. `--only world`, `hud` or `map`; `--print`; Ctrl-C stops them all |
+| Run the tests | `ladder` | the tests window: the ten rungs, the simulator and the car side by side, a rung's **Run** and **Stop**, its answer (`--pretend`: sample data). With a word after it, the text tool: `ladder table`, `ladder all --sim` (the full suite on the virtual car, one report), `ladder next`, `ladder run 1`, `ladder report 1 --open`, `ladder run code`, `ladder record 1 pass --car`. It never moves the car ([Proving it](docs/proving-it.md)) |
 
 ### Build and keep the code right
 
@@ -125,9 +133,9 @@ The rest are below, grouped by which of the four they belong to.
 
 | Command | What it does |
 |---|---|
+| `sim` | old name: use `virtualcar`, the same command |
 | `demo` | old name: use `sim` and `screens`. The simulator in the test lot, the nav screen, the HUD and the map window; `--rviz`, `--debug`, `--fullscreen` |
 | `dry-run` | old name: use `sim`, `screens` and `ladder`. Ravensim, its picture and the test ladder's window attached to it; `--panel`, `--debug`. Ctrl-C stops everything ([Proving it](docs/proving-it.md#the-dry-run-pixi-run-dry-run)) |
-| `ravensim` | old name: use `sim` and `screens --only world`. The sim and the developer window live on it; `world:=campus` or any sim switch |
 | `sim-cameras` | Ravensim's cameras (Bevy, offscreen) on their own: the timing check; `--ros` publishes the car's camera topics. `sim` starts them itself |
 | `turtle` | turtlesim plays the car |
 | `bench` | the real car's software, with stand-ins for the hardware |
@@ -153,7 +161,7 @@ Add `--demo` to `hud`, `map`, `debug-hud` or `hw-panel` for pretend data: no ROS
 | `debug-hud` | old name: use `screens` (the world view has its pages). The debug screen: the lidar's cubes, the localizers, every sensor |
 | `hw-panel` | old name: use `map` (F2, the hardware page). The hardware panel: every sensor's number, and simple buttons (hold Space to drive) for Ravensim or the bench (this computer only) |
 | `nav-view` | old name: use `screens --only world`. The world view's map panel alone in a small window ([what RViz was for](docs/hud.md#rviz-and-ours)) |
-| `ladder-window` | old name: use `map`'s LADDER tab (the test bench), or `ladder`. The tests screen (Bevy, no ROS): the ten rungs, a rung's **Run**, its answer; `--pretend` ([Proving it](docs/proving-it.md#the-tests-screen-pixi-run-ladder-window)) |
+| `ladder-window` | old name: use `ladder` (the same window) or `map`'s LADDER tab (the test bench). The tests screen (Bevy, no ROS): the ten rungs, a rung's **Run**, its answer; `--pretend` ([Proving it](docs/proving-it.md#the-tests-screen-pixi-run-ladder-window)) |
 | `rviz` | old name: use `screens`. RViz with the driving layout; nothing opens it by default |
 | `view` | old name: use `screens --only world`. The car's model in RViz |
 | `graph` | a live picture of the nodes and topics |
@@ -164,7 +172,7 @@ Add `--demo` to `hud`, `map`, `debug-hud` or `hw-panel` for pretend data: no ROS
 |---|---|
 | `car-test` | rung 1's runner: phase A on stands, one command and one report: `car-test --stands` runs the preflight, every sensor, the steering, throttle on free wheels and the faults on purpose; `--sim` against its own Ravensim, `--sim --attach` against the one already running here, `--no-manual`, `--only` ([docs](docs/actuator-tests.md#car-test-the-whole-stands-test)). Phase B in a measured hallway: `car-test --hallway` (`--sim` a pretend hallway; `--analyse <session>`) ([docs](docs/actuator-tests.md#car-test-hallway-the-transfer-functions)) |
 | `actuator-test` | the actuator tests, on stands and in a lot: `actuator-test --list`. The preflight on stands, every sensor checked: `actuator-test preflight --stands` |
-| `check` | the running graph against the contract: `check virtual` beside `sim` (or `turtle`, `sim`, `road`, `spine`, `car`, `replay`, `bench`) |
+| `check` | the running graph against the contract: `check virtual` beside `virtualcar` (or `turtle`, `sim`, `road`, `spine`, `car`, `replay`, `bench`) |
 | `drop-in` | is what's running a true drop-in? Each stream's rate and frame against the contract; only listens |
 | `sim-check` | starts the road world headless and tests the whole graph in it, on our own stack (2 min); `--stack best` for the champions; with no GPU, `tools/software_gl.sh` in front |
 | `bench-check` | starts bench mode and tests the whole graph: contract, drive, e-stops (2 min) |
@@ -185,7 +193,7 @@ Add `--demo` to `hud`, `map`, `debug-hud` or `hw-panel` for pretend data: no ROS
 | Command | What it does |
 |---|---|
 | `diffusion` | the diffusion planner trial (`planner:=diffusion`): `diffusion data` (the lattice's and Hybrid-A*'s paths on random maps, no simulator), `diffusion train` (into `models/diffusion/planner.onnx`; `pixi install --locked -e learn` first), `diffusion score`, `diffusion replay <folder>`, `diffusion export --fp16` |
-| `campus` | Carleton for the simulators, navigation and NDT, from OpenStreetMap, into `maps/campus/`: then `pixi run sim world:=campus` ([docs](docs/campus.md)) |
+| `campus` | Carleton for the simulators, navigation and NDT, from OpenStreetMap, into `maps/campus/`, with a stop sign at each of OpenStreetMap's: the virtual car's world ([docs](docs/campus.md)) |
 | `campus-route` | directions on the campus, without ROS: `campus-route "Mackenzie Building"` (from P4), `--from`, `--waypoints`, `--list` ([docs](docs/routes.md#on-the-campus)) |
 | `ndt-map` | NDT's map of the simulator's test lot: `drive` the mapping route headless, or `build` from a bag; into `maps/ndt/` |
 | `record-drive` | record a mapping drive: every raw sensor at full rate, checked before, summarised after; `--sim` tests it in Ravensim ([docs](docs/recording.md)) |

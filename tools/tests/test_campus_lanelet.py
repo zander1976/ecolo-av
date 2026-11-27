@@ -82,16 +82,50 @@ def test_a_stop_sign_binds_the_road_end_it_is_near():
 def test_a_stop_line_is_painted_across_the_lanes_that_stop_up_to_the_line():
     """The world's white bar (campus_world.py): its far edge on the Lanelet2 stop line."""
     t = roads()
-    t[0]['stop_at_end'] = True      # one way, east: the whole road stops at x = 50
-    t[1]['stop_at_start'] = True    # two way: heading south, its right half stops at y = 0
+    t[0]['stop_at_end'] = True      # one way, east: the whole road stops before x = 50
+    t[1]['stop_at_start'] = True    # two way: heading south, its right half stops before y = 0
     east, south = campus_lanelet.stop_bars(t)
+    # Set back from the junction by half the road met (7 m wide) and STOP_MARGIN.
+    back = 3.5 + campus_lanelet.STOP_MARGIN
     xs = sorted({round(x, 6) for x, _ in east})
     ys = sorted({round(y, 6) for _, y in east})
-    assert xs == [50.0 - campus_lanelet.STOP_BAR, 50.0] and ys == [-3.5, 3.5]
-    # Heading south, the right is west: x from 46.5 to 50, y from 0 up the bar's depth.
+    assert xs == [50.0 - back - campus_lanelet.STOP_BAR, 50.0 - back] and ys == [-3.5, 3.5]
+    # Heading south, the right is west: x from 46.5 to 50, y from the line up the bar's depth.
     assert sorted({round(x, 6) for x, _ in south}) == [46.5, 50.0]
-    assert sorted({round(y, 6) for _, y in south}) == [0.0, campus_lanelet.STOP_BAR]
+    assert sorted({round(y, 6) for _, y in south}) == [back, back + campus_lanelet.STOP_BAR]
     assert campus_lanelet.stop_bars(roads()) == []
+
+
+def test_a_stop_line_stands_before_the_road_it_meets_not_in_it():
+    t = roads()
+    assert campus_lanelet.setbacks(t) == [(4.5, 0.0), (0.0, 4.5)]
+    # A dead end has no road to stay out of; a short road keeps half a metre.
+    short = [{'points': [[0, 0], [2, 0]], 'width': 7.0, 'oneway': True},
+             {'points': [[2, 0], [2, 9]], 'width': 20.0, 'oneway': True}]
+    assert campus_lanelet.setbacks(short)[0] == (1.5, 0.0)
+
+
+def test_each_stop_has_a_sign_beside_the_road_facing_the_traffic():
+    t = roads()
+    t[0]['stop_at_end'] = True
+    (stop,) = campus_lanelet.stop_signs(t)
+    assert (stop['x'], stop['y']) == pytest.approx((45.5, 0.0))
+    assert stop['heading'] == pytest.approx(0.0)            # the traffic drives east
+    x, y, yaw = stop['sign']
+    # Right of the traffic (south), SIGN_OUT beyond the kerb, at the line, facing west.
+    assert (x, y) == pytest.approx((45.5, -3.5 - campus_lanelet.SIGN_OUT))
+    assert abs(yaw) == pytest.approx(math.pi)
+    assert stop['road'] == 'East'
+    # A one-way road's start binds nobody: no sign there for traffic that never comes.
+    t[0]['stop_at_start'] = True
+    assert len(campus_lanelet.stop_signs(t)) == 1
+
+
+def test_back_along_walks_back_over_corners():
+    p, h = campus_lanelet.back_along([(0, 0), (10, 0), (10, 10)], 12.0)
+    assert p == pytest.approx((8.0, 0.0)) and h == pytest.approx(0.0)
+    p, h = campus_lanelet.back_along([(0, 0), (10, 0), (10, 10)], 0.0)
+    assert p == pytest.approx((10.0, 10.0)) and h == pytest.approx(math.pi / 2)
 
 
 def test_a_stop_sign_gives_each_lane_ending_there_a_stop_line_and_a_rule():

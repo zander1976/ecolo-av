@@ -264,7 +264,7 @@ python3 - <<'PY'
 import re
 import sys
 tasks = dict(re.findall(r'^([\w-]+) = \{ cmd = "([^"]*)"', open('pixi.toml').read(), re.M))
-bad = [t for t in ('turtle', 'sim', 'bench', 'bench-check', 'view', 'sim-check', 'sim-fault',
+bad = [t for t in ('turtle', 'sim', 'virtualcar', 'bench', 'bench-check', 'view', 'sim-check', 'sim-fault',
                    'demo', 'ravensim', 'ndt-map', 'carla-car', 'laptop-bench',
                    'barrier-watch', 'dry-run', 'jacks')
        if not tasks.get(t, '').startswith('tools/ros.sh --local ')]

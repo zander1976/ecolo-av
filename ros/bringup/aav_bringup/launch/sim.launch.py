@@ -396,6 +396,43 @@ def campus_ndt_chunks(given, world, ndt_map):
     return ''
 
 
+def map_stops_file(share, world, given):
+    """
+    Return the lanes.yaml whose stops the behaviour planner reads (map_stops:=), or ''.
+
+    world (the default): this world's own lane map, '' if it has none; false or empty:
+    none; else a lanes.yaml's path (which must be there).
+    """
+    given = (given or '').strip()
+    if given.lower() in ('', 'false'):
+        return ''
+    if given != 'world':
+        return worlds.lane_map_file(share, world, given)
+    try:
+        return worlds.lane_map_file(share, world, 'world')
+    except ValueError:
+        return ''
+
+
+def detector_or_warning(impl, root):
+    """
+    Return why the detector can't run here ('' if it can), as a warning to print.
+
+    The Rust detector reads models/rf-detr-nano.onnx (not in git: pixi run get models,
+    then tools/export_model.py --format onnx). Without it the virtual car still starts:
+    the stop-sign watcher runs, sees nothing, and the map's stop lines still stop the car.
+    """
+    if impl != 'rust':
+        return ''
+    model = os.path.join(root, 'models', 'rf-detr-nano.onnx')
+    if os.path.isfile(model):
+        return ''
+    return (f'perception:=true: no {model}, so no detector (pixi run get models, then '
+            'pixi run -e ml python3 tools/export_model.py --format onnx; docs/onnx.md). '
+            "The stop-sign watcher runs and sees nothing; the map's stop lines still stop "
+            'the car')
+
+
 def campus_costmap_chunks(given, world):
     """
     Return costmap_chunks:= for navigation.launch.py: '' for the whole map, else a folder.
@@ -560,6 +597,10 @@ def launch_setup(context):
     simulator = worlds.check_simulator(arg('simulator'))
     world_path = worlds.world_file(models_share, world)
     lane_map = worlds.lane_map_file(models_share, world, arg('lane_map').strip())
+    # The map's stop lines (lanes.yaml's stops; the campus's from OpenStreetMap): the
+    # behaviour planner stands 2 s at each on its way. world: this world's lane map, if
+    # it has one; false (or empty): none.
+    map_stops = map_stops_file(models_share, world, arg('map_stops'))
     # lane_costs: the lane map lane_map:= names, else the world's own, if it has one;
     # lane_source:=camera|both: the lane finder's lines too (TODO 264).
     lane_costs = ''
@@ -781,6 +822,7 @@ def launch_setup(context):
                                things_tracker=vehicle.check_things_tracker(
                                    arg('things_tracker')),
                                lane_map=lane_map, lane_costs=lane_costs,
+                               map_stops=map_stops,
                                lane_source=lane_source,
                                # Every model of the car: the car's loop unless told (TODO 163).
                                speed_loop=model_loop,
@@ -880,10 +922,16 @@ def launch_setup(context):
     if flag['teleop']:
         actions.append(include(context, 'aav_teleop', 'teleop.launch.py', use_sim_time='true'))
     if flag['perception']:
+        detector_impl = vehicle.check_detector_impl(arg('detector_impl'))
+        why = detector_or_warning(detector_impl,
+                                  os.environ.get('PIXI_PROJECT_ROOT', os.getcwd()))
+        if why:
+            print(f'[sim.launch.py] WARNING {why}', flush=True)
+        else:
+            actions.append(include(context, 'aav_detector', 'detector.launch.py',
+                                   labels='stop sign', use_sim_time='true',
+                                   detector_impl=detector_impl))
         actions += [
-            include(context, 'aav_detector', 'detector.launch.py', labels='stop sign',
-                    use_sim_time='true',
-                    detector_impl=vehicle.check_detector_impl(arg('detector_impl'))),
             # With things named (TODO 192), the lidar gives the stop sign's distance.
             Node(package=vehicle.STOP_SIGN_IMPLS[
                      vehicle.check_stop_sign_impl(arg('stop_sign_impl'))],
@@ -988,7 +1036,7 @@ def generate_launch_description():
                               description='true if a joystick is plugged into this computer'),
         # Off: our own navigation view is the nav screen (pixi run nav-view, docs/hud.md).
         DeclareLaunchArgument('rviz', default_value='false'),
-        DeclareLaunchArgument('perception', default_value='false',
+        DeclareLaunchArgument('perception', default_value=setups.CHOSEN,
                               description='the object detector and the stop-sign watcher (the ml '
                                           'environment; world:=road)'),
         DeclareLaunchArgument('lane', default_value='false',
@@ -1146,7 +1194,7 @@ def generate_launch_description():
         DeclareLaunchArgument('voxels_impl', default_value=vehicle.DEFAULT_VOXELS_IMPL,
                               description='python or rust: which voxels node cuts the '
                                           'cubes (aav_voxels, or aav_voxels_rs)'),
-        DeclareLaunchArgument('detector_impl', default_value=vehicle.DEFAULT_DETECTOR_IMPL,
+        DeclareLaunchArgument('detector_impl', default_value=setups.CHOSEN,
                               description='python or rust: which object detector runs, '
                                           'with perception:=true (aav_detector, or '
                                           'aav_detector_rs: ONNX Runtime)'),
@@ -1290,6 +1338,10 @@ def generate_launch_description():
                               description='true: the behaviour states, the road ahead and '
                                           'a speed cap (aav_behaviour_rs); false: none. '
                                           "Empty: the stack's choice (on in ours)"),
+        DeclareLaunchArgument('map_stops', default_value='world',
+                              description="with behaviour:=true: world (the world's lane "
+                                          "map's stops, if it has a lane map), false, or a "
+                                          "lanes.yaml: the map's stop lines, 2 s at each"),
         DeclareLaunchArgument('lane_map', default_value='',
                               description="with behaviour:=true: world (the world's lane "
                                           "map) or a lanes.yaml: the road ahead's line on "

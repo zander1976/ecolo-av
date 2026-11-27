@@ -140,7 +140,7 @@ Which lane the car drives in, so the road ahead's line is the lane's centre (W3,
 | Lane map | Where | Covers |
 |---|---|---|
 | the road world | `aav_sim_models` `worlds/road.lanes.yaml` (in git) | one lane, 3.5 m between the lines, either way |
-| the campus | `maps/campus/lanes.yaml` (made by `pixi run campus`, not in git) | 129 painted roads; a right lane each way on two-way roads |
+| the campus | `maps/campus/lanes.yaml` (made by `pixi run campus`, not in git) | 129 painted roads; a right lane each way on two-way roads; `stops`: OpenStreetMap's 85 stop lines (x, y, heading), for the behaviour planner's `map_stops` |
 
 Lanelet2 was tried first (14 Nov): its Python modules don't import on a Mac, so this format
 for now (`docs/decisions.md`).
@@ -166,8 +166,8 @@ the algorithms. `pixi run sim` passes `setup:=car`.
 
 | Item | What |
 |---|---|
-| `SETUPS`, `names()`, `switches(setup)` | `car`: `world:=road esp32:=true`, the virtual car; an unknown name is a ValueError |
-| `resolve(setup, given)` | each switch given by hand, else the set-up's, else `FALLBACK` (`world:=empty esp32:=false`, the launch file's old defaults). Not given is `CHOSEN` (empty): `sim.launch.py` declares `world` and `esp32` so |
+| `SETUPS`, `names()`, `switches(setup)` | `car`: `world:=campus esp32:=true perception:=true detector_impl:=rust`, the virtual car (`world:=road` until 26 Nov); an unknown name is a ValueError |
+| `resolve(setup, given)` | each switch given by hand, else the set-up's, else `FALLBACK` (`world:=empty esp32:=false perception:=false detector_impl:=python`, the launch file's old defaults). Not given is `CHOSEN` (empty): `sim.launch.py` declares `world` and `esp32` so |
 | `describe(setup, values)` | one line for the launch's log |
 
 ### `aav_description.adaptive_brake` (no ROS): a heavier car

@@ -991,8 +991,23 @@ CAMPUS_NOTE = ("Carleton's campus: made by tools/campus_world.py, from OpenStree
                "  Data (c) OpenStreetMap contributors, ODbL. Don't edit this: make it again.")
 
 
-def world_sdf(names, datum, note=CAMPUS_NOTE):
-    """Return the world: the same systems, name and origin as the test lot's."""
+def sign_includes(signs) -> str:
+    """
+    Return Ravensim's stop signs (aav_sim_models models/stop_sign) as SDF includes.
+
+    signs: (x, y, yaw) each, the foot of the post (campus_lanelet.stop_signs). The model's
+    plate faces +x at yaw 0, as road.sdf places it.
+    """
+    return ''.join(f"""    <include>
+      <uri>model://stop_sign</uri>
+      <name>stop_sign_{k}</name>
+      <pose>{x:.2f} {y:.2f} 0 0 0 {yaw:.4f}</pose>
+    </include>
+""" for k, (x, y, yaw) in enumerate(signs))
+
+
+def world_sdf(names, datum, note=CAMPUS_NOTE, signs=()):
+    """Return the world: the same systems, name and origin as the test lot's; its stop signs."""
     return (f"""<?xml version="1.0"?>
 <!--
   {note}
@@ -1048,9 +1063,15 @@ def world_sdf(names, datum, note=CAMPUS_NOTE):
         </collision>
 {''.join(visual(name) for name in names)}      </link>
     </model>
-  </world>
+{sign_includes(signs)}  </world>
 </sdf>
 """)
+
+
+def lane_stops(stops) -> list:
+    """Return lanes.yaml's stops: x, y (m), heading (rad), road, from campus_lanelet's."""
+    return [{'x': round(s['x'], 2), 'y': round(s['y'], 2),
+             'heading': round(s['heading'], 4), 'road': s['road']} for s in stops]
 
 
 def start_pose(lots, grid):
@@ -1087,12 +1108,13 @@ def main():
     campus = read_osm(args.osm, project)
     box = box_round()
     meshes, solids, grid, walls, trunks, report, lots, lanes = build(campus, box)
-    # The stop lines, white, where the Lanelet2 map's are (the car stops at them).
-    bars = [bar for bar in campus_lanelet.site_stop_bars((lat0, lon0))
-            if any(in_box(p, box) for p in bar)]
-    for bar in bars:
+    # The stop lines, white, where the Lanelet2 map's are (the car stops at them), and a
+    # stop sign beside each, facing the traffic (OpenStreetMap's highway=stop).
+    stops = [stop for stop in campus_lanelet.stop_signs(campus_lanelet.site_roads((lat0, lon0)))
+             if in_box((stop['x'], stop['y']), box)]
+    for bar in campus_lanelet.stop_bars_of(stops):
         meshes['edge'].flat(bar, PAINT_Z)
-    report['stop_lines'] = len(bars)
+    report['stop_lines'] = len(stops)
     (args.out / 'meshes').mkdir(parents=True, exist_ok=True)
     names = [name for name, mesh in meshes.items() if mesh.vertices]
     triangles = 0
@@ -1101,7 +1123,8 @@ def main():
         triangles += len(meshes[name].vertices) // 3
     solids.write(args.out / 'meshes' / 'solids.obj')
     make_textures(args.out / 'textures')
-    (args.out / 'campus.sdf').write_text(world_sdf(names, (lat0, lon0)))
+    (args.out / 'campus.sdf').write_text(world_sdf(names, (lat0, lon0),
+                                                   signs=[stop['sign'] for stop in stops]))
     grid.save(args.out, 'campus', f'{lat0}, {lon0}')
     start = start_pose(lots, grid)
     ndt = guess_ndt(walls, trunks)
@@ -1123,8 +1146,11 @@ def main():
         {'objects': objects(walls, trunks)}, default_flow_style=None))
     (args.out / 'lanes.yaml').write_text(
         '# The painted roads: centre line (m, map frame), width, one way or not. For scoring\n'
-        '# lane keeping (tools/lane_score.py). (c) OpenStreetMap contributors, ODbL.\n'
-        + yaml.safe_dump({'roads': lanes}, default_flow_style=None))
+        "# lane keeping (tools/lane_score.py). stops: each stop sign's line (its middle\n"
+        '# across the lanes that stop, m; the way the traffic drives, rad), for the\n'
+        '# behaviour planner (map_stops). (c) OpenStreetMap contributors, ODbL.\n'
+        + yaml.safe_dump({'roads': lanes, 'stops': lane_stops(stops)},
+                         default_flow_style=None))
     print(f'{args.out}: {report}')
     print(f'start at {start}')
     chunk_map(args.out / 'campus.yaml', args.out / 'chunks')

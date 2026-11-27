@@ -19,9 +19,10 @@ road is the sim in its road world (sim.launch.py world:=road), so a topic live i
 be live there too, and so must the road world's own: the camera and the radar. spine is
 the road world with the spine in the loop (spine:=true): road's topics, plus the CAN ones.
 
-virtual is Ravensim as today's car (sim.launch.py world:=road esp32:=true; docs/wrap-up.md,
-step 1): every topic live on the car must be live there too, so the screens and tests see
-the same graph. The exceptions are in the contract, each with its reason (not_virtual:).
+virtual is the virtual car (pixi run virtualcar: sim.launch.py setup:=car, the campus,
+the ESP32 and the detector; docs/wrap-up.md, step 1): every topic live on the car must be
+live there too, so the screens and tests see the same graph. The exceptions are in the
+contract, each with its reason (not_virtual:).
 """
 
 import argparse

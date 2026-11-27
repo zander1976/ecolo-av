@@ -40,7 +40,9 @@
 //!                                      something moving holds the car, a moving stop at
 //!                                      0 m (the road ends at the car)
 //! Parameters  behaviour_node.py's, the same names and defaults (README). vehicle_yaml '':
-//!             aav_description's vehicle.yaml, found on AMENT_PREFIX_PATH.
+//!             aav_description's vehicle.yaml, found on AMENT_PREFIX_PATH. map_stops '':
+//!             a lanes.yaml whose `stops` (the map's stop lines, each with its way) are
+//!             stops on the plan too, as the route's are (the campus's OpenStreetMap signs).
 //!
 //! Serves nothing; calls nothing. It only ever asks Nav2 to go slower; it never clears a
 //! lock. A clean exit sends nothing (0.0 mid-approach would jump to cruise). Stops cleanly
@@ -234,6 +236,8 @@ fn start(node: &Node) -> Result<Vec<Box<dyn Any>>> {
     let road_spacing = d.number("road_spacing", 0.5)?;
     // A lanes.yaml: the road ahead's line on the lane's centre. Empty: the plan's.
     let lane_map = d.text("lane_map", "")?;
+    // A lanes.yaml whose stops (the map's stop lines) are stops too. Empty: none.
+    let map_stops = d.text("map_stops", "")?;
     // /world/things: wait only for what moves, leave a parked thing to the planner.
     let things = d.flag("things", false)?;
     let things_timeout = d.number("things_timeout", 1.0)?;
@@ -308,6 +312,17 @@ fn start(node: &Node) -> Result<Vec<Box<dyn Any>>> {
         );
         Some(map)
     };
+    let mut stop_lines = StopLines::new(StopLineSettings::default());
+    if !map_stops.is_empty() {
+        let stops =
+            lanes::load_stops(&map_stops).with_context(|| format!("map_stops {map_stops}"))?;
+        log_info!(
+            &logger,
+            "map stops {map_stops}: {} stop lines; each on the plan, its own way, is a stop",
+            stops.len()
+        );
+        stop_lines.set_map_stops(stops);
+    }
     let machine = Behaviour::new(
         curve,
         Settings {
@@ -341,7 +356,7 @@ fn start(node: &Node) -> Result<Vec<Box<dyn Any>>> {
         plan_time: f64::NEG_INFINITY,
         passing: false,
         point_plan: Vec::new(),
-        stop_lines: StopLines::new(StopLineSettings::default()),
+        stop_lines,
         line_lefts: Vec::new(),
         speed: None,
         odom_time: f64::NEG_INFINITY,
@@ -759,6 +774,14 @@ impl BehaviourNode {
     fn tick(&mut self) {
         let now = self.now();
         let plan = self.driving(now).0.to_vec();
+        // Standing for the seen sign: its line (the map's) is served too, one stop not two.
+        if let (Some(car), true, true) = (
+            self.pose,
+            self.locks.get(&Lock::StopSign).copied().unwrap_or(false),
+            self.speed.is_some_and(|v| v.abs() < 0.05),
+        ) {
+            self.stop_lines.serve_near(&plan, car, self.p.front);
+        }
         self.line_lefts = self
             .stop_lines
             .update(now, &plan, self.pose, self.speed, self.p.front);
