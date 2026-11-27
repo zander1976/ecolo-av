@@ -638,6 +638,11 @@ def launch_setup(context):
     # Each only where the world renders it, as ravensim.launch.py decides.
     radar = sensors and arg('radar').lower() == 'true'
     lidar = sensors and arg('lidar').lower() == 'true'
+    # Picked by the set-up (setup:=car), not by hand: only where a camera is drawn.
+    if flag['perception'] and raw('perception').strip() == setups.CHOSEN and not cameras:
+        print(f'[sim.launch.py] perception: off here (world:={world} draws no camera)',
+              flush=True)
+        flag['perception'] = False
     wanted = ([n for n in CAMERA_PARTS if flag[n]] + (['lane'] if lane == 'true' else [])
               + (['lane_pose'] if lane_pose else [])
               + ([f'lane_source:={lane_source}'] if lane_camera else []))
