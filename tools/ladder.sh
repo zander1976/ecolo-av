@@ -17,11 +17,12 @@ set -eu
 cd "$(dirname "$0")/.."
 
 window() {
-  if [ ! -x ros/hud/aav_dev_window/target/release/ladder_window ]; then
-    echo "ladder: the first time, cargo builds the tests window (Bevy): about 2-5 min" >&2
-  fi
-  exec cargo run --release -q --manifest-path ros/hud/aav_dev_window/Cargo.toml \
-    --bin ladder_window -- "$@"
+  # Build first, where people can see it: a silent rebuild (after a pull) looked like
+  # "it did nothing" (Ben, 26 Nov). Bevy's first build takes 2-5 min; a rebuild ~40 s.
+  echo "ladder: building the tests window if anything changed (cargo shows its progress) ..." >&2
+  cargo build --release --manifest-path ros/hud/aav_dev_window/Cargo.toml --bin ladder_window
+  echo "ladder: opening the tests window" >&2
+  exec ros/hud/aav_dev_window/target/release/ladder_window "$@"
 }
 
 case "${1:-}" in

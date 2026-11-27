@@ -59,9 +59,9 @@ world_maps() {
   return 0
 }
 
-# cargo runs quiet (-q): on a fresh clone the first build (Bevy) shows nothing for minutes.
+# cargo shows its progress (no -q since 26 Nov: a silent rebuild looked like "it did nothing").
 if [ ! -x ros/hud/aav_dev_window/target/release/dev_window ]; then
-  echo "dev_window: the first time, cargo builds the window (Bevy): about 2-5 min, no output" >&2
+  echo "dev_window: the first time, cargo builds the window (Bevy): about 2-5 min" >&2
 fi
 
 # The navigation view (pixi run nav-view): the same program, only its strip and map panel.
@@ -78,15 +78,15 @@ case "${1:-}" in
     maps=$(world_maps "$world")
     echo "dev_window: the world ${world:-(no simulator heard)}:${maps:- no maps of its own}" >&2
     # shellcheck disable=SC2086  # $maps is several words on purpose (no spaces in them)
-    exec tools/ros.sh --local cargo run --release -q --manifest-path "$manifest" \
+    exec tools/ros.sh --local cargo run --release --manifest-path "$manifest" \
       --features ros -- $only --live --developer $maps "$@"
     ;;
   --watch)
     shift
-    exec tools/ros.sh cargo run --release -q --manifest-path "$manifest" \
+    exec tools/ros.sh cargo run --release --manifest-path "$manifest" \
       --features ros -- $only --live "$@"
     ;;
   *)
-    exec cargo run --release -q --manifest-path "$manifest" -- $only "$@"
+    exec cargo run --release --manifest-path "$manifest" -- $only "$@"
     ;;
 esac
