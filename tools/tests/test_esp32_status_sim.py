@@ -124,3 +124,21 @@ def test_the_server_gives_the_page_status_and_a_websocket():
     got = asyncio.run(run())
     assert all(line['schema'] == 1 for line in got)
     assert [line['seq'] for line in got] == sorted(line['seq'] for line in got)
+
+
+def test_a_live_board_carries_the_firmwares_own_numbers():
+    """The virtual car's sim_esp32: the lines say what its firmware drives, not a made-up drive."""
+    now = {'steering': 0.5, 'dac': 210, 'brake': 400, 'frames': 0}
+    board = sim.Board(rate_hz=10.0, live=lambda: dict(now))
+    now['frames'] = 5
+    lines = [json.loads(line) for line in board.step()]
+    status = next(line for line in lines if line['t'] == 'status')
+    assert status['out']['steer_counts'] == 1950 + 975
+    assert status['out']['dac'] == 210
+    assert status['out']['brake_counts'] == 400
+    assert status['state']['mode'] == 'computer'
+    # No new frames: the Pi went quiet.
+    lines = [json.loads(line) for line in board.step()]
+    status = next(line for line in lines if line['t'] == 'status')
+    assert status['state']['mode'] == 'rc'
+    assert status['link']['verdict'] == 'counter_frozen'

@@ -13,13 +13,19 @@ Publishes   vehicle/sim/esp32_outputs  aav_interfaces/SpineOutputs, 50 Hz: the
                               throttle (DAC / 700), brake (the Jrk's travel), direction
                               and steering target the firmware drives now
 
+Serves      http://127.0.0.1:<status_port>/ (8766; 0: off): the board's `wifi-status` page,
+            /status.json, /health, /config, /scan and the /ws WebSocket of status lines
+            (aav_sim_models.esp32_page), from what this firmware drives now: the same links
+            as the real board's, read only, this computer only.
+
 Parameters  port (47000), max_steering_angle (rad), steering_sign: the bridge's, to read
-            back the angle it meant.
+            back the angle it meant; status_port (8766).
 """
 
 import socket
 
 from aav_interfaces.msg import SpineOutputs
+from aav_sim_models import esp32_page
 from aav_sim_models.esp32_firmware import Esp32Firmware
 from aav_sim_models.relay import run
 from rclpy.node import Node
@@ -44,6 +50,17 @@ class SimEsp32(Node):
         self.create_timer(0.02, self.publish)
         self.get_logger().info(f'the C++ ESP32 firmware, standing in: listening on '
                                f'127.0.0.1:{port} for legacy_uart_bridge')
+        status_port = int(self.declare_parameter('status_port', 8766).value)
+        if status_port:
+            board = esp32_page.Board(live=self.now)
+            esp32_page.serve_in_thread(status_port, board)
+            self.get_logger().info(f"the board's status page: http://127.0.0.1:{status_port}/ "
+                                   '(read only)')
+
+    def now(self) -> dict:
+        """Return what the firmware drives now, for the status page (read from its thread)."""
+        f = self.firmware
+        return {'steering': f.steering, 'dac': f.dac, 'brake': f.brake, 'frames': f.frames}
 
     def read(self):
         if self.client is None:
