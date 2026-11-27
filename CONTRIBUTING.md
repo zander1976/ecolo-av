@@ -140,7 +140,7 @@ Closes #12
 | change `docs/interfaces.yaml` first when a topic changes | change a topic without the contract |
 | give a new or changed feature its row in `docs/features.md`, in the same commit | leave the features table behind |
 | give a new `pixi run` task its row in README.md's "Every command" | add a task nobody can find |
-| changed `docs/*.md`? run `pixi run docs` and commit the HTML | let the web pages drift from the markdown |
+| changed `docs/*.md`? commit the Markdown only (`pixi run docs` to look at the result) | commit `docs/html/`: it is built, not written (CI builds it on main) |
 | | commit `build/`, `install/`, `log/`, `target/` or `.pixi/` |
 | | commit keys, passwords, tokens or `.env` files: the repo is public |
 | | commit large data files: add a download step instead |
@@ -203,7 +203,7 @@ A pull request merges only when all of these are true:
 Your first pull request from a fork: a maintainer may need to click **Approve and run
 workflows** before CI starts.
 
-**Docs only?** A pull request that changes only Markdown files, `docs/html/` or
+**Docs only?** A pull request that changes only Markdown files or
 `docs/img/` skips the build and the Rust and ROS tests: `linux` runs the docs' checks
 (`tools/tests`, `docs/interfaces.md` and `docs/codemap.md` in sync), and `arm` and
 `car-kit` pass without running. One other file and it's the full run

@@ -1,0 +1,53 @@
+# The docs as web pages and PDFs (tools/build_docs.py), built on GitHub and kept as an
+# artifact, not committed (Ben, 26 Nov: "anything generated can go away"). On every push
+# to main and by hand (Actions, docs, Run workflow). Not on pull requests: it is no check
+# that a pull request waits on, and it never slows the required ones (linux, arm, car-kit).
+# The pages: download the artifact `docs` from the run, unzip, open html/index.html.
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'tools/build_docs.py', 'pixi.toml', 'pixi.lock', '.github/workflows/docs.yml']
+  workflow_dispatch:
+
+# One build at a time per branch: a newer push makes the older one pointless.
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PIXI_VERSION: v0.81.0
+
+jobs:
+  docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Pixi
+        run: |
+          # GitHub's downloads fail now and then for a few seconds: try 5 times.
+          for try in 1 2 3 4 5; do
+            curl -fsSL https://pixi.sh/install.sh | bash && [ -x "$HOME/.pixi/bin/pixi" ] && break
+            echo "pixi install failed (try $try), again in 20 s"; sleep 20
+          done
+          [ -x "$HOME/.pixi/bin/pixi" ]
+          echo "$HOME/.pixi/bin" >> "$GITHUB_PATH"
+      # The docs environment only (Markdown and WeasyPrint): no ROS, a minute or two.
+      - name: pixi run docs
+        run: pixi run --locked -e docs docs
+      - name: Keep the pages and the PDFs
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs
+          # html/ and img/ side by side, as in docs/: the pages show ../img/ pictures.
+          path: |
+            docs/html/
+            docs/img/
+          retention-days: 90
+          if-no-files-found: error

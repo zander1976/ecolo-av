@@ -32,12 +32,14 @@ Every page is in [`docs/`](docs/). The ones people ask for most:
 ## Read the docs
 
 What we built, on one page to share: [What we built](docs/what-we-built.md)
-(a PDF of it: `docs/html/aav-what-we-built.pdf`).
+(a PDF of it: `docs/html/aav-what-we-built.pdf`, once built).
 Each area of 0.4 with a picture, for the team: [The 0.4 guide](docs/release-0.4-guide.md)
 (`docs/html/aav-0.4-guide.pdf`).
 
-Open **`docs/html/index.html`** in a browser: short pages with pictures. There's also a
-single PDF, built by `pixi run docs` into `docs/html/aav-docs.pdf`.
+Run `pixi run docs`, then open **`docs/html/index.html`** in a browser: short pages with
+pictures. It also builds a single PDF, `docs/html/aav-docs.pdf`. Nothing in `docs/html/`
+is in git (26 Nov): CI builds it on every push to main and keeps it as the run's `docs`
+artifact (the Actions tab, workflow `docs`).
 
 The pages are made from the markdown in `docs/`. Edit those, then run `pixi run docs`.
 
@@ -125,7 +127,7 @@ pixi run virtualcar  ──▶  everything the car provides, no windows (Carleto
 | `build` | compiles our ROS packages |
 | `test` | every test and the style check, on this computer only |
 | `lint` | checks our Python against ROS's style rules |
-| `docs` | rebuilds the web pages and the PDFs in `docs/html/` |
+| `docs` | builds the web pages and the PDFs into `docs/html/` (not in git) |
 
 ### Start the virtual car: the others (this computer only)
 
@@ -261,7 +263,7 @@ script and how to run it. Some you may want:
 | [`ros/`](ros/README.md) | ROS 2 packages, one folder per area: sources (sensors), localization, perception, drivers, command_mux, io_mux, ego, can_bridge (the real car), sim, safety, hud; bringup has the launch profiles and the car description; ecolo_msgs has the team's own message and action types |
 | [`firmware/`](firmware/README.md) | the CAN contract (`can/aav.dbc`), the wheel encoder's UDP packet vectors (`udp/`), the spine's Rust logic and device drivers (`spine/`), and the inherited C++ firmware (`legacy/`) |
 | [`tools/`](tools/README.md) | tests, keyboard, graph check, the network doctor, recording, the docs builder, the progress mailer, the MCP server for AI apps |
-| `docs/` | the docs (markdown sources, the HTML in `docs/html/`), the topic contract, and the history |
+| `docs/` | the docs (markdown sources; `pixi run docs` builds the HTML into `docs/html/`, not in git), the topic contract, and the history |
 | [`models/`](models/README.md) | the detector models: RF-DETR Nano (the default) and YOLO11n, downloaded by `pixi run get models`, and their exports (`.onnx`, `.mlpackage`); the diffusion planner's model (`pixi run diffusion train`). Not in git |
 | [`vendor/`](vendor/README.md) | the ROS 2 and ros2-rust source, for looking things up (`pixi run get vendor`); also the downloaded tools: MediaMTX, PlatformIO, QEMU, `cargo-tools`, `esp`, `car-kit-cache`. Not ours, and not in git |
 | `archive/` | the 2025-26 and 2024-25 teams' repos, as they were (in git), and our port of their Flutter HUD (`2026-27-flutter-hud/`, put away 25 Oct). Reference only: never build or fix them (`docs/older-code.md`) |

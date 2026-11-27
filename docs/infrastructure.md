@@ -254,7 +254,7 @@ was](history/gazebo-as-it-was.md).
 ### CI and the docs-only run
 
 A pull request or merge-queue entry whose every changed file is a Markdown file (anywhere),
-or in `docs/html/` or `docs/img/`, is docs only. The job `changes` decides, with main's copy
+or in `docs/img/` (or `docs/html/`, out of git since 26 Nov), is docs only. The job `changes` decides, with main's copy
 of `tools/ci_docs_only.py`; then:
 
 | Job | A docs-only change | Anything else |
@@ -269,6 +269,18 @@ change ahead in the queue gives the entries behind it the full run too. A push t
 the nights and Run workflow always get the full run, and so does any run where `changes`
 fails or can't list the files: a fault only makes a run longer. A change to
 `tools/ci_docs_only.py` is code: the full run.
+
+### The docs' pages and PDFs
+
+`docs/html/` is not in git (Ben, 26 Nov: anything generated goes; the last committed copy
+is the tag `save/docs-html-2026-11-26`). `pixi run docs` builds it on your computer.
+
+| Where | What |
+|---|---|
+| your computer | `pixi run docs` (`--no-pdf`: pages only), then open `docs/html/index.html` |
+| GitHub | workflow `docs` (`.github/workflows/docs.yml`): every push to `main` that touches `docs/`, and Run workflow by hand. Its artifact `docs` holds `html/` and `img/`; kept 90 days |
+
+It is not a pull request check, so it never slows one down.
 
 ### CI's caches
 
