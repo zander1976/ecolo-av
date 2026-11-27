@@ -1030,7 +1030,7 @@ Check a running system against it with <code>pixi run check &lt;turtle|sim|road|
 <td><code>stop_sign_watcher</code></td>
 <td><code>twist_mux</code>, <code>hud</code>, <code>language_drive</code>, <code>behaviour</code></td>
 <td>car</td>
-<td>true while the car stops for a stop sign. A twist_mux lock at priority 30 - it holds navigation and the AI slot, never a person; never expires on silence. On the car, the stop_signs part - one watcher, on the machine with the mux. Since 17 Nov aav_stop_sign_rs (Rust) publishes it; the Python node removed 22 Nov.</td>
+<td>true while the car stops for a stop sign. A twist_mux lock at priority 30 - it holds navigation and the AI slot, never a person; never expires on silence. On the car, the stop_signs part - one watcher, on the machine with the mux. Since 17 Nov aav_stop_sign_rs (Rust) publishes it; the Python node removed 22 Nov. The virtual car runs it since 26 Nov (perception:=true, the Rust detector), so it is live there too; without models/rf-detr-nano.onnx the watcher still runs and says false.</td>
 </tr>
 <tr>
 <td><code>/perception/stop_sign/distance</code></td>

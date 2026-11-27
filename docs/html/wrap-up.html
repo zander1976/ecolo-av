@@ -7,7 +7,7 @@
 <!-- Generated from docs/wrap-up.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>Wrapping up: the plan</h1>
-<div class="meta">13 min read · 6 sections</div></header>
+<div class="meta">15 min read · 6 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="what-we-built.html">What we built</a>
 <a href="overview.html">Overview</a>
@@ -340,7 +340,12 @@ ros messaging system."</p>
 <tr>
 <td>Start the virtual car</td>
 <td><code>sim</code>, <code>demo</code>, <code>dry-run</code>, <code>ravensim</code>, <code>sim-cameras</code></td>
-<td><strong><code>pixi run sim</code></strong>: Ravensim as the car, every topic the car has (step 1)</td>
+<td><strong><code>pixi run virtualcar</code></strong>: everything the car provides, no windows (step 1; 26 Nov)</td>
+</tr>
+<tr>
+<td>Watch it</td>
+<td><code>ravensim</code>, <code>dev-window --live</code></td>
+<td><strong><code>pixi run ravensim</code></strong>: window 4, watching the virtual car (26 Nov)</td>
 </tr>
 <tr>
 <td>Start the real car</td>
@@ -350,12 +355,12 @@ ros messaging system."</p>
 <tr>
 <td>Open the screens</td>
 <td><code>hud</code>, <code>map</code>, <code>debug-hud</code>, <code>hw-panel</code>, <code>dev-window</code>, <code>nav-view</code>, <code>ladder-window</code>, <code>rviz</code></td>
-<td><strong><code>pixi run screens</code></strong>: windows 1, 2 and 4 below, for whichever car runs</td>
+<td><strong><code>pixi run screens</code></strong>: windows 1 and 2 below (and 4 for the real car), for whichever car runs</td>
 </tr>
 <tr>
 <td>Run the tests</td>
 <td><code>ladder</code>, <code>car-test</code>, <code>actuator-test</code>, <code>sim-check</code>, <code>bench-check</code>, <code>measure</code></td>
-<td><strong><code>pixi run ladder</code></strong>: window 3; <code>ladder all --sim</code> is the full suite on the virtual car, one report</td>
+<td><strong><code>pixi run ladder</code></strong>: window 3, a screen; <code>ladder all --sim</code> is the full suite on the virtual car, one report</td>
 </tr>
 </tbody>
 </table></div>
@@ -489,21 +494,33 @@ ellipses. <code>debug-hud</code>, <code>nav-view</code> and the <code>.rviz</cod
 <p><strong>Step 5, where it is (26 Nov):</strong> the four commands are in, first in the README's
 <a href="../../README.md#the-four-commands">Every command</a>; every old name still works, marked "old
 name: use ...".</p>
+<p>Ben, 26 Nov: "a ravensim that is just the monitoring everything and displays the results.
+THats it. Next we have a pixi run virtualcar ... everything the car would be providing";
+"why is the testing screen now a command prompt instead of a screen"; "Maybe we can create
+a consinstent map between all 3." (TODO 288)</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
 <th>Command</th>
-<th>What it does now</th>
+<th>What it does now (26 Nov)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>pixi run sim</code></td>
-<td><code>sim.launch.py setup:=car</code>: the road world and the ESP32, the virtual car. A named set-up (<code>aav_description</code> <code>setups.py</code>), not a new default: with no <code>setup:=</code> the launch file keeps <code>world:=empty esp32:=false</code>, so <code>sim-check</code>, <code>car-test --sim</code>, <code>dry-run</code>, <code>measure</code> and the launch tests start what they did. A switch by hand wins</td>
+<td><code>pixi run virtualcar</code></td>
+<td><code>sim.launch.py setup:=car</code>: everything the car provides, no windows. Carleton's campus (<code>world:=campus</code>), the ESP32 stand-in, the Motor Pi's bridge, the Orin's stack with the stop-sign detector (<code>perception:=true detector_impl:=rust</code>). A named set-up (<code>aav_description</code> <code>setups.py</code>), not a new default: with no <code>setup:=</code> the launch file keeps <code>world:=empty esp32:=false perception:=false</code>, so <code>sim-check</code>, <code>car-test --sim</code>, <code>dry-run</code>, <code>measure</code> and the launch tests start what they did. A switch by hand wins. <code>pixi run sim</code> is its old name</td>
+</tr>
+<tr>
+<td><code>pixi run ravensim</code></td>
+<td>the world view (window 4) on the running virtual car: no simulator of its own. It asks the simulator which world it runs and draws that world's maps</td>
 </tr>
 <tr>
 <td><code>pixi run screens</code></td>
-<td>the world view, the HUD and the map window, each in its own process group; <code>--sim</code>, <code>--car</code> or asks <code>/system/source</code>. The real car is only watched: the world view <code>--watch</code>, the map without its hardware page, no HUD</td>
+<td>the HUD and the map window, each in its own process group; <code>--sim</code>, <code>--car</code> or asks <code>/system/source</code>. The virtual car's world view is <code>ravensim</code>'s (<code>--only world</code> opens one here). The real car is only watched: the world view <code>--watch</code>, the map without its hardware page, no HUD</td>
+</tr>
+<tr>
+<td><code>pixi run ladder</code></td>
+<td>the tests window (window 3). Any word after it is the text tool: <code>ladder table</code>, <code>ladder next</code>, <code>ladder run 1</code></td>
 </tr>
 <tr>
 <td><code>pixi run ladder all --sim</code></td>
@@ -511,8 +528,14 @@ name: use ...".</p>
 </tr>
 </tbody>
 </table></div>
+<p><strong>One map for all three</strong> (26 Nov): the virtual car runs on the campus, so the world view,
+the map window (its <code>/map</code> is <code>campus.pgm</code>; its street map is the real Carleton) and the
+simulator show the same place. <code>pixi run campus</code> puts a stop sign at each of
+OpenStreetMap's (85 on the campus), facing the traffic, its painted line before the road it
+meets, and writes the lines into <code>lanes.yaml</code>: the behaviour planner stops at each from the
+map, and the detector sees the sign.</p>
 <p><code>debug-hud</code>, <code>nav-view</code>, <code>ladder-window</code>, <code>rviz</code>, <code>view</code>, <code>demo</code>, <code>dry-run</code> and
-<code>ravensim</code> go once the new commands have been used for a while.</p>
+<code>sim</code> go once the new commands have been used for a while.</p>
 </section>
 <section class="card"><h2 id="5-the-final-report">5. The final report</h2>
 <p>One chapter a layer, the same five parts each, filled from the rungs' results:</p>

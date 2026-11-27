@@ -7,7 +7,7 @@
 <!-- Generated from docs/features.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>Features: what the car&#x27;s software does, and why</h1>
-<div class="meta">161 min read · 15 sections</div></header>
+<div class="meta">162 min read · 15 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="what-we-built.html">What we built</a>
 <a href="overview.html">Overview</a>
@@ -964,6 +964,13 @@ Add a row in the same commit as the feature (<code>CLAUDE.md</code>).
 <td>2026-11-16</td>
 <td>sim</td>
 </tr>
+<tr>
+<td><a href="../../ros/drivers/aav_behaviour_rs/README.md">Stop lines from the map</a> (<code>map_stops</code>, a <code>lanes.yaml</code>'s <code>stops</code>; <code>sim.launch.py map_stops:=world</code>, the default; <code>StopLines::set_map_stops</code>)</td>
+<td>Ben, 26 Nov: "the sim ... shows a road with a stop sign ... The behaviour drives through it like nothing". The map knows where every stop sign is, so the car stops at each line even if the camera misses the sign: stand 2 s with the bumper on the line, then go, only for a plan driving the line's own way (not the cross road, not the other lane). A stop for the seen sign serves its line (one stop, not two). Seen 26 Nov on the campus, University Drive's all-way stop: with the detector off, APPROACH stop_line to 0 m/s, the bumper 0.04-0.10 m past the line, 2.4 s standing, then GO</td>
+<td>Ben Woodhead</td>
+<td>2026-11-26</td>
+<td>sim</td>
+</tr>
 </tbody>
 </table></div>
 </section>
@@ -1679,7 +1686,7 @@ Add a row in the same commit as the feature (<code>CLAUDE.md</code>).
 </tr>
 <tr>
 <td><a href="campus.html">The campus</a> (<code>pixi run campus</code>, <code>world:=campus</code>): Carleton from OpenStreetMap: an SDF world (Ravensim's, and its RavenTiles) with bump-mapped pavement, kerbs, grass, trees and buildings; one costmap map of the whole campus; a guessed NDT map</td>
-<td>Practice on the real place's shapes while the hardware catches up, then replace the guess with real drives. Painted roads have a yellow centre line and white edge lines (8 Nov), for lane keeping. Runs in Gazebo and in ours: not yet checked against the real campus</td>
+<td>Practice on the real place's shapes while the hardware catches up, then replace the guess with real drives. Painted roads have a yellow centre line and white edge lines (8 Nov), for lane keeping. Runs in Gazebo and in ours: not yet checked against the real campus. 26 Nov (Ben: "a consinstent map between all 3"): the virtual car's world (<code>pixi run virtualcar</code>); a stop sign (Ravensim's <code>stop_sign</code>) beside the road at each of OpenStreetMap's <code>highway=stop</code> (85), facing the traffic, its painted line set back before the road it meets (half that road and 1 m; it was in the road crossed's middle), the same line in the Lanelet2 map and in <code>lanes.yaml</code>'s <code>stops</code> for the behaviour planner</td>
 <td>Ben</td>
 <td>2026-11-08</td>
 <td>sim</td>
@@ -1770,11 +1777,11 @@ Add a row in the same commit as the feature (<code>CLAUDE.md</code>).
 </thead>
 <tbody>
 <tr>
-<td><a href="../../README.md#the-four-commands">The four commands</a> (<code>pixi run sim</code>, <code>car</code>, <code>screens</code>, <code>ladder</code>; <code>tools/screens.py</code>; <code>sim.launch.py setup:=</code>)</td>
-<td>Ben, 25 Nov: 71 commands, "four for every day" (wrap-up step 5). <code>sim</code> is the virtual car (<code>setup:=car</code>, a named set-up as <code>stack:=</code> names the algorithms; a switch by hand wins). <code>screens</code> opens the world view, the HUD and the map window (its hardware page and LADDER tab) for whichever car announces itself on <code>/system/source</code>, or <code>--sim</code>, <code>--car</code>: the real car only watched (no HUD, whose heartbeat the watchdog trusts; the map without its hardware page, which the car's own map runs); each window its own process group, Ctrl-C or one closing stops all three. <code>ladder all --sim</code> runs the whole suite. The old names keep working, marked "old name" in the README</td>
+<td><a href="../../README.md#the-four-commands">The everyday commands</a> (<code>pixi run virtualcar</code>, <code>ravensim</code>, <code>car</code>, <code>screens</code>, <code>ladder</code>; <code>tools/screens.py</code>, <code>tools/ravensim.sh</code>, <code>tools/ladder.sh</code>; <code>sim.launch.py setup:=</code>)</td>
+<td>Ben, 25 Nov: 71 commands, "four for every day" (wrap-up step 5); 26 Nov: "a ravensim that is just the monitoring everything", "a pixi run virtualcar", "why is the testing screen now a command prompt instead of a screen". <code>virtualcar</code> is everything the car provides with no windows (<code>setup:=car</code>: the campus, the ESP32 stand-in, the stop-sign detector; a named set-up as <code>stack:=</code> names the algorithms; a switch by hand wins; <code>sim</code> its old name). <code>ravensim</code> only watches it: the world view on the running world's own maps, no simulator of its own. <code>screens</code> opens the HUD and the map window (its hardware page and LADDER tab) for whichever car announces itself on <code>/system/source</code>, or <code>--sim</code>, <code>--car</code>, and the world view only for the real car, listen only; each window its own process group. <code>ladder</code> alone opens the tests window; any word after it is the text tool (<code>ladder all --sim</code> the whole suite). The old names keep working, marked "old name" in the README</td>
 <td>Ben Woodhead</td>
 <td>2026-11-26</td>
-<td>built</td>
+<td>sim</td>
 </tr>
 <tr>
 <td><a href="onnx.html#every-model-pixi-run-measure-onnx"><code>pixi run measure onnx</code></a> (<code>tools/onnx_measure.py</code>; <code>export_model.py --fp16</code>)</td>

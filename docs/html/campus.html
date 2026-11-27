@@ -7,7 +7,7 @@
 <!-- Generated from docs/campus.md by tools/build_docs.py. Edit the markdown, not this file. -->
 <header class="bar"><div class="kicker">AAV 2026–27 · AUTONOMY STACK</div>
 <h1>The campus</h1>
-<div class="meta">6 min read · 6 sections</div></header>
+<div class="meta">7 min read · 6 sections</div></header>
 <nav class="menu"><a href="index.html">Start here</a>
 <a href="what-we-built.html">What we built</a>
 <a href="overview.html">Overview</a>
@@ -217,6 +217,34 @@ you read by hand are for checking it.</p>
 </tr>
 </tbody>
 </table></div>
+<p><strong>The stop signs (26 Nov):</strong> one at each of OpenStreetMap's <code>highway=stop</code> that binds a road
+end (85 on the campus), so the camera, the map and the behaviour planner agree.</p>
+<pre class="highlight"><code class="language-text">   road met ║                     ┌ the sign: 1 m past the right kerb, facing the traffic
+   ═════════╬═══════   ──▶ ──▶   ▣│   (Ravensim's stop_sign)
+            ║  ◀── set back ──▶   █│ the white line, set back: half the road met + 1 m</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Where the line is</th>
+<th>Who reads it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>campus.sdf</code>: the sign (<code>stop_sign_&lt;n&gt;</code>) and the painted bar</td>
+<td>Ravensim's cameras: the detector sees the sign</td>
+</tr>
+<tr>
+<td><code>campus.osm</code> (Lanelet2): a stop line and a <code>traffic_sign</code> rule</td>
+<td>the planner with <code>lane_graph:=lanelet2</code></td>
+</tr>
+<tr>
+<td><code>lanes.yaml</code>, <code>stops:</code> (x, y, heading)</td>
+<td>the behaviour planner (<code>map_stops</code>, on in <code>pixi run virtualcar</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Until 26 Nov the line sat on the junction's middle (the road crossed), and no sign stood there.</p>
 <p><strong>The paint (8 Nov):</strong> big roads (trunk to tertiary) have a dashed yellow centre line and a
 solid white line 0.5 m in from each edge, so the lane finder sees both sides of its lane.
 Other roads have none.</p>
