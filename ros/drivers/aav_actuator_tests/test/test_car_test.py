@@ -248,6 +248,16 @@ def test_verdicts():
     assert ct.counts(bad) == {'PASS': 1, 'FAIL': 1, 'SKIPPED': 0, 'NOT RUN': 1}
 
 
+def test_a_refused_run_is_incomplete_never_a_pass():
+    """26 Nov: every step refused (the car moving) exited 0 and the ladder recorded PASS."""
+    refused = results(*[ct.Status.NOT_RUN] * len(ct.STEPS))
+    assert not ct.failed(refused) and ct.incomplete(refused)
+    assert not ct.incomplete(results(*[ct.Status.PASS] * len(ct.STEPS)))
+    # Skipped on purpose (--no-manual) is not incomplete.
+    assert not ct.incomplete(results(ct.Status.PASS, ct.Status.SKIPPED))
+    assert ct.incomplete([])
+
+
 def test_table_and_markdown():
     rs = results(ct.Status.PASS, ct.Status.FAIL, ct.Status.NOT_RUN)
     text = ct.table(rs)

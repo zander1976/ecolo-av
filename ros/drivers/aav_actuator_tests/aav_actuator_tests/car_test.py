@@ -683,6 +683,14 @@ def failed(results: Sequence[Result]) -> bool:
     return any(r.status is Status.FAIL for r in results)
 
 
+def incomplete(results: Sequence[Result]) -> bool:
+    """Return whether a step never ran (refused, or after a stop): no pass, though none failed.
+
+    A step SKIPPED on purpose (--no-manual, --only) is not this.
+    """
+    return not results or any(r.status is Status.NOT_RUN for r in results)
+
+
 def counts(results: Sequence[Result]) -> Mapping[str, int]:
     return {s.value: sum(r.status is s for r in results) for s in Status}
 

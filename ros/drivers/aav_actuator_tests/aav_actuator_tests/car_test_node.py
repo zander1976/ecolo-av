@@ -1265,7 +1265,11 @@ def main(argv=None):
                 sim.stop()
     if args.hallway:
         return 5 if run.failed() else 0
-    return 5 if ct.failed(run.results) else 0
+    # 6: nothing failed but a step never ran (refused: the car moving, say). The ladder
+    # records any code but 0 as a fail, so a refusal is never a pass (26 Nov).
+    if ct.failed(run.results):
+        return 5
+    return 6 if ct.incomplete(run.results) else 0
 
 
 if __name__ == '__main__':
