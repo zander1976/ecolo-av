@@ -513,6 +513,23 @@ impl Graphs {
         self.with_gaps(raw)
     }
 
+    /// What ego or the mux asked, over the window, in its own units (rad, m/s): the
+    /// web page's "ROS asked" graph. Empty for the brake (ego has none) and for the hops
+    /// that aren't ROS's.
+    #[must_use]
+    pub fn drive_line(&self, c: Channel, hop: Hop, now: Instant) -> Vec<Point> {
+        let log = match hop {
+            Hop::Ego => &self.ego,
+            Hop::Mux => &self.mux,
+            Hop::PiWrote | Hop::Esp32Got => return Vec::new(),
+        };
+        let raw = log
+            .since(Self::from(now))
+            .filter_map(|t| Some((t.at, c.of_drive(&t.value)?)))
+            .collect();
+        self.with_gaps(raw)
+    }
+
     /// The IMU's turn rate over the window, deg/s.
     #[must_use]
     pub fn imu_line(&self, now: Instant) -> Vec<Point> {
@@ -768,8 +785,19 @@ impl Graphs {
                     .map(|f| (f, t.value))
             })
             .collect();
+        // A version 1 frame (13 bytes) has no counter: its key is its check byte alone,
+        // which many different frames share, and the Pi's frames are only a sample. Paired
+        // that way, a frame would be compared with another that had the same check.
+        let no_counter = self.pi.since(from).next().is_some()
+            && self.pi.since(from).all(|t| t.value.version < 2);
         let channels = Channel::ALL.map(|c| {
-            let v = if pairs.is_empty() {
+            let v = if no_counter {
+                Verdict::NotTested(
+                    "version 1 frames have no counter, so they can't be paired \
+                     (frame_version 2 can)"
+                        .into(),
+                )
+            } else if pairs.is_empty() {
                 Verdict::NotTested(if self.pi.last().is_none() {
                     "the Pi's frames not heard: nothing to compare".into()
                 } else {
@@ -1298,5 +1326,57 @@ mod tests {
         assert_eq!(correlation(&[(0.0, 1.0), (1.0, 1.0)]), 0.0);
         assert_eq!(range(&[]), 0.0);
         assert_eq!(range(&[1.0, -1.0, 0.5]), 2.0);
+    }
+
+    #[test]
+    fn the_drive_line_is_ego_or_the_mux_in_its_own_units() {
+        let t = Instant::now();
+        let mut g = Graphs::default();
+        for i in 0..5u32 {
+            let d = Drive {
+                stamp_ns: u64::from(i),
+                speed: 0.1 * f64::from(i),
+                steering: -0.05 * f64::from(i),
+            };
+            g.record_ego(t + Duration::from_millis(100 * u64::from(i)), d);
+        }
+        let now = t + Duration::from_secs(1);
+        let speed = g.drive_line(Channel::Throttle, Hop::Ego, now);
+        assert_eq!(speed.len(), 5);
+        assert!((speed[4].value - 0.4).abs() < 1e-9);
+        assert!((g.drive_line(Channel::Steering, Hop::Ego, now)[2].value + 0.1).abs() < 1e-9);
+        assert!(g.drive_line(Channel::Brake, Hop::Ego, now).is_empty());
+        assert!(g.drive_line(Channel::Throttle, Hop::Mux, now).is_empty());
+        assert!(g
+            .drive_line(Channel::Throttle, Hop::PiWrote, now)
+            .is_empty());
+    }
+
+    /// Version 1 frames (today's 13-byte frame, the virtual car's) have no counter: the
+    /// ESP32 hop says it can't pair them, never DIFFERENT for a frame matched by its check
+    /// byte alone (27 Nov, the web page on the virtual car: 39 of 100 "differed").
+    #[test]
+    fn version_1_frames_are_not_paired() {
+        let t = Instant::now();
+        let mut g = Graphs::default();
+        let mut now = t;
+        for i in 0..100u32 {
+            now = ms(t, u64::from(i) * 100);
+            let s = 0.3 * (f64::from(i) / 10.0).sin();
+            let mut f = frame(0, s, 0.1, 0.0, i * 5);
+            f.version = 1;
+            g.record_pi(now, f);
+            // What arrived is another frame with the same check byte.
+            let mut rx = rx_of(&f);
+            rx.v = 1;
+            rx.steer = -rx.steer;
+            g.record_esp32(now, &status(u64::from(i), Some(rx), i * 5, 0));
+        }
+        let esp = &g.hops(now, STALE)[3];
+        assert_eq!(esp.verdict.word(), "NOT TESTED", "{esp:#?}");
+        assert!(esp
+            .channels
+            .iter()
+            .all(|(_, v)| v.why().contains("version 1")));
     }
 }
