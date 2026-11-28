@@ -747,6 +747,69 @@ mod legacy_loop_tests {
     }
 
     #[test]
+    fn a_pages_limp_on_version_1_frames_goes_limp_then_comes_back_slowly() {
+        let mut rig = LegacyRig::new();
+        rig.arm();
+        rig.bus.borrow_mut().steering_feedback = 2500;
+        for _ in 0..10 {
+            let now = rig.sb.board().now + 20;
+            rig.sb
+                .link()
+                .request_calibration(legacy_link::CalRequest::Limp, now);
+            rig.frame(0.0, 0.0, -1.0);
+        }
+        assert_eq!(
+            rig.last(STEER),
+            Some(std::vec![jrk_g2::command::STOP_MOTOR])
+        );
+        // Let go (no heartbeat for over 100 ms): from where the wheels are, back to the
+        // spine's target (1950), slowly.
+        rig.frames(6, 0.0, 0.0, -1.0);
+        let first = rig.last(STEER);
+        assert!(matches!(&first, Some(w) if w.len() == 2), "{first:?}");
+        rig.frames(400, 0.0, 0.0, -1.0);
+        assert_eq!(rig.last(STEER), Some(set_target(1950).to_vec()));
+    }
+
+    #[test]
+    fn with_no_frames_the_pages_own_heartbeat_brings_the_steering_back_after_limp() {
+        use legacy_link::CalRequest;
+        let mut rig = LegacyRig::new();
+        rig.bus.borrow_mut().steering_feedback = 2500;
+        let tick = |rig: &mut LegacyRig, cal: Option<CalRequest>| {
+            rig.sb.board().now += 10;
+            let now = rig.sb.board().now;
+            if let Some(cal) = cal {
+                rig.sb.link().request_calibration(cal, now);
+            }
+            rig.sb.tick()
+        };
+        // The Pi link went quiet: the spine's timeout brakes fully.
+        rig.arm();
+        for _ in 0..20 {
+            tick(&mut rig, None);
+        }
+        for _ in 0..10 {
+            tick(&mut rig, Some(CalRequest::Limp));
+        }
+        assert_eq!(
+            rig.last(STEER),
+            Some(std::vec![jrk_g2::command::STOP_MOTOR])
+        );
+        // The page's other buttons (its Off) and no frames at all: back to 1950, slowly.
+        for _ in 0..400 {
+            tick(&mut rig, Some(CalRequest::Off));
+        }
+        assert_eq!(rig.last(STEER), Some(set_target(1950).to_vec()));
+        // Never a mode from the page: its Off changes nothing.
+        let mut fresh = LegacyRig::new();
+        for _ in 0..20 {
+            tick(&mut fresh, Some(CalRequest::Off));
+        }
+        assert_eq!(fresh.last(STEER), Some(set_target(1950).to_vec()));
+    }
+
+    #[test]
     fn the_rc_override_beats_the_motor_pi() {
         let mut rig = LegacyRig::new();
         rig.arm();
