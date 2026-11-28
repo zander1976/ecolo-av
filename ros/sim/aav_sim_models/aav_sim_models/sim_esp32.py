@@ -60,7 +60,8 @@ class SimEsp32(Node):
     def now(self) -> dict:
         """Return what the firmware drives now, for the status page (read from its thread)."""
         f = self.firmware
-        return {'steering': f.steering, 'dac': f.dac, 'brake': f.brake, 'frames': f.frames}
+        return {'steering': f.steering, 'dac': f.dac, 'brake': f.brake, 'frames': f.frames,
+                'rx': f.last_rx}
 
     def read(self):
         if self.client is None:

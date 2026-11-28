@@ -161,9 +161,17 @@ class Board:
         self.status['link']['repeats'] = repeats
         verdict = 'counter_frozen' if frozen else 'ok'
         s = copy.deepcopy(self.status)
-        s['rx'].update(counter=self.counter, check=(self.counter * 37) % 256,
-                       steer=round((steer - 1950) / 1550, 3), speed=round(dac / 700, 3),
-                       accel=-1.0 if braking else 0.0, age_ms=12)
+        got = now.get('rx') if self.live is not None else None
+        if got:
+            # What the board got: the last good frame, as it came (its counter and last
+            # byte pair it with what the Pi wrote, as hw_panel's GRAPHS and the web page do).
+            s['rx'].update(counter=got['counter'], check=got['check'],
+                           steer=round(got['steer'], 3), speed=round(got['speed'], 3),
+                           accel=round(got['accel'], 3), age_ms=12)
+        else:
+            s['rx'].update(counter=self.counter, check=(self.counter * 37) % 256,
+                           steer=round((steer - 1950) / 1550, 3), speed=round(dac / 700, 3),
+                           accel=-1.0 if braking else 0.0, age_ms=12)
         s['out'].update(steer_counts=steer, brake_counts=brake, dac=dac)
         s['low'].update(steer_counts=steer - 6, brake_counts=brake, dac=max(0, dac - 6))
         s['high'].update(steer_counts=steer + 6, brake_counts=brake, dac=dac)

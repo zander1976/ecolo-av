@@ -63,6 +63,9 @@ class Esp32Firmware:
         self.steering = 0.0              # the frame's steering number, -1..1
         self.frames = 0                  # valid frames handled
         self.rejected = 0                # frames with a value outside -1..1
+        # The last frame with a good checksum, as it came (the status page's `rx`): its
+        # three numbers and its last byte. A 13-byte frame has no counter: 0.
+        self.last_rx = None
 
     def feed(self, data: bytes) -> int:
         """Take bytes from the serial line; return how many valid frames they held."""
@@ -71,7 +74,10 @@ class Esp32Firmware:
         while len(self.buf) >= FRAME_LEN:
             frame = bytes(self.buf[:FRAME_LEN])
             if sum(frame[:12]) & 0xFF == frame[12]:
-                self.handle(*struct.unpack('<fff', frame[:12]))
+                steer, speed, accel = struct.unpack('<fff', frame[:12])
+                self.last_rx = {'steer': steer, 'speed': speed, 'accel': accel,
+                                'counter': 0, 'check': frame[12]}
+                self.handle(steer, speed, accel)
                 del self.buf[:FRAME_LEN]
                 handled += 1
             else:

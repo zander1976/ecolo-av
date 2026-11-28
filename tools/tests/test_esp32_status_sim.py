@@ -142,3 +142,14 @@ def test_a_live_board_carries_the_firmwares_own_numbers():
     status = next(line for line in lines if line['t'] == 'status')
     assert status['state']['mode'] == 'rc'
     assert status['link']['verdict'] == 'counter_frozen'
+
+
+def test_a_live_boards_rx_is_the_frame_it_got():
+    """The rx pairs with what the Pi wrote: the last good frame's numbers, counter and check."""
+    got = {'steer': -0.1234, 'speed': 0.3, 'accel': -0.5, 'counter': 0, 'check': 77}
+    now = {'steering': -0.1234, 'dac': 0, 'brake': 1750, 'frames': 3, 'rx': got}
+    board = sim.Board(rate_hz=10.0, live=lambda: dict(now))
+    lines = [json.loads(line) for line in board.step()]
+    rx = next(line for line in lines if line['t'] == 'status')['rx']
+    assert (rx['counter'], rx['check']) == (0, 77)
+    assert (rx['steer'], rx['speed'], rx['accel']) == (-0.123, 0.3, -0.5)

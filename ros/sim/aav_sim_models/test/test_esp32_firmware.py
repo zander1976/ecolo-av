@@ -109,3 +109,16 @@ def test_no_frames_keeps_the_last_outputs_as_the_c_plus_plus_does():
     before = fw.outputs()
     fw.feed(b'')
     assert fw.outputs() == before and before.throttle > 0.0
+
+
+def test_the_last_good_frame_is_kept_as_it_came():
+    """The status page's rx: what the board got, its numbers and its last byte."""
+    fw = Esp32Firmware()
+    assert fw.last_rx is None
+    data = frame(-0.25, 0.5, 0.0)
+    fw.feed(data)
+    assert fw.last_rx == {'steer': -0.25, 'speed': 0.5, 'accel': 0.0,
+                          'counter': 0, 'check': data[12]}
+    # A bad checksum changes nothing.
+    fw.feed(bytes(12) + bytes([1]))
+    assert fw.last_rx['check'] == data[12]
