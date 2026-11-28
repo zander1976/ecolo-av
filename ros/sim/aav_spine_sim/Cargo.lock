@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "aav-inputs"
+version = "0.1.0"
+
+[[package]]
+name = "ad5311"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal",
+]
+
+[[package]]
 name = "ament_rs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -175,6 +186,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bench-core"
+version = "0.1.0"
+dependencies = [
+ "legacy-link",
+ "spine-core",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -273,6 +292,18 @@ name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
+
+[[package]]
+name = "embedded-hal"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
+
+[[package]]
+name = "embedded-io"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eb1aa714776b75c7e67e1da744b81a129b3ff919c8712b5e1b32252c1f07cc7"
 
 [[package]]
 name = "equivalent"
@@ -485,6 +516,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "jrk-g2"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -503,6 +541,10 @@ checksum = "0de8b303297635ad57c9f5059fd9cee7a47f8e8daa09df0fcd07dd39fb22977f"
 dependencies = [
  "log",
 ]
+
+[[package]]
+name = "legacy-link"
+version = "0.1.0"
 
 [[package]]
 name = "libc"
@@ -579,6 +621,13 @@ name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
+
+[[package]]
+name = "pca9555"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal",
+]
 
 [[package]]
 name = "pin-project-lite"
@@ -763,6 +812,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
+name = "spine-board"
+version = "0.1.0"
+dependencies = [
+ "aav-inputs",
+ "ad5311",
+ "embedded-hal",
+ "embedded-io",
+ "ibus",
+ "jrk-g2",
+ "legacy-link",
+ "pca9555",
+ "spine-core",
+ "wheel-encoder",
+]
+
+[[package]]
 name = "spine-core"
 version = "0.1.0"
 
@@ -776,6 +841,10 @@ dependencies = [
  "rclrs",
  "ros-env",
 ]
+
+[[package]]
+name = "status-lines"
+version = "0.1.0"
 
 [[package]]
 name = "syn"
@@ -882,6 +951,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2799ffb329a792ecfd902b71306c8a815a6ef1c0470fa9953a6aa4d4cecbe511"
 
 [[package]]
+name = "virtual-esp32"
+version = "0.1.0"
+dependencies = [
+ "bench-core",
+ "embedded-hal",
+ "embedded-io",
+ "legacy-link",
+ "spine-board",
+ "spine-core",
+ "status-lines",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -952,6 +1034,13 @@ name = "wheel-core"
 version = "0.1.0"
 dependencies = [
  "spine-core",
+]
+
+[[package]]
+name = "wheel-encoder"
+version = "0.1.0"
+dependencies = [
+ "aav-inputs",
 ]
 
 [[package]]

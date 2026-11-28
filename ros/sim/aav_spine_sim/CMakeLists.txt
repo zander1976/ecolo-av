@@ -35,6 +35,13 @@ if(BUILD_TESTING)
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     TIMEOUT 300
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO)
+  # The virtual ESP32's logic, without ROS: cargo test -p virtual-esp32.
+  ament_add_test(virtual_esp32
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CARGO_TARGET_DIR}
+      ${CARGO} test --release --locked --quiet -p virtual-esp32
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    TIMEOUT 300
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO)
 endif()
 
 ament_package()

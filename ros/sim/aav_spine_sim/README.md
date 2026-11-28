@@ -19,6 +19,7 @@ A Rust package. CMake only runs `cargo` and installs the binary, as in
 |---|---|---|
 | `crates/bench-car` | the spine's logic (`spine-core`) and the wheel nodes' logic (`wheel-core`), unchanged, driving a simple car model | no |
 | `crates/spine-sim` | the ROS nodes around it (rclrs 0.8, `ros-env` for messages): `spine_sim`, and `rc_pad` | yes |
+| [`crates/virtual-esp32`](./crates/virtual-esp32/README.md) (28 Nov) | the virtual car's ESP32: the Rust firmware's own logic (`spine-board`, `spine-core`, `legacy-link`) on the bridge's bytes, with the page's bench (`bench-core`) and status lines (`status-lines`) | no |
 
 The `car` parameter picks which car the spine drives:
 
@@ -131,10 +132,10 @@ In Ravensim: `pixi run sim spine:=true rc_pad:=true [rc_pad_mode:=low]`.
 ## Verification
 
 ```sh
-cd ros/sim/aav_spine_sim && cargo test -p bench-car
+cd ros/sim/aav_spine_sim && cargo test -p bench-car && cargo test -p virtual-esp32
 pixi run build && colcon test --packages-select aav_spine_sim && colcon test-result --verbose
 ```
 
-`colcon test` runs the same `cargo test -p bench-car` (CMake test `bench_car`).
+`colcon test` runs the same `cargo test -p bench-car` and `-p virtual-esp32` (CMake tests `bench_car`, `virtual_esp32`).
 `tools/test.sh` does not. `pixi run test` runs everything. The whole loop:
 `pixi run bench-check`.
