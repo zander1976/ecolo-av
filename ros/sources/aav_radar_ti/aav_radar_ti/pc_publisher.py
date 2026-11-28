@@ -124,23 +124,33 @@ class rospublisher(Node):
                 break
 
             try:
+                # A frame that failed to parse comes as None, in every mode: skip it
+                # (unpacking None raised, and the dead generator was reused: TODO 111).
+                out = next(action)
+                if out is None:
+                    empty_times += 1
+                    continue
                 if not self.ti.cfg_mode:
                     if not self.ti.output_heat_map:
-                        res = next(action)
+                        res = out
                     else:
-                        res, ra_0, ra_1, rd = next(action)
+                        res, ra_0, ra_1, rd = out
                 else:
-                    res, res_tar, res_conv = next(action)
+                    res, res_tar, res_conv = out
 
-                # BUG FIX 1: next(action) can return None if __parse_data fails; guard
-                # against unpacking None
                 if res is None:
                     empty_times += 1
                     continue
 
                 empty_times = 0
+            except StopIteration:
+                # The reader gave up (no data for its timeout) and closed the ports.
+                self.get_logger().error('The radar stopped sending: the reader closed')
+                self.shut_down = 1
+                with self.cv:
+                    self.cv.notify()
+                break
             except Exception as e:
-                action = g
                 empty_times += 1
                 self.get_logger().error(
                     f'{empty_times}: Failed to put general data in buffer: {e}'

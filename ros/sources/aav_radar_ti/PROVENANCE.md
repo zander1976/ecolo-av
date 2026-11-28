@@ -91,3 +91,13 @@ Kept, because something uses them: `pcl_pub` (`pc_publisher.py`), `TI.py`, `cfg/
   path say `src/aav_radar_ti/debug/result.json`.
 - Only names change: the executables (`pcl_pub`, `mock_radar_publisher`), the nodes and
   the topics stay.
+
+## Changes (2026-11-28)
+
+- `TI.py` `read()`: a frame `__parse_data` can't parse (too short, a broken header) is
+  skipped: it yields `None` and reads on. Before, the exception ended the generator.
+- `pc_publisher.py` `__producer`: a `None` frame is skipped in every mode (the heat-map
+  and 3D-tracking modes unpacked it and raised); the reader's end (`StopIteration`) shuts
+  the node down with its own message, instead of reusing the finished generator 20 times.
+  Old TODO 111 (4 Nov weak links), found again by the 28 Nov docs review.
+  `test/test_ti_read.py` covers it.

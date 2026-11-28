@@ -348,7 +348,11 @@ class get_data:
                     # print(idx_start, idx_end)
                 except ValueError:  # no complete frame in the buffer yet
                     continue
-                msg = self.__parse_data(self.__buffer_temp[idx_start:idx_end])
+                try:
+                    msg = self.__parse_data(self.__buffer_temp[idx_start:idx_end])
+                except Exception as e:  # a short or broken frame: skip it, keep reading
+                    print('Parsing a frame failed, skipped:', e)
+                    msg = None
                 self.reset_timer()
                 self.clear_buffer()
                 yield msg
