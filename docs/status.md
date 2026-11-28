@@ -1,8 +1,8 @@
 # Status: what works and what doesn't yet
 
-Where things stand on 18 November 2026. Each row carries the date of its last run: a
+Where things stand on 28 November 2026. Each row carries the date of its last run: a
 row dated October hasn't been run again unless it says so. The newest work is in
-[Since 16 November](#since-16-november); the older "Next" lists are in
+[Since 20 November](#since-20-november) and [Since 16 November](#since-16-november); the older "Next" lists are in
 [the status log](history/status-log.md).
 
 | Word | Means |
@@ -139,6 +139,21 @@ page. All of these are trials or sim-only unless the row says "default".
 | Switch picker (29 Oct) | `pixi run pick` | [[works]] 3 Nov: 23 of 23 switches each drove a leg in Gazebo |
 | Car setup, the rollout, "Know the car" (1-8 Nov) | `tools/car_setup.sh <role>`, [Rolling out](rollout.md), [Know the car](know-the-car.md) | [[untested]] on a car computer |
 | Radar and battery drivers (ported 9 Oct) | `aav_radar_ti`, `aav_battery_victron` | [[untested]] need the devices |
+
+## Since 20 November
+
+Ravensim on Ben's MacBook unless the row says so; none of it on the car yet.
+
+| Box | Implemented by | Status |
+|---|---|---|
+| The test ladder (22 Nov) | `pixi run ladder`, the tests window (`ladder-core`) | [[works]] the tool and the window's tests; rung 1 done in the simulator (23 Nov). [[untested]] a person pressing Run; Linux (TODO 271, 277) |
+| The car on jacks (22 Nov) | `pixi run jacks up/down --sim`, `on_stands:=true` | [[works]] `car-test --stands --sim`: 12 PASS, 2 SKIPPED. The free wheels' mass is a guess (TODO 272, 285) |
+| The virtual car (25-26 Nov) | `pixi run virtualcar` (`setup:=car`): the ESP32 stand-in, the Pi's bridge, the Orin's nodes | [[works]] `pixi run check virtual`: 0 failed; drive-to-point through the UART bridge stopped 0.06 m from B (TODO 278, 288) |
+| Our navigation view (23 Nov) | `pixi run nav-view`, `nav-core` | [[works]] beside `barrier-watch`; some layers only with pretend data (TODO 276) |
+| The corridor (26 Nov) | `mpc_lag_corridor:=true`, a challenger | [[works]] University Drive: 5 of 6 legs, 100 % in the lane (TODO 284) |
+| The Orin's web page (27-28 Nov) | `aav_web` (`aav_hud`), started by `virtualcar` | [[works]] on the virtual car: CAR all OK, ROS 65 of 65 live, the hops ego, mux and Pi OK; the ESP32 hop NOT TESTED (version 1 frames). [[untested]] on the Orin (TODO 289) |
+| The ESP32 page's bench (27 Nov) | `bench-core` (firmware) | [[works]] in its 20 tests; no board or stand-in runs it yet (TODO 289, step 4) |
+| The radar survives a short frame (28 Nov) | `aav_radar_ti` | [[works]] in its test; [[untested]] on the radar (TODO 290) |
 
 ## Since 16 November
 

@@ -255,6 +255,23 @@ The whole story, to explain to someone else: [What we decided, 18-19 Nov](decisi
 |---|---|---|
 | **Start removing the Python fall-backs: batch 1.** The Python nodes whose Rust twin is already the default go: ego + look_ahead, the sensor mux and output mux, `lidar_scan`, `lane_finder`, `stop_sign_watcher`, `point_driver` and its client, `arm_when_open` (the watchdog, localization_health, `joy_alive` and things went on 20 Nov). Their `*_impl:=` switches take `rust` only. Kept: the hardware-facing fall-backs (`legacy_uart_bridge`, `rc_driver`, the Python `spine_bridge`), everything ML, voxels, and the Python maths other code imports or the Rust is checked against. Git tag `save/python-fallbacks-1` | "lets start removing the python fall back after being tested enough times": one node per job to keep right, Rust where possible (16 Nov) | Ben |
 
+## Decided from 22 to 27 November
+
+| Decision | Why | By |
+|---|---|---|
+| **Ben's own research is outside the capstone** (22 Nov): the MPC's barriers and the safety filter stay in the stack, **off by default**, each file saying so; no proofs in the repository | the capstone is safe by testing; the research is Ben's MASc, not a team deliverable (CLAUDE.md, "Outside the capstone's scope") | Ben |
+| **One stack, a ladder of tests** (22 Nov): every test runs the same full stack, from the simulator to the car, rung by rung, its progress saved (`pixi run ladder`, TODO 271-273) | "spin up the testing and then start working through the rungs saving our progress as we go" | Ben |
+| **The virtual car first, then the car** (23 Nov; TODO 277): wrap up with a test suite run on a virtual car, then the real one | "We have done way more than we should so maybe build a testing suite and test it on the car but also in a virtual env. Lets do the virtual first" | Ben |
+| **Our own navigation view, not RViz** (23 Nov; TODO 276): RViz is opt-in everywhere (`rviz:=true`) | "lets finish the port so we don't rely on something that pops up in a weird way like rviz does" | Ben |
+| **The stage-4 tests hold their top speed 2.5 s** before the command falls (TODO 275): the runaway rule stays as it is | "hold top speed longer before slowing" (23 Nov): the tests stopped themselves above 1 m/s while the speed loop settled | Ben |
+| **`pixi run virtualcar`: Ravensim as the whole car** (25-26 Nov; TODO 278, 288): every sensor and actuator, the ESP32 stand-in, the Pi's bridge and the Orin's nodes; `pixi run ravensim` only watches | "I want to be able to do a full sweet of tests on a virtual car using the full ros messaging system" | Ben |
+| **The dash's hardware page is watch-only on the real car** (26 Nov, option A): numbers, graphs and the E-STOP; calibration stays laptop-only | "calibration stays laptop-only" | Ben |
+| **Pure pursuit, Stanley and LQR removed** (26 Nov; TODO 291, done 28 Nov); MPC and the lag-aware ones stay | "aren't used really at all"; their scores kept in `trials.md`, tag `save/trackers-stanley-lqr-pp-2026-11-26` | Ben |
+| **Generated docs leave git; CI builds them** (26 Nov; TODO 292, merged 28 Nov): commit the Markdown only | "anything generated can go away" | Ben |
+| **The corridor: two lines, not one** (26 Nov; TODO 284): a challenger in `mpc_lag_rs`, off by default | "maybe instead of a line we use two lines and the car just needs to stay between them" | Ben |
+| **Web screens** (27 Nov; TODO 289, [design](designs/2026-11-27_web-screens.md)): the ESP32 serves simple controls, LIMP and measurement, and streams the rest; the Orin serves a **read-only** web page (axum) that graphs what goes to CORTEX and the ESP32, the car's sensors and the ROS graph. HTML and JS, offline. The raylib screens stay for now (W3) | "on the esp32 we should have the very simple vehicle controls and the go slack and measurement stuff and then the rest should be a stream of data to something else" | Ben |
+| The ESP32 page's writable controls on the **real** board (`wifi-control`) | the hardware lead's call (W1); the virtual car runs them first | the hardware lead (open) |
+
 ## Proposed in November: Ben's to decide
 
 Designs, **nothing of them built**.
