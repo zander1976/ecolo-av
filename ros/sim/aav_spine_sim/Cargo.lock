@@ -840,6 +840,7 @@ dependencies = [
  "ctrlc",
  "rclrs",
  "ros-env",
+ "virtual-esp32",
 ]
 
 [[package]]

@@ -15,9 +15,15 @@ path = "src/main.rs"
 name = "rc_pad"
 path = "src/rc_pad.rs"
 
+# The virtual car's ESP32: the Rust firmware's logic on the bridge's bytes (web screens step 4).
+[[bin]]
+name = "virtual_esp32"
+path = "src/virtual_esp32.rs"
+
 [dependencies]
 anyhow = "1"
 bench-car = { path = "../bench-car" }
+virtual-esp32 = { path = "../virtual-esp32" }
 # SIGINT, plus SIGTERM and SIGHUP: rclrs 0.8 has no signal handling of its own yet.
 ctrlc = { version = "3", features = ["termination"] }
 rclrs = "0.8"

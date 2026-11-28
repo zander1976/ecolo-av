@@ -17,12 +17,13 @@ set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/target)
 add_custom_target(cargo_build ALL
   COMMAND ${CMAKE_COMMAND} -E env --unset=MAKEFLAGS --unset=MFLAGS --unset=CARGO_MAKEFLAGS
     CARGO_TARGET_DIR=${CARGO_TARGET_DIR}
-    ${CARGO} build --release --locked --quiet --bin spine_sim --bin rc_pad
+    ${CARGO} build --release --locked --quiet --bin spine_sim --bin rc_pad --bin virtual_esp32
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  COMMENT "cargo build --release --bin spine_sim --bin rc_pad"
+  COMMENT "cargo build --release --bin spine_sim --bin rc_pad --bin virtual_esp32"
   VERBATIM)
 
 install(PROGRAMS ${CARGO_TARGET_DIR}/release/spine_sim ${CARGO_TARGET_DIR}/release/rc_pad
+  ${CARGO_TARGET_DIR}/release/virtual_esp32
   DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
 

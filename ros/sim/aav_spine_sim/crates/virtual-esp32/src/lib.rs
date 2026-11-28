@@ -23,8 +23,10 @@
 //! | no RC receiver (`rc_fitted` false) | the simulator has no transmitter; a fitted, silent one is a lost RC, a hard stop |
 //! | the devices always answer, and a Jrk is where it was told | `StandInBus`; the measured steering and brake come from the simulator |
 
+pub mod page;
 pub mod parts;
 pub mod report;
+pub mod ws;
 
 use bench_core::controls::{Button, Controls, Refused, Where};
 use bench_core::hardware::{judge, BenchTest, Progress, Run, Verdict};
@@ -32,10 +34,13 @@ use bench_core::step::{respond, steps, Response};
 use bench_core::trace::{Recorder, Sample};
 use legacy_link::{CalRequest, CalState};
 use spine_board::{
-    Calibration, DeviceCheck, Devices, FrameVersion, LegacyLink, LinkHealth, SpineBoard, StandInBus,
+    Calibration, DeviceCheck, Devices, LegacyLink, LinkHealth, SpineBoard, StandInBus,
 };
 use spine_core::{Outputs, SpeedFeedback, SpineConfig, TestRequest};
 use std::sync::{Arc, Mutex};
+
+/// Which frames the bridge sends (`spine-board`'s).
+pub use spine_board::FrameVersion;
 
 use parts::{BusHandle, ByteQueue, ByteSink, LaptopBoard, NoReceiver};
 use report::{Reporter, Snapshot};
