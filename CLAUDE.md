@@ -112,8 +112,10 @@ These are the conventions decided so far. They apply to people and to Claude ses
 - **Each node's module docstring** lists what it subscribes, publishes, serves and calls.
 - **Pins, I2C addresses and calibration belong in the firmware.** ROS never sees a pin.
 - **Docs are for a dyslexic reader**: short pages with sections, tables and pictures; no
-  walls of text. Edit `docs/*.md`, run `pixi run docs`, and commit the HTML (the PDF is
-  rebuilt on demand). The reading order is `PAGES` in `tools/build_docs.py`.
+  walls of text. Edit `docs/*.md` and commit only the Markdown (Ben, 26 Nov: anything
+  generated stays out of git). `pixi run docs` builds the HTML and the PDFs into
+  `docs/html/` on your computer; CI builds them on every push to main (the `docs`
+  artifact). The reading order is `PAGES` in `tools/build_docs.py`.
 - **Macs are first-class**: the team drives and watches the car from MacBooks
   (`docs/mac.md`; `pixi run doctor` checks the network). Keep scripts portable: no
   GNU-only flags, no bash 4 features, no Linux-only serial speeds without `#ifdef`.

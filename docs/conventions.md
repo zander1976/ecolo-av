@@ -111,4 +111,4 @@ twist_mux's sensors lock at its 1 s timeout, so navigation never drove.
 | Python | PEP 8 with 99-character lines, single quotes, docstrings that start with a summary line | `pixi run lint` (ROS's `ament_flake8` and `ament_pep257`) |
 | C++ | the ROS 2 C++ style | `ament_uncrustify`, `ament_cpplint` (in `colcon test`) |
 | Rust | rustfmt and clippy | `tools/test.sh`: `cargo fmt --check` on every crate, `cargo clippy -D warnings` on every crate without ROS (a lint wrong for us: a targeted `#[allow]` with its reason) |
-| Markdown docs | short pages, a purpose line, sections, tables | `pixi run docs`, and a look at the result |
+| Markdown docs | short pages, a purpose line, sections, tables | `pixi run docs`, and a look at the result; commit the Markdown only (`docs/html/` is not in git) |

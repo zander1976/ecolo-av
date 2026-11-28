@@ -47,13 +47,13 @@ so add `--local`: `pixi run tools/ros.sh --local python3 tools/<script>.py`.
 | `drop_in_check.py`, `drop_in.py` | is what's running a true drop-in: each stream's rate and frame against the contract's `drop_in` rules (`drop_in.py`: the logic, no ROS) | `drop-in` |
 | `layout_check.py` | is every topic in `foxglove/` served by a bridge? | - |
 | `ci_annotate.py` | a failed test log into GitHub annotations | (CI) |
-| `ci_docs_only.py` | does a pull request change the docs only (Markdown, `docs/html/`, `docs/img/`)? Then CI skips the build and the tests | (CI) |
+| `ci_docs_only.py` | does a pull request change the docs only (Markdown, `docs/img/`; `docs/html/`, out of git since 26 Nov, still counts)? Then CI skips the build and the tests | (CI) |
 
 ### Docs
 
 | Script | Does | Task |
 |---|---|---|
-| `build_docs.py` | `docs/*.md` into HTML and the PDFs | `docs` |
+| `build_docs.py` | `docs/*.md` into HTML and the PDFs in `docs/html/` (not in git; CI's `docs` workflow builds them on main) | `docs` |
 | `gen_interfaces_md.py` | `docs/interfaces.yaml` into `docs/interfaces.md`; `--check` | - (test.sh checks) |
 | `codemap.py` | `docs/codemap.md`, the code map: one line per package; `--check` | - (test.sh checks) |
 | `graph_picture.py` | the running graph as `docs/img/graph.svg` and `.png` | - (ros.sh) |
@@ -244,7 +244,7 @@ Each lands outside git, checksum pinned where the script says.
 | `replay_commands.sh` (always: it has no `--sim`) | **moves whatever shares the ROS domain**: on the car's network, the car |
 | `get.sh`, `get_*.sh`, `vendor.py`, `car_kit.sh` | download into `vendor/` (`car_kit.sh` caches in `vendor/car-kit-cache`), `models/`, `maps/`, `car-kit/` |
 | `car_day_build.sh` | writes `car-day/esp32/` and `docs/html/` |
-| `build_docs.py`, `graph_picture.py`, `teach_figures.py`, `control_figures.py`, `vehicle_model.py`, `state_space_demo.py`, `measure_map.py` | write `docs/html/`, `docs/img/` (`measure_map.py` also its table in `docs/measure-the-car.md`) |
+| `build_docs.py`, `graph_picture.py`, `teach_figures.py`, `control_figures.py`, `vehicle_model.py`, `state_space_demo.py`, `measure_map.py` | write `docs/html/` (not in git), `docs/img/` (`measure_map.py` also its table in `docs/measure-the-car.md`) |
 | `make_stop_sign.py`, `make_map.py` | write the stop sign's files in `ros/sim/aav_sim_models/models/`; a map's PGM and YAML |
 | `map_drive.py` | writes `<drive>/map/` (or `--out`); runs `cargo` for the chunks |
 | `map_area.py` | writes `maps/<area>/` (or `--out`), each drive's map in its `drives/`; runs `cargo` for the chunks |

@@ -55,7 +55,7 @@ The car is being upgraded (18 Nov): phases 0, A-D of [the testing plan](docs/tes
 
 ## 1. The testing plan
 
-[The testing plan](docs/testing-plan.md) (`docs/html/aav-testing-plan.pdf`, for the team):
+[The testing plan](docs/testing-plan.md) (`docs/html/aav-testing-plan.pdf` once `pixi run docs` has run, for the team):
 the testers' strategy, session by session (rewritten 19 Nov). Ben, 18 Nov: "My prof wanted a
 full automated testing system"; 19 Nov: "Add offline processing to the list of stuff we can
 and will do".
