@@ -341,7 +341,7 @@ impl Demo {
             settings,
             voxels,
             bench: bench_cubes.map(|n| bench_scan(n, size)),
-            tracker: Tracker::PurePursuit,
+            tracker: Tracker::Mpc,
             replies: Vec::new(),
             parked,
         }

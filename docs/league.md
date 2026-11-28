@@ -3,6 +3,8 @@
 One file says **what the car is**: each level's champion, and the challengers
 waiting to beat it.
 
+Stanley, LQR and pure pursuit (the trial trackers): removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`. Their scores stay in the league results.
+
 ```text
   config/stacks.yaml (aav_description)
   ┌────────────┬───────────┬──────────────────────────────┐

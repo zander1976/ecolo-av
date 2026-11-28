@@ -153,8 +153,14 @@ if command -v cargo >/dev/null; then
     section "ros/drivers/aav_mppi_lag: MPPI with the lag, its critics, the closed-loop runs"
     (cd ros/drivers/aav_mppi_lag && cargo test -q --locked -p mppi-lag --features shared)
   fi
-  section "ros/drivers/aav_mpc_lag: the lag-aware MPC in Rust, against the Python's vectors; closed loop"
-  (cd ros/drivers/aav_mpc_lag && cargo test -q --locked -p mpc-lag)
+  # The same for aav_mpc_lag (26 Nov): its colcon test runs the whole crate in release.
+  if [[ ${AAV_COLCON_TEST_FOLLOWS:-0} == 1 ]]; then
+    section "ros/drivers/aav_mpc_lag: the lag-aware MPC in Rust, against the Python's vectors (closed loop: in colcon test)"
+    (cd ros/drivers/aav_mpc_lag && cargo test -q --locked -p mpc-lag --lib --test vectors)
+  else
+    section "ros/drivers/aav_mpc_lag: the lag-aware MPC in Rust, against the Python's vectors; closed loop"
+    (cd ros/drivers/aav_mpc_lag && cargo test -q --locked -p mpc-lag)
+  fi
   section "ros/drivers/aav_costmap: our own costmap's layers and hand-made scenes"
   (cd ros/drivers/aav_costmap && cargo test -q --locked -p costmap)
   section "ros/drivers/aav_planner: our own planner's curves and hand-made maps"

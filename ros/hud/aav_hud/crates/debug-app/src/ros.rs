@@ -31,7 +31,7 @@
 //! - AMCL's particles: best effort, as AMCL publishes them;
 //! - everything else: best effort (SensorDataQoS), which takes reliable publishers too.
 //!
-//! Keys 1-4 call aav_track's own parameter service (`track_parameters_service`,
+//! Key 1 calls aav_track's own parameter service (`track_parameters_service`,
 //! `/track/set_parameters`) from the window's thread: the screen has already checked
 //! `/system/source` says SIM, and the track node refuses unless `live_swap` is on. The
 //! answer comes back as an `Update::SwapReply`.
@@ -279,7 +279,7 @@ impl crate::source::DataSource for RosSource {
 
     fn swap_tracker(&mut self, tracker: Tracker) -> Result<()> {
         if !self.track_parameters.service_is_ready()? {
-            anyhow::bail!("no track node (start the sim with tracker:=pure_pursuit)");
+            anyhow::bail!("no track node (start the sim with tracker:=mpc)");
         }
         let tx = self.tx.clone();
         let asked = tracker.name();
@@ -900,12 +900,12 @@ mod tests {
 
     #[test]
     fn a_swap_asks_for_one_string_and_reads_the_answer() {
-        let r = tracker_request("lqr");
+        let r = tracker_request("mpc");
         assert_eq!(r.parameters[0].name, "tracker");
-        assert_eq!(r.parameters[0].value.string_value, "lqr");
+        assert_eq!(r.parameters[0].value.string_value, "mpc");
         assert_eq!(r.parameters[0].value.type_, ParameterType::PARAMETER_STRING);
         let mut response = SetParameters_Response::default();
-        let Update::SwapReply(none) = swap_reply("lqr", &response) else {
+        let Update::SwapReply(none) = swap_reply("mpc", &response) else {
             panic!("a reply")
         };
         assert!(none.outcome.is_err());
@@ -915,7 +915,7 @@ mod tests {
                 successful: false,
                 reason: "live_swap is off".into(),
             });
-        let Update::SwapReply(no) = swap_reply("lqr", &response) else {
+        let Update::SwapReply(no) = swap_reply("mpc", &response) else {
             panic!("a reply")
         };
         assert_eq!(no.outcome, Err("live_swap is off".into()));
@@ -1101,11 +1101,11 @@ mod tests {
         );
         assert_eq!(verdict.context("no health")?.line(), "WARN: tf");
 
-        // Keys 1-4: the service's own answer comes back.
+        // Key 1: the service's own answer comes back.
         let mut reply = None;
         let deadline = Instant::now() + Duration::from_secs(5);
         while reply.is_none() && Instant::now() < deadline {
-            if hud.swap_tracker(Tracker::Lqr).is_ok() {
+            if hud.swap_tracker(Tracker::Mpc).is_ok() {
                 for _ in 0..10 {
                     spin(&mut executor, 100);
                     reply = hud.drain(Instant::now()).into_iter().find_map(|u| match u {
@@ -1121,14 +1121,14 @@ mod tests {
             }
         }
         let reply = reply.context("no answer to the swap")?;
-        assert_eq!(reply.asked, "lqr");
-        assert_eq!(reply.outcome, Err("live_swap is off (lqr)".into()));
+        assert_eq!(reply.asked, "mpc");
+        assert_eq!(reply.outcome, Err("live_swap is off (mpc)".into()));
         Ok(())
     }
 
     /// Against a running simulator (not run by default): the node with the built-in
     /// topics, for `secs` seconds (DEBUG_HUD_LIVE_SECS, 20), printing what the panel and
-    /// the cubes would show, then asking the track node for `lqr` and printing its answer.
+    /// the cubes would show, then asking the track node for `mpc` and printing its answer.
     /// `pixi run demo --debug` without a screen: start the sim headless on a domain, then
     /// `cargo test --release -p debug-app -- --ignored --nocapture live_sim` on it.
     #[test]
@@ -1211,7 +1211,7 @@ mod tests {
             "swap allowed: {:?}",
             debug_core::swap::allowed(&state.origins)
         );
-        if hud.swap_tracker(Tracker::Lqr).is_ok() {
+        if hud.swap_tracker(Tracker::Mpc).is_ok() {
             let end = Instant::now() + Duration::from_secs(5);
             while Instant::now() < end {
                 if let Some(Update::SwapReply(r)) = hud

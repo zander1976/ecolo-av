@@ -116,8 +116,8 @@ only: the click does nothing there.
 
 | Step | Do |
 |---|---|
-| 1 | Start with a tracker: `pixi run sim world:=road foxglove:=true tracker:=pure_pursuit reversing:=false` |
-| 2 | In the Tracker panel, write the one you want in `string_value`: `pure_pursuit`, `stanley`, `lqr`, `mpc` or `mpc_full` |
+| 1 | Start with a tracker: `pixi run sim world:=road foxglove:=true tracker:=mpc reversing:=false` |
+| 2 | In the Tracker panel, write the one you want in `string_value`: `mpc`, `mpc_full` or `mpc_lag` (pure pursuit, Stanley and LQR went on 26 Nov) |
 | 3 | Press **Set the tracker**. The answer says `successful: true` |
 
 `mppi_lag` (the default) is its own node: with it, there is no `/track` to call. The

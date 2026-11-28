@@ -21,7 +21,7 @@ pub trait DataSource {
         None
     }
 
-    /// Asks the trial tracker to swap to `tracker` (keys 1-4; the caller has checked
+    /// Asks the trial tracker to swap to `tracker` (key 1; the caller has checked
     /// it's the simulator). The answer comes back later as an `Update::SwapReply`.
     fn swap_tracker(&mut self, tracker: Tracker) -> anyhow::Result<()>;
 

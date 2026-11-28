@@ -13,10 +13,10 @@ and is **scored on the same routes**. It becomes the default only once it wins.
     and followers (MPPI, RPP) went with it.
 
 > **The short version**
-> - **Trackers** (`aav_track`): pure pursuit, Stanley, LQR, MPC, and `mpc_full` (speed and steering together), in our chain, in `mppi_lag`'s place (in controller_server's, until 17 Nov). `tracker:=lqr`.
+> - **Trackers** (`aav_track`): MPC, `mpc_full` (speed and steering together) and `mpc_lag`, in our chain, in `mppi_lag`'s place (in controller_server's, until 17 Nov). `tracker:=mpc`. Pure pursuit, Stanley and LQR: removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`; their scores stay below.
 > - **AMCL** (ours in Rust, `aav_amcl_rs`, since 18 Nov; stock `nav2_amcl` removed 20 Nov, TODO 232): a particle filter on the map and the lidar, scored against the EKF, never steering. `amcl:=true`. [Ours against stock](history/trials-log.md#18-nov-amcl-in-rust-against-stock).
 > - **NDT** (`aav_ndt`, ours in Rust): the lidar matched to a saved lidar map, scored against the EKF, never steering. `ndt:=true`.
-> - **Score:** `pixi run measure controllers --trackers pure_pursuit lqr --runs 3`.
+> - **Score:** `pixi run measure controllers --trackers mpc mpc_lag --runs 3`.
 > - **Results (29 Oct, Gazebo, 3 runs):** pure pursuit, Stanley and MPC finished every leg; MPPI, RPP and LQR lost legs on the U-turn. AMCL lost itself; the EKF wins. [Results](history/trials-log.md#results-29-october).
 > - **NDT**, 29 Oct: about 1-3 cm off on the lot tour, 2 ms a match (below).
 > - **NDT into the global EKF** (`ndt_ekf:=true`), 30 Oct: the EKF **17 cm → 1.6 cm** off; with the GPS off, 1.2 m → 1.6 cm. [Results](history/trials-log.md#ndt-into-the-global-ekf-30-oct).
@@ -40,13 +40,13 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 
 | Trial | Scored against | Switch |
 |---|---|---|
-| Stanley steering | our pure pursuit | `tracker:=stanley` |
-| LQR steering, gains by speed and bend, with a preview | our pure pursuit | `tracker:=lqr` |
+| Stanley steering | our pure pursuit | removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26` |
+| LQR steering, gains by speed and bend, with a preview | our pure pursuit | removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26` |
 | MPC steering, within the steering's limits | our pure pursuit | `tracker:=mpc` |
 | MPC speed and steering together (sets its own speed) | MPC, MPPI | `tracker:=mpc_full` |
 | MPC through the car's lags (sets its own speed; lag-aware) | MPPI, RPP, MPC | `tracker:=mpc_lag` |
 | The same MPC in Rust (`aav_mpc_lag`, 15 Nov; reverses since 20 Nov, TODO 213) | the Python `mpc_lag` | `tracker:=mpc_lag_rs` |
-| our pure pursuit (the control) | `mppi_lag` (until 17 Nov, Nav2's RPP and MPPI) | `tracker:=pure_pursuit` |
+| our pure pursuit (the control) | `mppi_lag` (until 17 Nov, Nav2's RPP and MPPI) | removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26` |
 | AMCL | the global EKF | `amcl:=true` |
 | NDT on a saved lidar map | the global EKF, and AMCL | `ndt:=true` (after `pixi run ndt-map drive`) |
 | NDT's pose into the global EKF | the global EKF on GPS alone | `ndt_ekf:=true` |
@@ -64,7 +64,7 @@ and is **scored on the same routes**. It becomes the default only once it wins.
 goal ─► navigator ─► planner (aav_planner: the lattice, replans every 1 s)
               │ FollowPath ("follow_path")
               ▼
-   tracker:=mppi_lag (default)      tracker:=stanley | lqr | mpc | mpc_full | mpc_lag | pure_pursuit
+   tracker:=mppi_lag (default)      tracker:=mpc | mpc_full | mpc_lag
    aav_mppi_lag (Rust)              aav_track's track node
               └──────► cmd_vel_nav ◄──────┘
                             │
@@ -91,7 +91,7 @@ e-stops.
 ```bash
 pixi run sim world:=test_lot reversing:=false tracker:=mpc      # watch one
 pixi run sim world:=test_lot amcl:=true                         # AMCL beside the EKF
-pixi run measure controllers --trackers pure_pursuit stanley lqr mpc mpc_full --controllers mppi --runs 3
+pixi run measure controllers --trackers mpc mpc_full mpc_lag --controllers mppi --runs 3
 pixi run measure controllers --amcl                              # score AMCL too
 pixi run ndt-map drive                                          # NDT's map, once (~6 min)
 pixi run measure controllers --amcl --ndt                        # score NDT beside AMCL

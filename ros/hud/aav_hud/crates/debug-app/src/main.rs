@@ -35,7 +35,7 @@
 //!             track_status_topic    diagnostic_msgs/DiagnosticStatus  the panel: the trial tracker
 //!             source_topic          aav_interfaces/DataSource   latched: the SIMULATED banner
 //! Publishes   nothing. It never touches an actuator (the design's D3).
-//! Calls       track_parameters_service  rcl_interfaces/SetParameters  keys 1-4: aav_track's
+//! Calls       track_parameters_service  rcl_interfaces/SetParameters  key 1: aav_track's
 //!                                       tracker, only while /system/source says SIM
 //! Parameters  the topics above; odom_frame, base_frame, map_frame; stale_after (s),
 //!             cube_size (m), max_cubes, pose_window (s), ground_height (m),
@@ -115,8 +115,8 @@ keys: drag turn, right-drag (or shift-drag) move, wheel zoom, C chase / follow /
       R reset the camera, L the seeing screen (the map and NDT's match from above) or
       the sensor panel, K kept (fading) cubes or this scan's, V the costmap's cubes (the
       voxels trial's, red wireframes), M NDT's map,
-      A AMCL's particles, H hide the key legend, 1-4 swap the trial tracker (sim only:
-      pure pursuit, Stanley, LQR, MPC), F11 full screen";
+      A AMCL's particles, H hide the key legend, 1 swap the trial tracker to MPC (sim
+      only; 2-4 did Stanley, LQR, MPC until 26 Nov), F11 full screen";
 
 /// The drawing test: settle, then measure for this long.
 const BENCH_SETTLE: Duration = Duration::from_secs(2);
@@ -361,14 +361,9 @@ fn run(
                 other => state.layers.apply(other),
             }
         }
-        // Keys 1-4: swap the trial tracker, only in the simulator (the design's D3).
-        let digits = [
-            KeyboardKey::KEY_ONE,
-            KeyboardKey::KEY_TWO,
-            KeyboardKey::KEY_THREE,
-            KeyboardKey::KEY_FOUR,
-        ];
-        let pressed = (1..=4u8)
+        // Key 1: swap the trial tracker, only in the simulator (the design's D3).
+        let digits = [KeyboardKey::KEY_ONE];
+        let pressed = (1..=1u8)
             .zip(digits)
             .find(|&(_, key)| rl.is_key_pressed(key))
             .and_then(|(digit, _)| Tracker::on_key(digit));

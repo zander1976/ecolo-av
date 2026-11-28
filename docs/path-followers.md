@@ -35,7 +35,7 @@ stop zone, twist_mux and ego. Everything after the controller is the same.
 ## Switch between them
 
 ```bash
-pixi run sim world:=test_lot tracker:=pure_pursuit   # Ravensim, pure pursuit following the path
+pixi run sim world:=test_lot tracker:=mpc            # Ravensim, our MPC following the path
 ```
 
 `controller:=` takes only `mppi` now (`mppi_lag`); `controller:=rpp` went with Nav2. The
@@ -48,7 +48,7 @@ speed and its top speed from `vehicle.yaml` (`aav_description/vehicle.py`).
 pixi run measure controllers                    # the follower, both tours
 pixi run measure controllers --tours obstacle   # only the box in the lane
 pixi run measure controllers --controllers mppi --speed 2
-pixi run measure controllers --trackers lqr mpc --runs 3   # the trial trackers (docs/trials.md)
+pixi run measure controllers --trackers mpc mpc_lag --runs 3   # the trial trackers (docs/trials.md)
 ```
 
 For each tour and controller the script starts the test lot with no windows (Ravensim;

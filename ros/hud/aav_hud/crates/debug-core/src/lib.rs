@@ -19,7 +19,7 @@
 //! | [`keys`] | the keys, the layers they toggle, the on-screen key legend |
 //! | [`orbit`] | the 3D camera: chase, follow, free; turn, tilt, zoom, pan |
 //! | [`track`] | aav_track's status: the tracker, cross track, loop time |
-//! | [`swap`] | keys 1-4: which tracker, and whether a swap may be asked for (sim only) |
+//! | [`swap`] | key 1: which tracker, and whether a swap may be asked for (sim only) |
 //! | [`topdown`] | the seeing screen's top-downs: the map frame in a rectangle of the window |
 //! | [`state`] | everything above, as one value the screen draws |
 //! | [`easter_egg`] | when the little robot's eyes may peek: the car still, no warning, nothing changed |

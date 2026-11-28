@@ -164,8 +164,8 @@ def test_stack_best_is_every_levels_champion():
 
 
 def test_a_switch_given_by_hand_wins_over_the_stack():
-    # One piece a challenger, the rest ours: tracker:=lqr is told apart from "not given".
-    assert stack_of(tracker='lqr', reversing='false') == dict(OURS, tracker='lqr')
+    # One piece a challenger, the rest ours: tracker:=mpc is told apart from "not given".
+    assert stack_of(tracker='mpc', reversing='false') == dict(OURS, tracker='mpc')
     assert stack_of(behaviour='false') == dict(OURS, behaviour='false', road_ahead='false')
     # And one piece ours' on the champions' stack.
     assert stack_of(stack='best', behaviour='true') == dict(BEST, behaviour='true',
@@ -332,10 +332,10 @@ def test_run_info_says_which_algorithms_the_run_uses():
     info = parameters(node(started(SIM, stack='best'), 'run_info'))
     assert (info['planner'], info['controller'], info['tracker']) == ('own', 'mppi', 'mppi_lag')
     assert not any(info[k] for k in ('voxels', 'ndt', 'kiss_icp', 'amcl', 'lidar'))
-    info = parameters(node(started(SIM, world='road', voxels='true', tracker='lqr',
+    info = parameters(node(started(SIM, world='road', voxels='true', tracker='mpc',
                                    reversing='false', kiss_ekf='true'), 'run_info'))
     assert (info['profile'], info['tracker'], info['voxels'], info['lidar']) == (
-        'sim world:=road', 'lqr', True, True)
+        'sim world:=road', 'mpc', True, True)
     # kiss_ekf:=true runs KISS-ICP too, and says so.
     assert info['kiss_icp'] and info['kiss_ekf']
 
@@ -897,7 +897,7 @@ def test_the_watchdog_watches_only_our_nodes_that_run():
                          things=False)
     assert 'node_planner' in ours and 'node_mppi_lag' in ours
     assert 'node_things' not in ours
-    trial = SIM.our_nodes(nav=True, costmap='own', planner='diffusion', tracker='lqr',
+    trial = SIM.our_nodes(nav=True, costmap='own', planner='diffusion', tracker='mpc',
                           navigator='own', smoother='own', behaviour=False, cubes=False,
                           things=False)
     assert 'node_planner' not in trial and 'node_mppi_lag' not in trial

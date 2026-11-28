@@ -186,9 +186,9 @@ def test_an_empty_path_is_refused(ros):
 
 def test_the_tracker_is_not_swapped_live_unless_asked(ros):
     node, _, _, _ = ros
-    result = node.set_parameters([Parameter('tracker', value='lqr')])[0]
+    result = node.set_parameters([Parameter('tracker', value='mpc_full')])[0]
     assert not result.successful and 'live_swap' in result.reason
-    assert node.tracker.name == 'pure_pursuit'
+    assert node.tracker.name == 'mpc'
 
 
 @pytest.mark.parametrize('ros', [True], indirect=True)
@@ -197,13 +197,13 @@ def test_a_live_swap_mid_path_carries_on(ros):
     handle = send(client, run, goal(30.0))
     assert run(lambda: car.v > 0.5, 10.0)
     hint = node.job.hint
-    result = node.set_parameters([Parameter('tracker', value='lqr')])[0]
+    result = node.set_parameters([Parameter('tracker', value='mpc_full')])[0]
     assert result.successful
-    assert node.tracker.name == 'lqr'
+    assert node.tracker.name == 'mpc_full'
     assert node.tracker.path is node.job.path and node.tracker.hint == hint
     assert node.tracker.lag.angle == node.steer
     bad = node.set_parameters([Parameter('tracker', value='mppi')])[0]
-    assert not bad.successful and node.tracker.name == 'lqr'
+    assert not bad.successful and node.tracker.name == 'mpc_full'
     # It keeps driving, with no stop, on the new tracker.
     run(lambda: False, 1.0)
     assert car.v > 0.4
@@ -213,7 +213,7 @@ def test_a_live_swap_mid_path_carries_on(ros):
 
 @pytest.mark.parametrize('ros', [True], indirect=True)
 def test_it_tells_ego_when_the_tracker_knows_the_lags(ros):
-    # /drivers/nav/lag_aware, latched: false for pure pursuit; true once mpc_lag drives (a
+    # /drivers/nav/lag_aware, latched: false for mpc; true once mpc_lag drives (a
     # late subscriber still hears it), so ego's lead stays off; false again after.
     node, car, client, run = ros
     heard = []
@@ -227,5 +227,5 @@ def test_it_tells_ego_when_the_tracker_knows_the_lags(ros):
     handle = send(client, run, goal(8.0))
     result = handle.get_result_async()
     assert run(result.done, 40.0) and result.result().status == 4     # SUCCEEDED
-    assert node.set_parameters([Parameter('tracker', value='stanley')])[0].successful
+    assert node.set_parameters([Parameter('tracker', value='mpc')])[0].successful
     assert run(lambda: heard[-1] is False, 5.0)

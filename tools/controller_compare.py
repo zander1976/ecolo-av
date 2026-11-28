@@ -13,12 +13,12 @@ Each drives the test lot, headless, and is measured against where the car really
     pixi run measure controllers --tours lot --legs 1   (only the first leg: a quick check)
     pixi run measure controllers --reversing        (the car may reverse: reversing:=true)
     pixi run measure controllers --plans            (keep every plan, not just each leg's first)
-    pixi run measure controllers --tours campus --speed 2.5 --trackers pure_pursuit stanley
+    pixi run measure controllers --tours campus --speed 2.5 --trackers mpc mppi_lag
                     Carleton's roads; every report opens with which rides best: reached every
                     goal, then the least sideways swing (drive_metrics.sway)
 
 The trials (docs/trials.md):
-    pixi run measure controllers --trackers pure_pursuit stanley lqr mpc --runs 3
+    pixi run measure controllers --trackers mpc mpc_full mpc_lag --runs 3
                     aav_track's trackers (tracker:=), forward only; add --trackers
                     mppi_lag for the champion beside them
     pixi run measure controllers --runs 3           (each follower 3 times: the mean and spread)
@@ -301,8 +301,7 @@ REFUSED_TIME = 60.0     # s (wall) to keep asking a navigator that refuses the f
 # The test lot's drawing (tools/make_map.py made the map from it): the picture's background.
 MAP_SPEC = os.path.join(ROOT, 'ros', 'drivers', 'aav_navigation', 'maps',
                         'example_lot.spec.yaml')
-COLOURS = {'rpp': '#1f6fb4', 'mppi': '#e8590c', 'pure_pursuit': '#2b8a3e', 'stanley': '#862e9c',
-           'lqr': '#c92a2a', 'mpc': '#e67700', 'mpc_full': '#5f3dc4',
+COLOURS = {'rpp': '#1f6fb4', 'mppi': '#e8590c', 'mpc': '#e67700', 'mpc_full': '#5f3dc4',
            'mpc_lag': '#087f5b', 'mppi_lag': '#0b7285', 'mpc_lag_rs': '#2f9e44',
            # --planners: a column is a planner's name when one follower drives them all.
            'hybrid': '#e8590c', 'lattice': '#1f6fb4', 'smac2d': '#2b8a3e',
@@ -1445,8 +1444,8 @@ def main():
                         help='mppi (mppi_lag, the champion, since Nav2 went); the '
                              'default when no --trackers is given')
     parser.add_argument('--trackers', nargs='+', type=tracker_names, default=None,
-                        help='the trial trackers (aav_track, docs/trials.md): pure_pursuit, '
-                             'stanley, lqr, mpc, mpc_full, mpc_lag, mpc_lag_rs; spaces or commas '
+                        help='the trial trackers (aav_track, docs/trials.md): mpc, '
+                             'mpc_full, mpc_lag, mpc_lag_rs (and mppi_lag); spaces or commas '
                              'between. '
                              'Forward only')
     parser.add_argument('--planners', nargs='+', type=planner_names, default=None,

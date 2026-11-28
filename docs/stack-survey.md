@@ -562,6 +562,9 @@ line back, as if the car could spin. The car refused them; **retired** with Nav2
 
 ### Our trackers: pure pursuit, Stanley, LQR, MPC (`aav_track`)
 
+Pure pursuit, Stanley and LQR: removed 26 Nov (Ben), tag
+`save/trackers-stanley-lqr-pp-2026-11-26`. MPC and `mpc_full` stay.
+
 | Tracker | What it is | From | Gazebo, 29 Oct (legs of 12) |
 |---|---|---|---|
 | Pure pursuit | steer the arc to a point ahead | R. C. Coulter, CMU, 1992 | 12 |

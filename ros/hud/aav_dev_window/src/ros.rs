@@ -379,7 +379,7 @@ impl Feed for RosFeed {
             .service_is_ready()
             .map_err(|e| e.to_string())?
         {
-            return Err("no track node (start the sim with tracker:=pure_pursuit)".to_owned());
+            return Err("no track node (start the sim with tracker:=mpc)".to_owned());
         }
         let tx = commands.tx.clone();
         let promise = commands

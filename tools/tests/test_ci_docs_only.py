@@ -64,17 +64,31 @@ def test_a_docs_commit_on_top_of_the_base(tmp_path):
     repo, base = make_repo(tmp_path)
     (repo / 'README.md').write_text('# a, better\n')
     git(repo, 'commit', '-q', '-am', 'docs')
-    assert run_in(repo, base) == 'docs_only=true'
+    assert run_in(repo, base) == 'docs_only=true\ncar_kit=false'
 
 
 def test_a_py_renamed_to_md_is_code(tmp_path):
     repo, base = make_repo(tmp_path)
     git(repo, 'mv', 'tools/a.py', 'tools/a.md')
     git(repo, 'commit', '-q', '-m', 'rename')
-    assert run_in(repo, base) == 'docs_only=false'
+    assert run_in(repo, base) == 'docs_only=false\ncar_kit=false'
 
 
 def test_a_bad_or_missing_base_is_the_full_run(tmp_path):
     repo, _ = make_repo(tmp_path)
-    assert run_in(repo, '0' * 40) == 'docs_only=false'
-    assert run_in(repo, '') == 'docs_only=false'
+    # A fault: the full run, the car kit's jobs too.
+    assert run_in(repo, '0' * 40) == 'docs_only=false\ncar_kit=true'
+    assert run_in(repo, '') == 'docs_only=false\ncar_kit=true'
+
+
+def test_the_car_kit_runs_for_what_it_packs_and_only_that():
+    for path in ['pixi.lock', 'pixi.toml', 'tools/car_kit.sh', 'tools/car_install.sh',
+                 '.github/workflows/test.yml', 'ros/ego/aav_ego_rs/Cargo.lock',
+                 'ros/drivers/aav_rc_rs/crates/rc-core/Cargo.toml',
+                 'ros/drivers/aav_track/package.xml']:
+        assert ci_docs_only.car_kit(['docs/car-day.md', path]), path
+    for path in ['ros/drivers/aav_track/aav_track/track_node.py',
+                 'ros/ego/aav_ego_rs/crates/ego-core/src/lib.rs', 'tools/test.sh',
+                 'docs/interfaces.yaml', 'tools/car_kit.sh.bak', 'mypackage.xml']:
+        assert not ci_docs_only.car_kit([path]), path
+    assert ci_docs_only.car_kit([]) and ci_docs_only.car_kit([''])

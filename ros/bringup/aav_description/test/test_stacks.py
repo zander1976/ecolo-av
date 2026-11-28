@@ -155,8 +155,8 @@ def test_a_switch_set_by_hand_to_its_fallback_still_wins():
     # tracker:=mppi_lag is the fallback's value: still told apart from "not given".
     out = stacks.resolve(LEAGUE, 'ours', dict(NOT_GIVEN, tracker='mppi_lag'), DEFAULTS)
     assert (out['tracker'], out['mppi_lag_steer_gamma']) == ('mppi_lag', '0.05')
-    out = stacks.resolve(LEAGUE, 'ours', dict(NOT_GIVEN, tracker='lqr'), DEFAULTS)
-    assert (out['costmap'], out['tracker']) == ('own', 'lqr')
+    out = stacks.resolve(LEAGUE, 'ours', dict(NOT_GIVEN, tracker='mpc'), DEFAULTS)
+    assert (out['costmap'], out['tracker']) == ('own', 'mpc')
 
 
 def test_no_stack_takes_each_switch_as_given_else_its_fallback():

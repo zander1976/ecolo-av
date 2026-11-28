@@ -229,7 +229,7 @@ how far off the path you are.
 | ✅ Benefits | simple; no lookahead to tune; corrects a heading error at once; drove Stanford's car in the 2005 DARPA Grand Challenge |
 | ❌ Weaknesses | jumpy at low speed (÷ speed) unless softened; sensitive to a noisy heading, and our GPS heading is weak at walking pace; no model of the steering lag |
 | Needs | the pose at the front axle (our `base_link` is at the rear: a shift by the wheelbase), the path |
-| On our car | Orin: `ros/drivers/aav_track`, `trackers/stanley.py`, `tracker:=stanley` |
+| On our car | Orin: `ros/drivers/aav_track`, `trackers/stanley.py`, `tracker:=stanley`, until 26 Nov (removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`) |
 | Status | **trial, built** (29 Oct). Gazebo, 29 Oct, 3 runs: 12 of 12 legs ([Trials](history/trials-log.md#results-29-october)) |
 
 ### LQR, scheduled by speed
@@ -247,7 +247,7 @@ wheel angle]. Choose weights, solve once per speed, steer with u = −K x.
 | ✅ Benefits | optimal gains straight from the model; knows the steering lag; 60° phase margin guaranteed (before delays); cheap: three multiplies a cycle |
 | ❌ Weaknesses | blind to limits: it can ask for more angle or angle rate than the car has; the margin shrinks with delay at speed (below); a straight-road linearisation: on a tight curve it needs feed-forward from the curvature |
 | Needs | the model (`vehicle_model.lateral()`), the pose, the path |
-| On our car | Orin: `ros/drivers/aav_track`, `trackers/lqr.py`, `tracker:=lqr` (TODO 2) |
+| On our car | Orin: `ros/drivers/aav_track`, `trackers/lqr.py`, `tracker:=lqr` (TODO 2), until 26 Nov (removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`) |
 | Status | **trial, built** (29 Oct; rebuilt with a preview the same afternoon). Gazebo, 29 Oct: 8, then 10 of 12 legs ([Trials](history/trials-log.md#results-29-october-afternoon-lqr-rebuilt-and-mpc_full)). Also the yardstick for MPC: the same model, without limits |
 
 Example, worked out with the model (weights Q = diag(1, 1, 0), R = 1: picked for this
@@ -356,9 +356,9 @@ limit to what it really does.
 | **Feed-forward + PI** | speed, brake | a map | no | clamps only | bridge, then ESP32 | **chosen**: step 1 written (the bridge, `mode: pi`); the car stays on `open` |
 | LQI | speed, brake | yes | once, offline | no | ESP32 (gains) | **built** (`speed_loop:=lqi`): comparison |
 | MPC | speed, brake | yes | every cycle | yes | Orin | not chosen |
-| Pure pursuit | steering | no | no | no | Orin | in use (A to B); the trials' control (`tracker:=pure_pursuit`) |
-| Stanley | steering | no | no | no | Orin (`aav_track`) | trial, built (`tracker:=stanley`) |
-| LQR (by speed) | steering | yes | once, offline | no | Orin (`aav_track`) | trial, built (`tracker:=lqr`) |
+| Pure pursuit | steering | no | no | no | Orin | in use (A to B, `aav_drive_to_point`); the trials' `tracker:=pure_pursuit` removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26` |
+| Stanley | steering | no | no | no | - | removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26` |
+| LQR (by speed) | steering | yes | once, offline | no | - | removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26` |
 | **MPC** | steering | yes | every cycle | yes | Orin (`aav_track`, then Rust) | **leading candidate**; trial, built (`tracker:=mpc`, `mpc_full`, `mpc_lag`) |
 | **MPPI with lag** (ours, Rust) | path + obstacles | yes, with the lags | no: sampling | yes | Orin (`aav_mppi_lag`) | **in use: stays** (`tracker:=mppi_lag`) |
 | **Jrk G2 PID** | steering motor | no | no | its own | the Jrk | **in use: stays** |
@@ -408,7 +408,7 @@ the main ones if they work." A new follower doesn't replace the default. It runs
  goal ──► navigator ──► planner (aav_planner, the lattice), replans every 1 s
                  │ FollowPath
      ┌───────────┴─────────────────────┐
- tracker:=mppi_lag (default)    tracker:=stanley | lqr | mpc | mpc_full | mpc_lag | pure_pursuit
+ tracker:=mppi_lag (default)    tracker:=mpc | mpc_full | mpc_lag
  aav_mppi_lag (Rust)            aav_track        (tracker:=mpc_lag_rs: aav_mpc_lag)
      └───────────┬─────────────────────┘
                  ▼
@@ -440,7 +440,7 @@ reached every goal first, then the least **sway**.
 
 ```bash
 pixi run measure controllers --tours campus --speed 2.5 --controllers mppi \
-  --trackers pure_pursuit stanley lqr mpc mpc_full
+  --trackers mpc mpc_full mpc_lag
 ```
 
 The campus tour runs only when asked for. Results are in `log/controller-compare/`.

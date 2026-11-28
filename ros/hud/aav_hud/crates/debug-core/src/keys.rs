@@ -1,7 +1,7 @@
 //! The keys, and the layers they turn on and off: one place, so the window, its key
 //! legend and `--help` all say the same.
 //!
-//! Taken: L, K, V, M, A, C, R, H, F11, 1-4.
+//! Taken: L, K, V, M, A, C, R, H, F11, 1 (2-4 swapped Stanley, LQR, MPC until 26 Nov).
 
 use crate::orbit::Mode;
 
@@ -127,7 +127,7 @@ pub enum Action {
 }
 
 impl Action {
-    /// Every key, in the legend's order (keys 1-4 come after them).
+    /// Every key, in the legend's order (key 1 comes after them).
     pub const ALL: [Action; 10] = [
         Action::Layout,
         Action::Cubes,
@@ -218,9 +218,9 @@ impl Layers {
             })
             .collect();
         lines.push(KeyLine {
-            key: "1-4",
+            key: "1",
             what: "tracker (sim)",
-            now: "pp, stanley, lqr, mpc".to_owned(),
+            now: "mpc".to_owned(),
         });
         lines.push(KeyLine {
             key: "mouse",

@@ -699,9 +699,6 @@ const ALGORITHMS: [(&str, &[&str]); 5] = [
         &[
             "mppi",
             "rpp",
-            "pure_pursuit",
-            "stanley",
-            "lqr",
             "mpc",
             "mpc_full",
         ],
@@ -2125,8 +2122,8 @@ fn algorithms_tab(ui: &mut egui::Ui, state: &mut UiState, feed: &mut dyn feed::F
         }
     }
     ui.label(
-        "Live, in the simulator: aav_track's followers (pure_pursuit, stanley, lqr, mpc), when the \
-         sim runs one (tracker:=pure_pursuit). The rest are chosen at launch: planner:=, \
+        "Live, in the simulator: aav_track's mpc, when the sim runs aav_track \
+         (tracker:=mpc; pure pursuit, Stanley and LQR went on 26 Nov). The rest are chosen at launch: planner:=, \
          planner_search:=, tracker:=, ndt:=, ndt_ekf:=, voxels:=, speed_loop:= (docs/trials.md).",
     );
 }

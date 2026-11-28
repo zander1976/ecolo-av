@@ -515,7 +515,7 @@ These have no card here yet. Each package's README answers the same questions.
 | `aav_ndt` | NDT in Rust, a trial (`ndt:=true`): where the car is on a saved lidar map; never TF | `ros/localization/aav_ndt/README.md`, then [the design](designs/2026-10-29_ndt.md) |
 | `aav_kiss_icp` | KISS-ICP lidar odometry, a trial (`kiss_icp:=true`) | `ros/localization/aav_kiss_icp/README.md`, then [the design](designs/2026-10-30_kiss-icp.md) |
 | `aav_voxels` | a trial beside `aav_lidar` (`voxels:=true`): the lidar's cloud as 0.25 m cubes for the costmap | `ros/perception/aav_voxels/README.md`, then [the design](designs/2026-10-30_voxels.md) |
-| `aav_track` | trial path followers in `mppi_lag`'s place (`tracker:=` pure_pursuit, stanley, lqr, mpc, mpc_full, mpc_lag) | `ros/drivers/aav_track/README.md`, then [Trials](trials.md) |
+| `aav_track` | trial path followers in `mppi_lag`'s place (`tracker:=` mpc, mpc_full, mpc_lag; pure pursuit, Stanley and LQR went on 26 Nov) | `ros/drivers/aav_track/README.md`, then [Trials](trials.md) |
 | `aav_mppi_lag` | Nav2's MPPI in Rust, on a car model that knows the actuators' lag (`tracker:=mppi_lag`) | `ros/drivers/aav_mppi_lag/README.md`, then [MPPI with lag](mppi-lag.md) |
 | `aav_costmap` | our own costmap in Rust, the only one since Nav2 went (`costmap:=own`) | `ros/drivers/aav_costmap/README.md`, then [Our costmap](own-costmap.md) |
 | `aav_planner` | our own path planner in Rust, the default (`planner:=own`): Nav2's Smac State Lattice ported | `ros/drivers/aav_planner/README.md`, then [Our planner](own-planner.md) |

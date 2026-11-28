@@ -253,7 +253,7 @@ ourselves in Rust or Python; none installed.
 
 | What | Why |
 |---|---|
-| aav_track's trackers (pure_pursuit, stanley, lqr, mpc) | forward only: reversing is an rc1 must-have |
+| aav_track's trackers (pure_pursuit, stanley, lqr, mpc; the first three removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`) | forward only: reversing is an rc1 must-have |
 | `mpc_lag` (Python) | the Rust gives the same commands; scored the Rust |
 | `diffusion` | a trial for the lot, not the road; skipped for time |
 | `kiss_ekf` | needs the `kiss` environment; the local EKF only |

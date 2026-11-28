@@ -130,6 +130,8 @@ Ben's MacBook, one simulator at a time, nothing else running; 2 runs each. Raw:
 
 ### Every follower on the lot
 
+Stanley, LQR and pure pursuit: removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`. Their scores stay here.
+
 | | `mppi_lag` | `stanley` | `lqr` | `mpc_lag_rs` | `pure_pursuit` |
 |---|---:|---:|---:|---:|---:|
 | Legs reached | 8/8 | 8/8 | 8/8 | 8/8 | 6/8 * |

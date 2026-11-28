@@ -12,7 +12,7 @@ from aav_track.gears import directions, Gears, mirror_state, stretches
 import pytest
 from sim_car import back_straight, follow_geared, forward_then_back, tracker
 
-TRACKERS = ['pure_pursuit', 'stanley', 'lqr', 'mpc', 'mpc_full', 'mpc_lag']
+TRACKERS = ['mpc', 'mpc_full', 'mpc_lag']    # pure_pursuit, stanley, lqr: gone 26 Nov
 
 
 def test_a_segment_against_its_pose_is_backwards():

@@ -4,7 +4,7 @@
 /// What the panel shows of the tracker.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TrackStatus {
-    /// pure_pursuit, stanley, lqr or mpc.
+    /// mpc, mpc_full or mpc_lag.
     pub tracker: String,
     /// Metres, + left of the path.
     pub cross_track: Option<f64>,
@@ -52,9 +52,9 @@ mod tests {
     #[test]
     fn reads_aav_tracks_values() {
         let s = TrackStatus::from_values(
-            "lqr",
+            "mpc",
             [
-                ("tracker", "lqr"),
+                ("tracker", "mpc"),
                 ("loop_ms", "0.412"),
                 ("cross_track_m", "-0.051"),
                 ("missed_ticks", "2"),
@@ -63,7 +63,7 @@ mod tests {
                 ("k_ey", "0.9"),
             ],
         );
-        assert_eq!(s.tracker, "lqr");
+        assert_eq!(s.tracker, "mpc");
         assert_eq!(s.cross_track, Some(-0.051));
         assert_eq!(s.missed_ticks, Some(2));
         assert_eq!(s.left, Some(12.5));
@@ -71,8 +71,8 @@ mod tests {
 
     #[test]
     fn bad_values_are_left_out() {
-        let s = TrackStatus::from_values("stanley", [("loop_ms", "nan"), ("steer_rad", "x")]);
-        assert_eq!(s.tracker, "stanley");
+        let s = TrackStatus::from_values("mpc_full", [("loop_ms", "nan"), ("steer_rad", "x")]);
+        assert_eq!(s.tracker, "mpc_full");
         assert_eq!((s.loop_ms, s.steer), (None, None));
     }
 }

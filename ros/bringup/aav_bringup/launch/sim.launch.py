@@ -134,8 +134,8 @@ bench's argument names:
                       curvature no faster than the steering turns (tools/lattice_smooth.py)
                       planner_search:=hybrid: ours runs Nav2's Hybrid-A* ported instead
                       of the lattice (a challenger, the league's hybrid_rs)
-  tracker:=lqr        another path follower (mppi_lag, ours in Rust, is the default;
-                      aav_track: pure_pursuit, stanley, lqr or mpc; mpc_lag_rs), on the
+  tracker:=mpc        another path follower (mppi_lag, ours in Rust, is the default;
+                      aav_track: mpc, mpc_full or mpc_lag; mpc_lag_rs), on the
                       same planner, smoother and stop zone. aav_track's drive forwards
                       only: with reversing:=false (docs/trials.md); mppi_lag reverses too
   costmap:=own, navigator:=own, smoother:=own, controller:=mppi

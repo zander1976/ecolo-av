@@ -14,6 +14,9 @@
 #
 # usage: tools/colcon_test.sh [colcon test options, e.g. --packages-select aav_ndt aav_track]
 #        (AAV_COLCON_TEST_WORKERS=1 tests one package at a time)
+#        AAV_CI_QUICK=1 (CI's pull requests and merge queue, 26 Nov): the two alone-runs
+#        below (aav_mppi_lag's closed loop, the timing tests) are left to the nights and
+#        to pushes to main; tools/test.sh still runs aav_mppi_lag's quick tests.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,11 +39,15 @@ PYTEST_ADDOPTS="$addopts -p aav_ros_domain -m 'not timing'" \
 
 # selected PACKAGE: true with no selection, or when the selection names it.
 selected() { (($# == 1)) || [[ " ${*:2} " == *" $1 "* ]]; }
-if selected aav_mppi_lag "$@"; then
+quick=${AAV_CI_QUICK:-0}
+if [[ $quick == 1 ]]; then
+  echo "colcon test: aav_mppi_lag's closed loop and the timing tests are nightly (AAV_CI_QUICK=1)"
+fi
+if [[ $quick != 1 ]] && selected aav_mppi_lag "$@"; then
   echo "colcon test: aav_mppi_lag, alone"
   colcon test --packages-select aav_mppi_lag --event-handlers console_cohesion-
 fi
-if selected aav_track "$@"; then
+if [[ $quick != 1 ]] && selected aav_track "$@"; then
   echo "colcon test: the timing tests, alone"
   # Their own results folder, so aav_track's results from above stay.
   PYTEST_ADDOPTS="$addopts -p aav_ros_domain -m timing" \

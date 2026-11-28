@@ -1198,7 +1198,7 @@ actions:
   /follow_path:
     type: nav2_msgs/action/FollowPath
     server: mppi_lag
-    note: The navigator's FollowPath - follow one planned path (replaced every second as the planner replans). Served by aav_mppi_lag's mppi_lag (tracker:=mppi_lag, the default); with tracker:=pure_pursuit|stanley|lqr|mpc|mpc_full|mpc_lag by aav_track's track node instead, with tracker:=mpc_lag_rs by aav_mpc_lag's mpc_lag_rs. One at a time. Nav2's controller_server served it until 17 Nov.
+    note: The navigator's FollowPath - follow one planned path (replaced every second as the planner replans). Served by aav_mppi_lag's mppi_lag (tracker:=mppi_lag, the default); with tracker:=mpc|mpc_full|mpc_lag by aav_track's track node instead, with tracker:=mpc_lag_rs by aav_mpc_lag's mpc_lag_rs. One at a time. Nav2's controller_server served it until 17 Nov.
   /compute_path_to_pose:
     type: nav2_msgs/action/ComputePathToPose
     server: diffusion_planner

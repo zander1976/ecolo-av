@@ -32,9 +32,9 @@ def test_the_rows_come_in_reading_order():
 
 
 def test_a_trial_tracker_takes_the_followers_place():
-    c = Choices(tracker='lqr')
-    assert table(c)['path follower'] == 'lqr (aav_track, trial)'
-    assert summary(c) == 'own, lqr'
+    c = Choices(tracker='mpc')
+    assert table(c)['path follower'] == 'mpc (aav_track, trial)'
+    assert summary(c) == 'own, mpc'
 
 
 def test_voxels_replace_the_flat_scan():
