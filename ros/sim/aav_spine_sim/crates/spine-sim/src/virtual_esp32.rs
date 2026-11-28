@@ -1,4 +1,4 @@
-//! virtual_esp32: the virtual car's ESP32, running the Rust firmware's own logic.
+//! virtual_esp32 (node name sim_esp32): the virtual car's ESP32, running the Rust firmware's own logic.
 //!
 //! A drop-in for sim_esp32 (aav_sim_models, the 2025-26 C++ in Python), chosen by
 //! sim.launch.py esp32_impl:=rust. The same TCP port for legacy_uart_bridge, the same
@@ -88,7 +88,7 @@ fn lock(state: &State) -> MutexGuard<'_, Shared> {
 fn main() -> Result<()> {
     let context = Context::default_from_env()?;
     let mut executor = context.create_basic_executor();
-    let node = executor.create_node("virtual_esp32")?;
+    let node = executor.create_node("sim_esp32")?;
 
     let int = |name: &str, default: i64| -> Result<i64> {
         Ok(node

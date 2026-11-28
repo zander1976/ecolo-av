@@ -45,6 +45,9 @@ With `esp32:=true` today's car is in the loop instead: the car's own `legacy_uar
 takes ego's commands and writes its 13-byte frames over local TCP to `sim_esp32`, which
 runs the 2025-26 C++ firmware's logic (`esp32_firmware.py`: the throttle ramp, the brake,
 no command timeout). `esp32_loop:=pi|open` is the bridge's `speed_loop.mode`.
+`esp32_impl:=rust` runs `aav_spine_sim`'s `virtual_esp32` in its place, under the same
+name, port, topic and page: the Rust firmware's own logic, with Controls, Measure and
+Tests at `http://127.0.0.1:8766/bench` (web screens step 4). `cpp` stays the default.
 
 ## Interface
 
@@ -56,7 +59,7 @@ under `tools/software_gl.sh`), `graphics` (auto, simple, pretty; auto = pretty o
 `payload` (kg aboard), `adaptive_brake`, `lag_scale`, `on_stands` (the car starts on stands),
 `speed_wheels` (rear, or front as today's car), `free_wheel_mass` (20 kg, a guess), `faults`, `spine`, `arm`, `bridge`
 (rust or python), `rc_pad` (with `spine`: an RC receiver on the spine and a PS4 gamepad as
-the FS-i6X, `aav_spine_sim`'s `rc_pad`), `rc_pad_mode` (high or low), `esp32`, `esp32_loop` (pi or open), `noise_seed`, `wheel_noise`,
+the FS-i6X, `aav_spine_sim`'s `rc_pad`), `rc_pad_mode` (high or low), `esp32`, `esp32_loop` (pi or open), `esp32_impl` (cpp or rust), `noise_seed`, `wheel_noise`,
 `wheel_slip`, `clock_hz`.
 
 ### Nodes
@@ -67,7 +70,7 @@ the FS-i6X, `aav_spine_sim`'s `rc_pad`), `rc_pad_mode` (high or low), `esp32`, `
 | `sim_imu` | `/vehicle/sim/imu`, `/vehicle/sim/odom` | `/sensors/imu/data_raw` (Imu, `imu_link`, no orientation) |
 | `sim_gps` | `/vehicle/sim/navsat`, `/vehicle/sim/truth` | `/sensors/gps/fix` (NavSatFix, `gps_link`), `/sensors/gps/fix_velocity` (TwistWithCovarianceStamped) |
 | `sim_radar` | `/vehicle/sim/radar/points` (best effort), `/vehicle/sim/odom` | `/sensors/radar/points` (best effort, `radar_link`, the TI driver's fields); only with `radar:=true` (the default) in a world that renders sensors |
-| `sim_esp32` | TCP 127.0.0.1:47000 + the ROS domain: `legacy_uart_bridge`'s frames; only with `esp32:=true` | `/vehicle/sim/esp32_outputs` (SpineOutputs, 50 Hz) |
+| `sim_esp32` | TCP 127.0.0.1:47000 + the ROS domain: `legacy_uart_bridge`'s frames; only with `esp32:=true` (`esp32_impl:=rust`: `aav_spine_sim`'s `virtual_esp32`, which also reads `/vehicle/wheels`, `/vehicle/steering`, `/vehicle/brake`, `/vehicle/sim/jacks`) | `/vehicle/sim/esp32_outputs` (SpineOutputs, 50 Hz) |
 | `sim_camera_relay` | `/vehicle/sim/camera/front_left/image_raw` | `/sensors/camera/front_left/image_raw`; only with `faults:=true` in a world that renders sensors |
 | `sim_lidar_relay` | `/vehicle/sim/lidar/points` (the simulator's lidar, remapped there) | `/sensors/lidar/points`, as it came; only with `faults:=true` and the lidar (TODO 246) |
 | `truth_localizer` | `/vehicle/sim/truth`, TF `odom → base_link`; only with `sim.launch.py truth_pose:=true` (a test: the wiggle, TODO 149) | `/localization/odom/global` (the truth), TF `map → odom` so that `map → base_link` is the truth; `ekf_global` doesn't run |

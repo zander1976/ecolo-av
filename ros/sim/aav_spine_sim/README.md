@@ -83,11 +83,11 @@ The RC's rules on a laptop, with nothing else running: the gamepad, `rc_pad`,
 give in normal mode leaves the car standing still; manual drives it from the sticks.
 In Ravensim: `pixi run sim spine:=true rc_pad:=true [rc_pad_mode:=low]`.
 
-### Node: `virtual_esp32` (28 Nov)
+### Node: `virtual_esp32` (28 Nov; node name `sim_esp32`)
 
 The virtual car's ESP32, running the Rust firmware's own logic (`crates/virtual-esp32`):
 a drop-in for `aav_sim_models`' `sim_esp32` (the 2025-26 C++ in Python), chosen by
-`sim.launch.py esp32_impl:=rust`. The same TCP port, output topic and `/ws` status lines,
+`sim.launch.py esp32_impl:=rust`. The same node name (`sim_esp32`), TCP port, output topic and `/ws` status lines,
 so `legacy_uart_bridge` and the Orin's page can't tell which runs; and its page gets
 **Controls, Measure and Tests** (`bench-core`). Design: `docs/designs/2026-11-27_web-screens.md`, step 4.
 

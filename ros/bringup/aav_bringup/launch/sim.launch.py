@@ -25,7 +25,7 @@ The whole stack in a simulator: same nodes and configs as the car, simulated har
       [plan_around:=true] [things:=false]
       [watchdog:=true] [geofence:=true] [geofence_radius:=]
       [watch_hud:=false] [faults:=false] [spine:=false] [arm:=true]
-      [esp32:=false] [esp32_loop:=pi] [legacy_impl:=rust]
+      [esp32:=false] [esp32_loop:=pi] [esp32_impl:=cpp] [legacy_impl:=rust]
       [bridge:=rust|python]
       [ghost:=false] [simulator:=ravensim] [camera_lockstep:=auto] [graphics:=auto]
   pixi run sim                                     the virtual car: setup:=car (below)
@@ -318,6 +318,10 @@ bench's argument names:
                       legacy_impl:=rust (the default, aav_legacy_rs) or python picks the
                       bridge's language. Like the car, it also runs the boot self-test
                       (actuators: the bridge's frames) and a battery stand-in (mock_battery)
+                      esp32_impl:=cpp (the default: sim_esp32, the C++ in Python) or
+                      rust (aav_spine_sim's virtual_esp32: the Rust firmware's own logic,
+                      the same port, topic and page, plus Controls, Measure and Tests at
+                      http://127.0.0.1:8766/bench; web screens step 4)
   ghost:=true        a pretend person only navigation sees (aav_ghost), for stopping tests
                       with nothing in the world: pixi run ghost ahead 10, pixi run ghost off.
                       Its own costmap layer and stop zone source: it only adds
@@ -704,6 +708,7 @@ def launch_setup(context):
                 arm_when_open_impl=vehicle.check_arm_when_open_impl(
                     arg('arm_when_open_impl')),
                 esp32=arg('esp32'), esp32_loop=arg('esp32_loop'),
+                esp32_impl=arg('esp32_impl'),
                 legacy_impl=vehicle.check_legacy_impl(arg('legacy_impl')),
                 camera_lockstep=arg('camera_lockstep'), graphics=arg('graphics')),
         include(context, 'aav_command_mux', 'mux.launch.py', use_sim_time='true',
@@ -1165,6 +1170,11 @@ def generate_launch_description():
         DeclareLaunchArgument('legacy_impl', default_value=vehicle.DEFAULT_LEGACY_IMPL,
                               description='with esp32:=true: legacy_uart_bridge in rust '
                                           '(aav_legacy_rs) or python (aav_legacy)'),
+        DeclareLaunchArgument('esp32_impl', default_value='cpp',
+                              description='with esp32:=true: which ESP32 stands in: cpp '
+                                          "(sim_esp32, the 2025-26 C++ firmware's logic in "
+                                          "Python) or rust (virtual_esp32, the Rust firmware's "
+                                          'own, with Controls, Measure and Tests on its page)'),
         DeclareLaunchArgument('esp32_loop', default_value='pi',
                               description="with esp32:=true: the bridge's speed_loop.mode, "
                                           'pi or open'),

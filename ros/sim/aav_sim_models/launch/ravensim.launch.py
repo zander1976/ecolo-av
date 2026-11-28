@@ -6,7 +6,8 @@ Ravensim as the car: the world, the car, its sensors, the adapter and the camera
       [radar:=true] [cameras:=true] [chase_camera:=true] [camera_lockstep:=auto]
       [actuator_model:=true] [actuators:=] [payload:=0] [adaptive_brake:=false]
       [faults:=false] [spine:=false] [arm:=true] [rc_pad:=false] [rc_pad_mode:=high]
-      [esp32:=false] [esp32_loop:=pi] [bridge:=rust|python] [legacy_impl:=rust|python]
+      [esp32:=false] [esp32_loop:=pi] [esp32_impl:=cpp|rust] [bridge:=rust|python]
+      [legacy_impl:=rust|python]
 
 Ravensim is our own simulator (aav_simulator, Rust; docs/own-simulator.md). It reads the
 world file (worlds/*.sdf, model:// from models/), moves the car, casts the lidar's and
@@ -58,6 +59,11 @@ the wheel speed, the default here) or open (the 2025-26 mapping):
   sim_esp32 ──> /vehicle/sim/esp32_outputs ──> sim_adapter (the actuator model)
   sim_adapter ──> /vehicle/odom (the wheel speed, as the car's wheel sensors) ──> the bridge
 
+esp32_impl:= picks the stand-in, both the node sim_esp32 on the same port, topic and page:
+cpp (the default: aav_sim_models' sim_esp32, the 2025-26 C++ in Python) or rust
+(aav_spine_sim's virtual_esp32: the Rust firmware's own logic, whose page at
+http://127.0.0.1:8766/bench has Controls, Measure and Tests; web screens step 4).
+
 In the sim the bridge's no-timeout lock is lifted (allow_programs_without_timeout), so
 programs drive as on a supervised stand: there is no car to run away.
 
@@ -105,6 +111,10 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 import yaml
+
+# esp32_impl:= with esp32:=true: the 2025-26 C++ in Python (the default until the Rust one
+# matches it on pixi run check virtual and the ladder's rung 1), or the Rust firmware.
+ESP32_IMPLS = ('cpp', 'rust')
 
 
 def flag(context, name):
@@ -168,9 +178,18 @@ def esp32_in_the_loop(context, car, sim_time):
                 'steering_sign': float(legacy['steering_sign'])}
     model = {f'speed_loop.{k}': float(car['actuators'][k])
              for k in ('max_accel', 'max_brake', 'drag')}
+    impl = LaunchConfiguration('esp32_impl').perform(context)
+    if impl == 'rust':
+        # The Rust firmware's logic (aav_spine_sim): the same node name, port, topic and
+        # page. The frames the bridge sends (1 here, below), and Ravensim's measurements.
+        # One dict (a Rust node's launch values in one source: docs/languages.md).
+        esp32 = Node(package='aav_spine_sim', executable='virtual_esp32', name='sim_esp32',
+                     parameters=[{'port': port, 'frame_version': 1, **sim_time}])
+    else:
+        esp32 = Node(package='aav_sim_models', executable='sim_esp32', name='sim_esp32',
+                     parameters=[{'port': port}, steering, sim_time])
     return [
-        Node(package='aav_sim_models', executable='sim_esp32', name='sim_esp32',
-             parameters=[{'port': port}, steering, sim_time]),
+        esp32,
         # One dict, legacy.yaml's values first: a parameter file's node-specific values
         # would beat any dict given beside it (launch_ros sends dicts as /**).
         # legacy_impl:= picks its language: rust (aav_legacy_rs, the default) or python.
@@ -295,6 +314,9 @@ def launch_setup(context):
                          'leave actuator_model:=true')
     if LaunchConfiguration('esp32_loop').perform(context) not in ('pi', 'open'):
         raise ValueError('esp32_loop: pi or open')
+    if LaunchConfiguration('esp32_impl').perform(context) not in ESP32_IMPLS:
+        raise ValueError('esp32_impl: cpp (the 2025-26 C++, in Python) or rust (the Rust '
+                         'firmware)')
     car = vehicle.load()
     v = car['vehicle']
     sim_time = {'use_sim_time': True}
@@ -433,6 +455,11 @@ def generate_launch_description():
         DeclareLaunchArgument('esp32', default_value='false',
                               description="today's car in the loop: legacy_uart_bridge and "
                                           'sim_esp32, the C++ firmware standing in'),
+        DeclareLaunchArgument('esp32_impl', default_value='cpp',
+                              description='with esp32:=true: which ESP32 stands in: cpp '
+                                          "(sim_esp32, the 2025-26 C++ firmware's logic in "
+                                          "Python) or rust (virtual_esp32, the Rust firmware's "
+                                          'own, with the bench on its page)'),
         DeclareLaunchArgument('esp32_loop', default_value='pi',
                               description="with esp32:=true: the bridge's speed_loop.mode, "
                                           'pi or open'),
