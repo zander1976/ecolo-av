@@ -25,7 +25,7 @@ use embedded_hal::i2c::I2c;
 use embedded_io::{Read, ReadReady};
 use ibus::{Channels, RcMap, Receiver};
 use spine_core::protocol::{VEHICLE_FEEDBACK_ID, VEHICLE_STATUS_ID};
-use spine_core::{faults, Inputs, Outputs, Spine, SpineConfig};
+use spine_core::{faults, Inputs, Outputs, Spine, SpineConfig, TestRequest};
 
 /// VEHICLE_FEEDBACK at 50 Hz, and VEHICLE_STATUS at 10 Hz (`docs/firmware.md`).
 pub const FEEDBACK_PERIOD_MS: u32 = 20;
@@ -59,6 +59,8 @@ pub struct SpineBoard<B, I2C, U, L = CanLink> {
     /// The latest tick, and the RC channels it read: for a board's status lines.
     last_report: Option<Report>,
     last_channels: Option<Channels>,
+    /// A page's test request for the next tick ([`SpineBoard::request_test`]).
+    page_test: Option<TestRequest>,
 }
 
 impl<B: Board, I2C: I2c, U: Read + ReadReady> SpineBoard<B, I2C, U, CanLink> {
@@ -106,6 +108,7 @@ impl<B: Board, I2C: I2c, U: Read + ReadReady, L: CommandLink> SpineBoard<B, I2C,
             status: Every::new(STATUS_PERIOD_MS),
             last_report: None,
             last_channels: None,
+            page_test: None,
         }
     }
 
@@ -117,6 +120,15 @@ impl<B: Board, I2C: I2c, U: Read + ReadReady, L: CommandLink> SpineBoard<B, I2C,
         self.write_faults
     }
 
+    /// A page's request for the spine's hardware test mode (`bench-core`'s controls), for
+    /// the next tick only: it goes into `Inputs::test_cmd`, where the spine's own rules
+    /// take or refuse it (the throttle at most `TEST_MAX_THROTTLE`, forward only; out on an
+    /// e-stop, the RC, a stale request or a speed over `TEST_MAX_SPEED`). One a tick: a
+    /// second before the tick replaces the first. Never called, nothing changes.
+    pub fn request_test(&mut self, request: TestRequest) {
+        self.page_test = Some(request);
+    }
+
     /// One pass of the loop. Returns what the spine decided.
     pub fn tick(&mut self) -> Outputs {
         let now = self.board.now_ms();
@@ -125,6 +137,7 @@ impl<B: Board, I2C: I2c, U: Read + ReadReady, L: CommandLink> SpineBoard<B, I2C,
             ..Inputs::default()
         };
         self.link.receive(&mut self.board, &mut inputs);
+        inputs.test_cmd = self.page_test.take();
         self.read_rc(now);
         self.last_channels = self.rc.channels(now);
         inputs.rc = self.last_channels.and_then(|c| self.rc_map.rc_input(&c));
@@ -300,10 +313,10 @@ mod loop_tests {
     use crate::rig::{Rig, BRAKE, DAC, EXPANDER, STEER};
     use jrk_g2::command::set_target;
     use jrk_g2::ErrorFlags;
-    use spine_core::faults;
     use spine_core::protocol::{
         Mode, VehicleFeedback, VehicleStatus, DRIVE_CMD_ID, VEHICLE_FEEDBACK_ID, VEHICLE_STATUS_ID,
     };
+    use spine_core::{faults, TestRequest, TEST_MAX_THROTTLE};
     use std::vec;
 
     #[test]
@@ -491,6 +504,57 @@ mod loop_tests {
         rig.drive(1.0, true);
         let out = rig.tick();
         assert_ne!(out.faults & faults::BRAKE_DRIVER, 0);
+        assert_eq!((out.throttle, out.brake), (0.0, 1.0));
+    }
+
+    /// The page's way in (bench-core): Exit, then Enter, then a move, one a tick.
+    fn in_test_mode(rig: &mut Rig) {
+        rig.ticks(6); // the e-stop input releases
+        rig.sb.request_test(TestRequest::Exit);
+        rig.tick();
+        rig.sb.request_test(TestRequest::Enter);
+        assert_eq!(rig.tick().mode, Mode::Test);
+    }
+
+    #[test]
+    fn a_pages_test_request_reaches_the_spine() {
+        let mut rig = Rig::new();
+        in_test_mode(&mut rig);
+        for _ in 0..30 {
+            rig.sb.request_test(TestRequest::Brake(0.0));
+            rig.tick();
+        }
+        rig.sb.request_test(TestRequest::Brake(0.0));
+        assert_eq!(rig.tick().brake, 0.0);
+    }
+
+    #[test]
+    fn a_pages_throttle_keeps_the_spines_test_limit() {
+        let mut rig = Rig::new();
+        in_test_mode(&mut rig);
+        rig.clear();
+        let mut out = rig.tick();
+        for _ in 0..50 {
+            rig.sb.request_test(TestRequest::Throttle(1.0));
+            out = rig.tick();
+            assert!(out.throttle <= TEST_MAX_THROTTLE, "{}", out.throttle);
+        }
+        assert_eq!(out.mode, Mode::Test);
+        assert!(out.throttle > 0.0);
+        let cap = (TEST_MAX_THROTTLE * 700.0).ceil() as u16;
+        assert!(
+            rig.dac_codes().iter().all(|&c| c <= cap),
+            "{:?}",
+            rig.dac_codes()
+        );
+    }
+
+    #[test]
+    fn no_page_request_for_100_ms_leaves_the_test_mode() {
+        let mut rig = Rig::new();
+        in_test_mode(&mut rig);
+        let out = rig.ticks(15);
+        assert_ne!(out.mode, Mode::Test);
         assert_eq!((out.throttle, out.brake), (0.0, 1.0));
     }
 
@@ -682,6 +746,69 @@ mod legacy_loop_tests {
         assert_ne!(out.faults & faults::CMD_TIMEOUT, 0);
         assert_eq!(rig.dac(), 0);
         assert_eq!(rig.last(BRAKE), Some(set_target(3500).to_vec()));
+    }
+
+    #[test]
+    fn a_pages_limp_on_version_1_frames_goes_limp_then_comes_back_slowly() {
+        let mut rig = LegacyRig::new();
+        rig.arm();
+        rig.bus.borrow_mut().steering_feedback = 2500;
+        for _ in 0..10 {
+            let now = rig.sb.board().now + 20;
+            rig.sb
+                .link()
+                .request_calibration(legacy_link::CalRequest::Limp, now);
+            rig.frame(0.0, 0.0, -1.0);
+        }
+        assert_eq!(
+            rig.last(STEER),
+            Some(std::vec![jrk_g2::command::STOP_MOTOR])
+        );
+        // Let go (no heartbeat for over 100 ms): from where the wheels are, back to the
+        // spine's target (1950), slowly.
+        rig.frames(6, 0.0, 0.0, -1.0);
+        let first = rig.last(STEER);
+        assert!(matches!(&first, Some(w) if w.len() == 2), "{first:?}");
+        rig.frames(400, 0.0, 0.0, -1.0);
+        assert_eq!(rig.last(STEER), Some(set_target(1950).to_vec()));
+    }
+
+    #[test]
+    fn with_no_frames_the_pages_own_heartbeat_brings_the_steering_back_after_limp() {
+        use legacy_link::CalRequest;
+        let mut rig = LegacyRig::new();
+        rig.bus.borrow_mut().steering_feedback = 2500;
+        let tick = |rig: &mut LegacyRig, cal: Option<CalRequest>| {
+            rig.sb.board().now += 10;
+            let now = rig.sb.board().now;
+            if let Some(cal) = cal {
+                rig.sb.link().request_calibration(cal, now);
+            }
+            rig.sb.tick()
+        };
+        // The Pi link went quiet: the spine's timeout brakes fully.
+        rig.arm();
+        for _ in 0..20 {
+            tick(&mut rig, None);
+        }
+        for _ in 0..10 {
+            tick(&mut rig, Some(CalRequest::Limp));
+        }
+        assert_eq!(
+            rig.last(STEER),
+            Some(std::vec![jrk_g2::command::STOP_MOTOR])
+        );
+        // The page's other buttons (its Off) and no frames at all: back to 1950, slowly.
+        for _ in 0..400 {
+            tick(&mut rig, Some(CalRequest::Off));
+        }
+        assert_eq!(rig.last(STEER), Some(set_target(1950).to_vec()));
+        // Never a mode from the page: its Off changes nothing.
+        let mut fresh = LegacyRig::new();
+        for _ in 0..20 {
+            tick(&mut fresh, Some(CalRequest::Off));
+        }
+        assert_eq!(fresh.last(STEER), Some(set_target(1950).to_vec()));
     }
 
     #[test]
@@ -1134,6 +1261,52 @@ mod steer_cal_loop_tests {
                 .map(|w| ad5311::decode([w.1[0], w.1[1]]).code)
                 .collect()
         }
+    }
+
+    /// A frame with no calibration asked, and the page's LIMP with it (its heartbeat).
+    fn page_limp(rig: &mut Rig, n: usize, speed: f32, accel: f32) {
+        for _ in 0..n {
+            let now = rig.sb.board().now + 20;
+            rig.sb.link().request_calibration(CalRequest::Limp, now);
+            rig.frame(speed, accel, speed != 0.0, CalRequest::Off);
+        }
+    }
+
+    #[test]
+    fn a_pages_limp_goes_through_the_same_rules_and_stops_the_motor() {
+        let mut rig = Rig::new();
+        rig.calibrate(5, CalRequest::Off);
+        rig.clear();
+        page_limp(&mut rig, 10, 0.0, -1.0);
+        let writes = rig.steering_writes();
+        assert!(writes.iter().all(|w| w == &[STOP_MOTOR]), "{writes:?}");
+        assert!(rig.dac_codes().iter().all(|&c| c == 0));
+        assert_eq!(rig.last_uplink().calibration, CalState::Limp);
+    }
+
+    #[test]
+    fn a_pages_limp_is_refused_while_the_frames_ask_for_speed() {
+        let mut rig = Rig::new();
+        rig.calibrate(5, CalRequest::Off);
+        rig.clear();
+        page_limp(&mut rig, 50, 0.5, 0.0);
+        assert!(!rig.steering_writes().iter().any(|w| w == &[STOP_MOTOR]));
+        assert_eq!(
+            rig.last_uplink().calibration,
+            CalState::Refused(Refusal::Moving)
+        );
+    }
+
+    #[test]
+    fn a_pages_limp_ends_100_ms_after_its_last_heartbeat() {
+        let mut rig = Rig::new();
+        rig.calibrate(5, CalRequest::Off);
+        page_limp(&mut rig, 5, 0.0, -1.0);
+        rig.clear();
+        rig.calibrate(6, CalRequest::Off); // 120 ms of frames, no heartbeat
+        let writes = rig.steering_writes();
+        assert_ne!(writes.last(), Some(&std::vec![STOP_MOTOR]), "{writes:?}");
+        assert_ne!(rig.last_uplink().calibration, CalState::Limp);
     }
 
     #[test]

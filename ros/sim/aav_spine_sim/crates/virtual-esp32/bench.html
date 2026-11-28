@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>spine: bench</title>
+<!-- The virtual car's ESP32 (virtual_esp32): Controls, Measure and Tests, from bench-core.
+     Plain HTML and JS, nothing from the internet. A button moves only while it is held:
+     the page sends its heartbeat every 50 ms, and 100 ms without one is a stop.
+     The writes work only from this computer, and only in the simulator. -->
+<style>
+body{margin:0;font:15px system-ui,-apple-system,"Segoe UI",sans-serif;background:#f9f9f7;color:#0b0b0b}
+@media (prefers-color-scheme:dark){body{background:#0d0d0d;color:#f0efec}}
+main{padding:12px;max-width:900px}
+h1{font-size:18px;margin:0 0 8px}
+nav button{margin-right:6px}
+nav button.on{font-weight:700;border-width:2px}
+button{font:inherit;padding:10px 16px;margin:4px;border-radius:8px;border:1px solid #8888;background:#8881;color:inherit;touch-action:none;user-select:none}
+button.held{background:#2a78d6;color:#fff}
+button.stop{background:#b42318;color:#fff}
+.card{border:1px solid #8884;border-radius:8px;padding:8px 12px;margin:10px 0}
+#state{font:13px ui-monospace,Menlo,monospace;white-space:pre-wrap}
+table{border-collapse:collapse}td,th{padding:3px 10px;border-bottom:1px solid #8884;text-align:right}
+canvas{width:100%;height:220px;display:block}
+.warn{color:#b45309;font-weight:600}
+.pass{color:#1a7f37;font-weight:700}.fail{color:#b42318;font-weight:700}
+</style>
+</head>
+<body>
+<main>
+<h1>Spine bench <a href="/">(status)</a></h1>
+<div id="banner" class="warn"></div>
+<nav><button data-tab="controls" class="on">Controls</button><button data-tab="measure">Measure</button><button data-tab="tests">Tests</button></nav>
+
+<section id="controls" class="card">
+  <p>Hold a button to move. Let go and the car holds within 100 ms. CREEP only on stands.</p>
+  <div>
+    <button data-hold="creep">CREEP</button>
+    <button data-hold="left">LEFT</button>
+    <button data-hold="centre">CENTRE</button>
+    <button data-hold="right">RIGHT</button>
+  </div>
+  <div>
+    <button data-hold="brake_on">BRAKE ON</button>
+    <button data-hold="brake_off">BRAKE OFF</button>
+    <button data-hold="limp">LIMP</button>
+    <button data-hold="stop" class="stop">STOP</button>
+  </div>
+</section>
+
+<section id="measure" class="card" hidden>
+  <p>The latest recording (10 ms a sample). Run a test to record one.</p>
+  <canvas id="plot" width="900" height="220"></canvas>
+  <table id="steps"><thead><tr><th>step</th><th>from</th><th>to</th><th>delay ms</th><th>rise ms</th><th>end</th><th>off</th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="tests" class="card" hidden>
+  <p>Hold RUN for the whole test. Let go and it stops.</p>
+  <div id="list"></div>
+  <p id="verdict"></p>
+</section>
+
+<div class="card"><div id="state">waiting for the board</div></div>
+</main>
+<script>
+"use strict";
+const post = (path) => fetch(path, {method: "POST"}).then(r => r.json()).catch(() => null);
+let timer = null, tab = "controls";
+
+function hold(start, beat) {
+  stopHold();
+  start();
+  timer = setInterval(beat, 50);
+}
+function stopHold() { if (timer) { clearInterval(timer); timer = null; } }
+
+for (const b of document.querySelectorAll("[data-hold]")) {
+  const name = b.dataset.hold;
+  const press = () => post("/press?button=" + name);
+  b.addEventListener("pointerdown", e => { e.preventDefault(); b.classList.add("held"); hold(press, press); });
+  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) {
+    b.addEventListener(ev, () => { b.classList.remove("held"); stopHold(); });
+  }
+}
+
+for (const n of document.querySelectorAll("nav button")) {
+  n.onclick = () => {
+    stopHold();
+    if (tab === "controls") post("/leave");
+    tab = n.dataset.tab;
+    for (const m of document.querySelectorAll("nav button")) m.classList.toggle("on", m === n);
+    for (const s of ["controls", "measure", "tests"]) document.getElementById(s).hidden = s !== tab;
+    if (tab === "measure") trace();
+  };
+}
+window.addEventListener("blur", () => stopHold());
+
+const tests = [["steering_steps", "Steering steps"], ["brake_travel", "Brake travel"], ["throttle_spin_up", "Throttle spin-up (on stands)"]];
+const list = document.getElementById("list");
+for (const [name, label] of tests) {
+  const b = document.createElement("button");
+  b.textContent = "RUN: " + label;
+  b.addEventListener("pointerdown", async e => {
+    e.preventDefault();
+    const r = await post("/test/start?name=" + name);
+    if (!r || !r.ok) { document.getElementById("verdict").textContent = "refused: " + (r ? r.why : "no answer"); return; }
+    b.classList.add("held");
+    hold(() => {}, () => post("/test/heartbeat"));
+  });
+  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) {
+    b.addEventListener(ev, () => { if (b.classList.contains("held")) { b.classList.remove("held"); stopHold(); } });
+  }
+  list.appendChild(b);
+}
+
+async function state() {
+  const s = await fetch("/bench.json").then(r => r.json()).catch(() => null);
+  if (!s) return;
+  document.getElementById("banner").textContent = s.writes ? "" : "Read only: not on the simulator's clock.";
+  document.getElementById("state").textContent =
+    `mode ${s.mode}  armed ${s.armed}  faults ${s.faults}\n` +
+    `held ${s.held}  ${s.refused ? "REFUSED: " + s.refused : ""}  on stands ${s.on_stands}\n` +
+    `asked: steering ${fmt(s.steering_target)} rad  throttle ${fmt(s.throttle)}  brake ${fmt(s.brake)}\n` +
+    `devices: throttle ${fmt(s.drive && s.drive.throttle)}  brake ${fmt(s.drive && s.drive.brake)}  steering ${fmt(s.drive && s.drive.steering)}  limp ${s.drive && s.drive.limp}\n` +
+    `measured: speed ${fmt(s.measured.speed)} m/s  steering ${fmt(s.measured.steering)} rad  brake ${fmt(s.measured.brake)}\n` +
+    `steering calibration: ${s.calibration}\n` +
+    `test: ${s.test ? s.test.name + " " + s.test.phase : "none"}`;
+  const v = document.getElementById("verdict");
+  if (s.outcome) {
+    const r = s.outcome.verdict;
+    v.innerHTML = "";
+    const span = document.createElement("span");
+    span.className = r.result === "pass" ? "pass" : "fail";
+    span.textContent = `${s.outcome.name} (${s.outcome.progress}): ${r.result}` + (r.why ? `: ${r.why}` : "") + (r.step ? ` at step ${r.step}` : "");
+    v.appendChild(span);
+  }
+}
+const fmt = x => (x === null || x === undefined) ? "-" : Number(x).toFixed(3);
+
+async function trace() {
+  const t = await fetch("/trace.json").then(r => r.json()).catch(() => null);
+  if (!t) return;
+  const c = document.getElementById("plot"), g = c.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+  const steering = t.test !== "brake_travel";
+  const asked = steering ? t.steer_asked : t.brake_asked, got = steering ? t.steer : t.brake;
+  const all = asked.concat(got).filter(x => x !== null);
+  if (!all.length) return;
+  const lo = Math.min(...all), hi = Math.max(...all), span = (hi - lo) || 1;
+  const x = i => i / Math.max(1, asked.length - 1) * c.width, y = v => c.height - 10 - (v - lo) / span * (c.height - 20);
+  for (const [series, colour] of [[asked, "#eb6834"], [got, "#2a78d6"]]) {
+    g.strokeStyle = colour; g.lineWidth = 2; g.beginPath();
+    series.forEach((v, i) => { if (v !== null) (i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v))); });
+    g.stroke();
+  }
+  const body = document.querySelector("#steps tbody");
+  body.innerHTML = "";
+  (steering ? t.steering_steps : t.brake_steps).forEach((r, i) => {
+    const tr = document.createElement("tr");
+    for (const v of [i + 1, fmt(r.from), fmt(r.to), r.delay_ms ?? "-", r.rise_ms ?? "-", fmt(r.end), fmt(r.off)]) {
+      const td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  });
+}
+setInterval(state, 200);
+setInterval(() => { if (tab === "measure") trace(); }, 1000);
+state();
+</script>
+</body>
+</html>

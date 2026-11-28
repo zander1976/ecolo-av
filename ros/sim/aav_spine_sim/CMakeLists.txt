@@ -17,12 +17,13 @@ set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/target)
 add_custom_target(cargo_build ALL
   COMMAND ${CMAKE_COMMAND} -E env --unset=MAKEFLAGS --unset=MFLAGS --unset=CARGO_MAKEFLAGS
     CARGO_TARGET_DIR=${CARGO_TARGET_DIR}
-    ${CARGO} build --release --locked --quiet --bin spine_sim --bin rc_pad
+    ${CARGO} build --release --locked --quiet --bin spine_sim --bin rc_pad --bin virtual_esp32
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  COMMENT "cargo build --release --bin spine_sim --bin rc_pad"
+  COMMENT "cargo build --release --bin spine_sim --bin rc_pad --bin virtual_esp32"
   VERBATIM)
 
 install(PROGRAMS ${CARGO_TARGET_DIR}/release/spine_sim ${CARGO_TARGET_DIR}/release/rc_pad
+  ${CARGO_TARGET_DIR}/release/virtual_esp32
   DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
 
@@ -32,6 +33,13 @@ if(BUILD_TESTING)
   ament_add_test(bench_car
     COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CARGO_TARGET_DIR}
       ${CARGO} test --release --locked --quiet -p bench-car
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    TIMEOUT 300
+    GENERATE_RESULT_FOR_RETURN_CODE_ZERO)
+  # The virtual ESP32's logic, without ROS: cargo test -p virtual-esp32.
+  ament_add_test(virtual_esp32
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CARGO_TARGET_DIR}
+      ${CARGO} test --release --locked --quiet -p virtual-esp32
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     TIMEOUT 300
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO)

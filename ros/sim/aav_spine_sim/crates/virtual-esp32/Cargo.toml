@@ -1,0 +1,18 @@
+[package]
+name = "virtual-esp32"
+description = "The virtual car's ESP32: the Rust firmware's own logic (spine-board, spine-core, legacy-link) on a laptop, with the page's bench (bench-core) and status lines (status-lines). No ROS."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# The firmware's own crates, unchanged: the virtual ESP32 runs what the board runs.
+spine-core = { path = "../../../../../firmware/spine/crates/spine-core" }
+spine-board = { path = "../../../../../firmware/spine/crates/spine-board" }
+legacy-link = { path = "../../../../../firmware/spine/crates/legacy-link" }
+bench-core = { path = "../../../../../firmware/spine/crates/bench-core" }
+status-lines = { path = "../../../../../firmware/spine/crates/status-lines" }
+# The traits spine-board's parts take: the I2C bus and the serial ports.
+embedded-hal = "1.0"
+embedded-io = "0.7"

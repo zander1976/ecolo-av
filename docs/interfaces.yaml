@@ -799,7 +799,7 @@ topics:
     pub: [sim_esp32]
     sub: [sim_adapter]
     live: []
-    note: Ravensim with today's car in the loop only (sim.launch.py esp32:=true). What sim_esp32 - the 2025-26 C++ ESP32 firmware's logic, standing in behind the real legacy_uart_bridge - drives, 50 Hz - throttle (its DAC over 700, ramped 6 up and 12 down per frame), brake (the Jrk's travel past 400), reverse, the steering target (rad). sim_adapter's actuator model turns them into what Ravensim's car does, and still publishes /vehicle/odom itself, as the wheel sensors on today's car. Like the C++, no command timeout - the outputs stay when frames stop.
+    note: Ravensim with today's car in the loop only (sim.launch.py esp32:=true). What sim_esp32 - the 2025-26 C++ ESP32 firmware's logic, standing in behind the real legacy_uart_bridge - drives, 50 Hz - throttle (its DAC over 700, ramped 6 up and 12 down per frame), brake (the Jrk's travel past 400), reverse, the steering target (rad). sim_adapter's actuator model turns them into what Ravensim's car does, and still publishes /vehicle/odom itself, as the wheel sensors on today's car. Like the C++, no command timeout - the outputs stay when frames stop. With esp32_impl:=rust the same node name is aav_spine_sim's virtual_esp32 - the Rust firmware's own logic (spine-board's SpineBoard on the bridge's bytes) - publishing what its stand-in devices were told, the same fields, 50 Hz; it has the spine's 100 ms watchdog, and while limp (the page's LIMP) the steering is where the wheels are.
   /vehicle/sim/wheels:
     type: aav_interfaces/msg/WheelSpeeds
     pub: [sim_adapter]

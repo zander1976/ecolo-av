@@ -546,6 +546,30 @@ def cameras_command(actions):
     return None
 
 
+def test_esp32_impl_picks_the_stand_in_on_the_same_port_and_name():
+    """esp32_impl:=cpp (the default) or rust (web screens step 4): one sim_esp32 either way."""
+    assert included(started(SIM, esp32='true'))['ravensim.launch.py']['esp32_impl'] == 'cpp'
+    assert included(started(SIM, esp32='true', esp32_impl='rust'))[
+        'ravensim.launch.py']['esp32_impl'] == 'rust'
+    port = 47000 + int(os.environ.get('ROS_DOMAIN_ID', '0'))
+    cpp = node(started(RAVENSIM, esp32='true'), 'sim_esp32')
+    rust = node(started(RAVENSIM, esp32='true', esp32_impl='rust'), 'sim_esp32')
+    assert (cpp._Node__package, cpp._Node__node_executable) == ('aav_sim_models', 'sim_esp32')
+    assert (rust._Node__package, rust._Node__node_executable) == ('aav_spine_sim',
+                                                                  'virtual_esp32')
+    for esp32 in (cpp, rust):
+        assert parameters(esp32)['port'] == port
+        assert parameters(esp32)['status_port'] == 8766
+        assert parameters(esp32)['use_sim_time'] is True
+    # The bridge sends version 1 frames: the Rust one reads the same.
+    assert parameters(rust)['frame_version'] == 1
+    other = node(started(RAVENSIM, esp32='true', esp32_impl='rust', esp32_status_port='8796'),
+                 'sim_esp32')
+    assert parameters(other)['status_port'] == 8796
+    with pytest.raises(ValueError, match='esp32_impl'):
+        started(RAVENSIM, esp32='true', esp32_impl='python')
+
+
 def test_ravensim_runs_the_sensors_only_where_the_world_renders_them():
     actions = started(RAVENSIM, world='empty')
     assert parameters(node(actions, 'sim_adapter'))['radar'] is False

@@ -18,7 +18,8 @@ A Rust package. CMake only runs `cargo` and installs the binary, as in
 | Crate | What | ROS? |
 |---|---|---|
 | `crates/bench-car` | the spine's logic (`spine-core`) and the wheel nodes' logic (`wheel-core`), unchanged, driving a simple car model | no |
-| `crates/spine-sim` | the ROS nodes around it (rclrs 0.8, `ros-env` for messages): `spine_sim`, and `rc_pad` | yes |
+| `crates/spine-sim` | the ROS nodes around it (rclrs 0.8, `ros-env` for messages): `spine_sim`, `rc_pad` and `virtual_esp32` | yes |
+| [`crates/virtual-esp32`](./crates/virtual-esp32/README.md) (28 Nov) | the virtual car's ESP32: the Rust firmware's own logic (`spine-board`, `spine-core`, `legacy-link`) on the bridge's bytes, with the page's bench (`bench-core`) and status lines (`status-lines`) | no |
 
 The `car` parameter picks which car the spine drives:
 
@@ -82,6 +83,35 @@ The RC's rules on a laptop, with nothing else running: the gamepad, `rc_pad`,
 give in normal mode leaves the car standing still; manual drives it from the sticks.
 In Ravensim: `pixi run sim spine:=true rc_pad:=true [rc_pad_mode:=low]`.
 
+### Node: `virtual_esp32` (28 Nov; node name `sim_esp32`)
+
+The virtual car's ESP32, running the Rust firmware's own logic (`crates/virtual-esp32`):
+a drop-in for `aav_sim_models`' `sim_esp32` (the 2025-26 C++ in Python), chosen by
+`sim.launch.py esp32_impl:=rust`. The same node name (`sim_esp32`), TCP port, output topic and `/ws` status lines,
+so `legacy_uart_bridge` and the Orin's page can't tell which runs; and its page gets
+**Controls, Measure and Tests** (`bench-core`). Design: `docs/designs/2026-11-27_web-screens.md`, step 4.
+
+```
+legacy_uart_bridge ─TCP 127.0.0.1:port─> virtual_esp32 (SpineBoard, 100 Hz) ─/vehicle/sim/esp32_outputs─> sim_adapter
+                                           └─ http://127.0.0.1:8766/  /ws  /bench
+```
+
+| Direction | What | Type | |
+|---|---|---|---|
+| Listens | TCP `127.0.0.1:port` | bytes | the bridge's frames in; the uplink back with `uplink:=true` |
+| Subscribes | `/vehicle/wheels` | `aav_interfaces/WheelSpeeds` | the rear wheels' mean: what the spine's wheel counter counts |
+| Subscribes | `/vehicle/steering`, `/vehicle/brake` | `aav_interfaces/ActuatorState` | `measured`: for the page and the recordings |
+| Subscribes | `/vehicle/sim/jacks` | `std_msgs/Bool`, latched | on stands: CREEP and the throttle test allowed |
+| Publishes | `/vehicle/sim/esp32_outputs` | `aav_interfaces/SpineOutputs`, 50 Hz | what the stand-in devices were told |
+| Serves | `http://127.0.0.1:status_port/` | HTTP, WebSocket | the board's page and `/status.json`, `/health`, `/config`, `/scan`, `/ws`; the bench: `/bench`, `/bench.json`, `/trace.json`, and the writes (`POST /press?button=`, `/leave`, `/test/start?name=`, `/test/heartbeat`, `/test/stop`) |
+
+Parameters: `port` (47000), `status_port` (8766; 0 off), `frame_version` (1; 2 for 2-4),
+`wheel_speed` (true), `uplink` (false), `wheels_topic`, `steering_topic`, `brake_topic`,
+`jacks_topic`.
+
+The writes work **only from this computer** (127.0.0.1 only; the `Host`, and any `Origin`,
+must be this port's) and **only on the simulator's clock** (`use_sim_time`): otherwise 403.
+
 ### `bench-car` (library)
 
 | Item | Does |
@@ -131,10 +161,10 @@ In Ravensim: `pixi run sim spine:=true rc_pad:=true [rc_pad_mode:=low]`.
 ## Verification
 
 ```sh
-cd ros/sim/aav_spine_sim && cargo test -p bench-car
+cd ros/sim/aav_spine_sim && cargo test -p bench-car && cargo test -p virtual-esp32
 pixi run build && colcon test --packages-select aav_spine_sim && colcon test-result --verbose
 ```
 
-`colcon test` runs the same `cargo test -p bench-car` (CMake test `bench_car`).
+`colcon test` runs the same `cargo test -p bench-car` and `-p virtual-esp32` (CMake tests `bench_car`, `virtual_esp32`).
 `tools/test.sh` does not. `pixi run test` runs everything. The whole loop:
 `pixi run bench-check`.

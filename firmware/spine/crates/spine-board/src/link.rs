@@ -247,6 +247,11 @@ pub struct LegacyLink<U, T = NoUplink> {
     frame_estop: bool,
     /// With [`LegacyLink::with_cpp_ramp`]: the C++'s DAC ramp, a step a command.
     ramp: Option<DacRamp>,
+    /// A page's steering calibration request, and when it came
+    /// ([`LegacyLink::request_calibration`]).
+    page_cal: Option<(CalRequest, u32)>,
+    /// The page asked for a mode, and the steering isn't the spine's again yet.
+    page_owns: bool,
 }
 
 impl<U: Read + ReadReady> LegacyLink<U, NoUplink> {
@@ -284,7 +289,48 @@ impl<U: Read + ReadReady, T: Write> LegacyLink<U, T> {
             steer_cal: SteerCal::new(limits.min.min(limits.max), limits.max.max(limits.min)),
             frame_estop: false,
             ramp: None,
+            page_cal: None,
+            page_owns: false,
         }
+    }
+
+    /// A page's request for the steering calibration (`bench-core`'s LIMP), at `now_ms`:
+    /// send it with each of the page's heartbeats. It goes through the same rules as a
+    /// frame's request (`legacy_link::SteerCal`): the car standing still and braked (the
+    /// latest frame asks no speed and a brake, and the spine's throttle is 0 and its brake
+    /// on), no e-stop, neither the RC nor a test driving, a position from the steering
+    /// actuator. Fresh for [`legacy_link::CAL_TIMEOUT_MS`], as a frame's is; while fresh
+    /// it wins over the frames' own (`Off`). Never called, nothing changes.
+    ///
+    /// `Off` with the page's other heartbeats, after it asked for a mode, is the page still
+    /// there: the steering comes back from where the wheels were (`SteerCal`'s Return),
+    /// rather than held there until frames come (its Hold). Once the steering is the
+    /// spine's again, the page's `Off` is ignored: a frame's own request then decides.
+    pub fn request_calibration(&mut self, request: CalRequest, now_ms: u32) {
+        if request != CalRequest::Off {
+            self.page_owns = true;
+        }
+        self.page_cal = Some((request, now_ms));
+    }
+
+    /// The page's request as a frame's would be: what the latest frame asks (no frame for
+    /// [`legacy_link::CAL_TIMEOUT_MS`]: nothing, a stop) stands in for the frame's values.
+    fn page_ask(&self, now_ms: u32) -> Option<(Ask, u32)> {
+        let (request, at) = self.page_cal?;
+        let stale = now_ms.wrapping_sub(at) > legacy_link::CAL_TIMEOUT_MS;
+        if stale || (request == CalRequest::Off && !self.page_owns) {
+            return None;
+        }
+        let asked = self
+            .last_frame
+            .filter(|f| f.age_ms(now_ms) <= legacy_link::CAL_TIMEOUT_MS)
+            .map(|f| f.values);
+        let ask = Ask {
+            request,
+            speed_zero: asked.is_none_or(|v| v.speed.abs() < legacy_link::SPEED_DEADBAND),
+            braked: asked.is_none_or(|v| v.accel < legacy_link::BRAKE_BELOW),
+        };
+        Some((ask, at))
     }
 
     /// The C++'s DAC ramp too (`writeDACRamped`, `legacy_link::DacRamp`): each command
@@ -440,6 +486,20 @@ impl<U: Read + ReadReady, T: Write> LegacyLink<U, T> {
             values,
             at_ms: inputs.now_ms,
         });
+        // A version 1 frame asks for no calibration. Once a page has asked for one, each
+        // frame says so, as a version 3 frame's Off would: so when the page lets go, the
+        // steering comes back to the spine's target (SteerCal's Return) instead of being
+        // held where the wheels were for ever (its Hold, for a heartbeat that has gone).
+        if self.page_cal.is_some() {
+            self.steer_cal.take(
+                Ask {
+                    request: CalRequest::Off,
+                    speed_zero: values.speed.abs() < legacy_link::SPEED_DEADBAND,
+                    braked: values.accel < legacy_link::BRAKE_BELOW,
+                },
+                inputs.now_ms,
+            );
+        }
         if let Some(cmd) = self.command_for(values, inputs) {
             self.give(cmd, inputs);
         }
@@ -559,14 +619,21 @@ impl<U: Read + ReadReady, T: Write> CommandLink for LegacyLink<U, T> {
 
     /// The steering calibration's decision for this tick (`legacy_link::SteerCal`).
     fn steering(&mut self, inputs: &Inputs, out: &Outputs, positions: &Positions) -> SteeringDrive {
-        self.steer_cal.step(&Situation {
+        if let Some((ask, at)) = self.page_ask(inputs.now_ms) {
+            self.steer_cal.take(ask, at);
+        }
+        let drive = self.steer_cal.step(&Situation {
             now_ms: inputs.now_ms,
             feedback: positions.steering_counts,
             spine_target: self.cal.steering.target(out.steering_target),
             stopped: out.throttle == 0.0 && out.brake > 0.0,
             estop: inputs.hw_estop || self.frame_estop,
             other_driver: matches!(out.mode, Mode::Rc | Mode::Test),
-        })
+        });
+        if drive == SteeringDrive::Spine {
+            self.page_owns = false;
+        }
+        drive
     }
 
     /// The uplink frame, every 20 ms, if this link has an uplink.
