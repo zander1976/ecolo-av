@@ -46,6 +46,11 @@ is `spine-sim`'s `virtual_esp32`.
 - Differs from today's ESP32 on purpose: the spine measures the speed (the test mode's
   throttle needs one), no RC receiver is fitted, and the devices always answer.
 - While limp, `drive.steering` is where the wheels are (the motor is off).
+- `bench-core`'s `Controls` counts itself in the test mode once it has sent `Exit` and
+  `Enter`; a move the spine isn't in the test mode for starts the entry again. The spine
+  refuses the entry while the Pi link streams: every UART frame counts as armed, so the
+  computer drives. With no Pi link it enters.
+- A test's recording holds its moves only, not the stop that ends it.
 
 ## Side Effects
 

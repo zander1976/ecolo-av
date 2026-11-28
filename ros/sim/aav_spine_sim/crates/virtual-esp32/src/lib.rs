@@ -317,10 +317,28 @@ impl VirtualEsp32 {
         if let Some(request) = test {
             self.spine.request_test(request);
         }
-        if cal != CalRequest::Off {
+        // The page's heartbeat to the steering calibration: LIMP while held; otherwise Off
+        // while the page sends anything, so a limp ended brings the steering back.
+        if test.is_some() || cal != CalRequest::Off {
             self.spine.link().request_calibration(cal, now_ms);
         }
         let outputs = self.spine.tick();
+        // Controls counts itself in the test mode once it has sent Exit and Enter; the spine
+        // may have refused (the computer driving, a stop) or left since (a stale request,
+        // a stop). A move the spine isn't in the test mode for: start the entry again
+        // (Exit, then Enter at the next press), so the page never sends moves into nothing.
+        let a_move = matches!(
+            test,
+            Some(
+                TestRequest::Hold
+                    | TestRequest::Steering(_)
+                    | TestRequest::Brake(_)
+                    | TestRequest::Throttle(_)
+            )
+        );
+        if self.test.is_none() && a_move && outputs.mode != spine_core::protocol::Mode::Test {
+            self.controls.leave();
+        }
         self.record(now_ms, &outputs, test);
 
         let report = self.spine.last_report().copied();
@@ -389,18 +407,26 @@ impl VirtualEsp32 {
             Some(TestRequest::Brake(b)) => (out.steering_target, b),
             _ => (out.steering_target, out.brake),
         };
-        self.recorder.push(
-            now_ms,
-            Sample {
-                at_ms: 0,
-                steer_asked,
-                steer: m.steering,
-                brake_asked,
-                brake: m.brake,
-                throttle: out.throttle,
-                speed: m.speed,
-            },
-        );
+        // A run's recording is its moves only: not the stop that ends it (its Hold would be
+        // a last step the actuator had no time to follow).
+        let ending = self
+            .test
+            .as_ref()
+            .is_some_and(|t| t.phase == Phase::Leaving);
+        if !ending {
+            self.recorder.push(
+                now_ms,
+                Sample {
+                    at_ms: 0,
+                    steer_asked,
+                    steer: m.steering,
+                    brake_asked,
+                    brake: m.brake,
+                    throttle: out.throttle,
+                    speed: m.speed,
+                },
+            );
+        }
         // A run that has ended: its verdict, from its recording.
         if let Some(t) = &mut self.test {
             if let Some(run) = t.run.as_ref().filter(|_| t.phase == Phase::Leaving) {
@@ -535,7 +561,7 @@ impl TestRun {
                 self.phase = Phase::Running;
                 // `Run::start` only refuses the throttle off stands, checked at the start.
                 self.run = Run::start(self.test, now_ms.wrapping_add(10), Where::OnStands);
-                recorder.start(now_ms, self.test.length_ms() + 200);
+                recorder.start(now_ms, self.test.length_ms());
                 Some(TestRequest::Enter)
             }
             Phase::Running => {

@@ -350,3 +350,67 @@ fn it_writes_the_status_lines() {
         .iter()
         .any(|l| l.contains("\"build\":\"virtual car\"")));
 }
+
+#[test]
+fn the_test_mode_waits_for_the_computer_to_stop_driving_then_enters() {
+    let mut car = Car::new(FrameVersion::V1);
+    car.v1s(5, 0.0, 0.0, -1.0);
+    // The bridge's frames keep the computer driving: the spine refuses the test mode.
+    for i in 0..30 {
+        if i % 2 == 0 {
+            car.esp.press(Button::Left, car.now + 10);
+        }
+        car.v1(0.0, 0.0, -1.0);
+    }
+    assert_eq!(
+        car.last.as_ref().map(|o| o.outputs.mode),
+        Some(Mode::Computer)
+    );
+    // The Pi link goes quiet (the bench's "no Pi link"): the page's next presses get in.
+    let out = car.hold(Button::Left, 1000);
+    assert_eq!(out.outputs.mode, Mode::Test);
+    assert!(out.outputs.steering_target > 0.0);
+}
+
+#[test]
+fn after_limp_with_no_pi_link_a_steering_test_still_moves_the_wheels() {
+    let mut car = Car::new(FrameVersion::V1);
+    car.ticks(10);
+    car.hold(Button::Limp, 300);
+    assert_eq!(car.esp.last().map(|l| l.2), Some(CalState::Limp));
+    car.steering = 0.1; // a person turned them
+    car.ticks(20); // let go: held where they are, with no frames
+    let outcome = run_test(&mut car, BenchTest::SteeringSteps);
+    assert_eq!(outcome.verdict, Verdict::Pass, "{outcome:?}");
+}
+
+#[test]
+fn a_brake_travel_test_passes_on_a_brake_that_follows() {
+    let mut car = Car::new(FrameVersion::V1);
+    car.ticks(10);
+    car.esp
+        .start_test(BenchTest::BrakeTravel, car.now)
+        .expect("starts");
+    let mut brake: f32 = 1.0;
+    for i in 0..700 {
+        if i % 5 == 0 {
+            car.esp.test_heartbeat(car.now + 10);
+        }
+        car.now += 10;
+        let out = car.esp.tick(
+            car.now,
+            Measured {
+                speed: 0.0,
+                steering: 0.0,
+                brake,
+                on_stands: false,
+            },
+        );
+        brake += (out.drive.brake - brake) * 0.1;
+        if car.esp.running().is_none() {
+            break;
+        }
+    }
+    let outcome = car.esp.outcome().expect("a verdict");
+    assert_eq!(outcome.verdict, Verdict::Pass, "{outcome:?}");
+}
