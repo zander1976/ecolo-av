@@ -141,6 +141,28 @@ def campus_start(place_text: str) -> Tuple[float, float, float]:
     return float(start['x']), float(start['y']), float(start['yaw'])
 
 
+# Where the car can start on the campus (spot:=), in the map frame (m from the datum, x
+# east): the same place the street map and the GPS give, since the world, navsat.yaml and
+# place.yaml share one datum. p4 is place.yaml's own start (tools/campus_world.py's
+# START_LOT). edc (Ben, 28 Nov: "a parking lot outside egineering design center"): the
+# surface lot north of the Engineering Design Center (OpenStreetMap way 242714236; the
+# building is way 1112168819, at 45.38488, -75.69840), its middle, facing its way out at
+# the north-west corner onto the road. The car's GPS there reads about 45.38518, -75.69849.
+CAMPUS_SPOTS = {'edc': (-196.0, -91.0, 2.31)}
+SPOT_FROM_PLACE = 'p4'
+
+
+def campus_spot(spot: str, place_text: str) -> Tuple[float, float, float]:
+    """Return a named start on the campus (CAMPUS_SPOTS, or p4: place.yaml's start)."""
+    spot = spot.strip().lower()
+    if spot == SPOT_FROM_PLACE:
+        return campus_start(place_text)
+    if spot not in CAMPUS_SPOTS:
+        names = ', '.join(sorted([SPOT_FROM_PLACE, *CAMPUS_SPOTS]))
+        raise ValueError(f'spot:={spot}: pick one of {names}')
+    return CAMPUS_SPOTS[spot]
+
+
 def check_simulator(name: str) -> str:
     """Return the simulator's name, checked: one of SIMULATORS."""
     if name not in SIMULATORS:

@@ -557,7 +557,7 @@ def launch_setup(context):
         # Not on the world's origin unless someone asks: it's on a station shelter.
         worlds.world_file('', world)
         with open(worlds.CAMPUS_PLACE) as place:
-            x, y, yaw = worlds.campus_start(place.read())
+            x, y, yaw = worlds.campus_spot(arg('spot'), place.read())
         if float(start_x) == 0.0 and float(start_y) == 0.0:
             start_x, start_y, start_yaw = str(x), str(y), str(yaw)
         if ndt_map == DEFAULT_NDT_MAP:
@@ -1153,6 +1153,10 @@ def generate_launch_description():
         DeclareLaunchArgument('rc_pad_mode', default_value='high',
                               description="with rc_pad:=true: the mode switch's start, "
                                           'high (manual) or low (normal)'),
+        DeclareLaunchArgument('spot', default_value=setups.CHOSEN,
+                              description='where the car starts on the campus: p4 (place.yaml, '
+                              'the default) or edc (the lot outside the Engineering Design '
+                              "Center; setup:=car's); start_x/start_y win"),
         DeclareLaunchArgument('web', default_value=setups.CHOSEN,
                               description="the Orin's web page (aav_hud aav_web, read only) "
                                           'on 127.0.0.1:8780: the car, the hops, ROS against '
@@ -1184,9 +1188,10 @@ def generate_launch_description():
         DeclareLaunchArgument('watch_hud', default_value='false',
                               description="the watchdog also wants the HUD's heartbeat, "
                                           'with no HUD window (hud:=true watches it anyway)'),
-        DeclareLaunchArgument('faults', default_value='false',
-                              description='route the front left picture through '
-                                          'sim_adapter, for fault.camera'),
+        DeclareLaunchArgument('faults', default_value=setups.CHOSEN,
+                              description='route the front left picture and the lidar '
+                                          'through their relays, for fault.camera and '
+                                          "fault.lidar (setup:=car's: car-test's faults)"),
         DeclareLaunchArgument('watch_screens', default_value='',
                               description='screens whose heartbeat commands need, such as '
                                           'dev_window,hw_panel: lose one and, with '

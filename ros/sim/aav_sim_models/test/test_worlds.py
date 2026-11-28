@@ -6,6 +6,7 @@ same lane, paint, stop sign and obstacle, so a check passed on one means the sam
 other. Every world sits on the GPS datum (aav_localization/config/navsat.yaml).
 """
 
+import math
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -54,6 +55,23 @@ def test_the_campus_is_made_not_kept(tmp_path, monkeypatch):
 def test_the_campus_says_where_the_car_starts():
     place = 'start: {x: 49.25, y: -70.75, yaw: 0.0}\n'
     assert worlds.campus_start(place) == (49.25, -70.75, 0.0)
+    assert worlds.campus_spot('P4', place) == (49.25, -70.75, 0.0)
+    assert worlds.campus_spot('edc', place) == worlds.CAMPUS_SPOTS['edc']
+
+
+def test_an_unknown_spot_is_refused():
+    with pytest.raises(ValueError, match='edc, p4'):
+        worlds.campus_spot('library', 'start: {x: 0, y: 0, yaw: 0}\n')
+
+
+def test_the_edc_spot_is_where_its_gps_says():
+    # navsat.yaml's datum, x east and y north, as robot_localization's local plane.
+    lat0, lon0 = 45.386, -75.696
+    x, y, _ = worlds.CAMPUS_SPOTS['edc']
+    lat = lat0 + math.degrees(y / 6378137.0)
+    lon = lon0 + math.degrees(x / (6378137.0 * math.cos(math.radians(lat0))))
+    # Within the lot north of the Engineering Design Center (OpenStreetMap).
+    assert 45.3849 < lat < 45.3855 and -75.6990 < lon < -75.6980
 
 
 def test_the_road_and_lot_worlds_render_sensors():

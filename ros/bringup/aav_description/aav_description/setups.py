@@ -40,14 +40,17 @@ CAR = 'car'      # what pixi run sim passes (Ben, 25 Nov: "pixi run sim" is the 
 
 # What each switch is with no set-up and nothing given by hand.
 FALLBACK = {'world': 'empty', 'esp32': 'false', 'perception': 'false',
-            'detector_impl': DEFAULT_DETECTOR_IMPL, 'web': 'false'}
+            'detector_impl': DEFAULT_DETECTOR_IMPL, 'web': 'false', 'spot': 'p4',
+            'faults': 'false'}
 
 SETUPS = {
     CAR: {'what': 'everything the car provides: the campus, the simulated ESP32 and the '
                   'stop-sign detector (Rust, ONNX), so every topic the car has (pixi run '
-                  "check virtual); and the Orin's web page (aav_web, 127.0.0.1:8780)",
+                  "check virtual); and the Orin's web page (aav_web, 127.0.0.1:8780); the car "
+                  'starts in the lot outside the Engineering Design Center (spot:=edc); '
+                  "the camera and lidar through their relays, so car-test's faults work",
           'world': 'campus', 'esp32': 'true', 'perception': 'true', 'detector_impl': 'rust',
-          'web': 'true'},
+          'web': 'true', 'spot': 'edc', 'faults': 'true'},
 }
 
 
