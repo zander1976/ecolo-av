@@ -35,7 +35,8 @@
 //! | [`DirectCmd`]: throttle, brake and steering as they are | the 2025-26 UART link (`legacy-link`) | passes them on, inside its limits |
 //!
 //! With no wheel speed on the board ([`SpeedFeedback::None`]), the speed loop runs open
-//! loop: throttle in proportion to the speed asked for.
+//! loop: throttle in a straight line from the speed asked for, from where the wheels start
+//! to turn.
 //!
 //! The computer can't drive until it sends a frame with `armed = 0` and then
 //! `armed = 1`: at power-up, after an e-stop, after a driver fault has cleared, and
@@ -49,7 +50,7 @@ use crate::fsm::{
 };
 use crate::limits::slew;
 use crate::protocol::{counter_step, DriveCmd, EstopCmd, Mode, VehicleFeedback, VehicleStatus};
-use crate::speed_loop::{SpeedLoop, SpeedLoopConfig};
+use crate::speed_loop::{open_loop_throttle, SpeedLoop, SpeedLoopConfig};
 use crate::watchdog::Watchdog;
 
 /// Fault bits, same values as aav_interfaces/VehicleStatus FAULT_*.
@@ -145,12 +146,19 @@ pub enum SpeedFeedback {
     /// `Inputs::measured_speed`, from a wheel encoder: closed loop.
     Wheel,
     /// No speed on this board (today's ESP32 control board: the encoder talks to the
-    /// Motor-Pi). Open loop: throttle = speed / `full_throttle_speed`, the 2025-26 way.
-    /// The overspeed check works only while the link sends a speed ([`SpeedReport`]), and
-    /// the stop brake is the hold brake.
+    /// Motor-Pi). Open loop: throttle from the start (`start_throttle` forward,
+    /// `start_throttle_reverse` back) up to full throttle at `full_throttle_speed`
+    /// ([`open_loop_throttle`]). The overspeed check works only while the link sends a
+    /// speed ([`SpeedReport`]), and the stop brake is the hold brake.
     None {
         /// The speed (m/s) the car reaches at full throttle. TODO(Q4): measure.
         full_throttle_speed: f32,
+        /// The least throttle (0..1) that turns the wheels forward: any forward speed
+        /// asked for gets at least this. 0: throttle in proportion to the speed, the
+        /// 2025-26 way.
+        start_throttle: f32,
+        /// The same in reverse, where the car may need more to start.
+        start_throttle_reverse: f32,
     },
 }
 
@@ -234,18 +242,28 @@ impl SpineConfig {
             self.max_speed
         };
         match self.speed_feedback {
-            SpeedFeedback::None { .. } => Some(self.open_loop_cap(limit)),
+            SpeedFeedback::None { .. } => Some(self.open_loop_cap(limit, reverse)),
             SpeedFeedback::Wheel => None,
         }
     }
 
-    /// `limit / full_throttle_speed`, 0..1; 0 with no map from throttle to speed.
-    fn open_loop_cap(&self, limit: f32) -> f32 {
+    /// The open loop's throttle at `limit`, forward or in reverse, 0..1; 0 with no map
+    /// from throttle to speed.
+    fn open_loop_cap(&self, limit: f32, reverse: bool) -> f32 {
         match self.speed_feedback {
             SpeedFeedback::None {
                 full_throttle_speed,
-            } if full_throttle_speed > 0.0 => (limit / full_throttle_speed).clamp(0.0, 1.0),
-            _ => 0.0,
+                start_throttle,
+                start_throttle_reverse,
+            } => {
+                let start = if reverse {
+                    start_throttle_reverse
+                } else {
+                    start_throttle
+                };
+                open_loop_throttle(limit, full_throttle_speed, start)
+            }
+            SpeedFeedback::Wheel => 0.0,
         }
     }
 }
@@ -277,7 +295,7 @@ pub struct RcInput {
     pub throttle: f32,
     /// -1..1, positive left.
     pub steering: f32,
-    /// The left stick is in its middle zone (30 % each way): throttle off, the motor's
+    /// The left stick is in its middle zone (20 % each way): throttle off, the motor's
     /// own braking.
     pub middle: bool,
     /// The left stick is past 88 % either way: asking for the other direction while the
@@ -901,9 +919,17 @@ impl Spine {
             }
             SpeedFeedback::None {
                 full_throttle_speed,
-            } => self
-                .speed_loop
-                .open_loop(self.speed_setpoint, full_throttle_speed),
+                start_throttle,
+                start_throttle_reverse,
+            } => {
+                let start = if self.speed_setpoint < 0.0 {
+                    start_throttle_reverse
+                } else {
+                    start_throttle
+                };
+                self.speed_loop
+                    .open_loop(self.speed_setpoint, full_throttle_speed, start)
+            }
         };
         out(
             drive.throttle,
@@ -1053,7 +1079,7 @@ impl Spine {
         } else {
             c.max_speed
         };
-        let throttle = throttle.min(self.throttle_cap(limit));
+        let throttle = throttle.min(self.throttle_cap(limit, cmd.reverse));
         out(throttle, brake, cmd.reverse, self.steering_setpoint, self)
     }
 
@@ -1084,9 +1110,9 @@ impl Spine {
     }
 
     /// The most throttle an open-loop command may have to stay under `limit` (0..1).
-    fn throttle_cap(&self, limit: f32) -> f32 {
+    fn throttle_cap(&self, limit: f32, reverse: bool) -> f32 {
         match self.cfg.speed_feedback {
-            SpeedFeedback::None { .. } => self.cfg.open_loop_cap(limit),
+            SpeedFeedback::None { .. } => self.cfg.open_loop_cap(limit, reverse),
             SpeedFeedback::Wheel if self.speed.abs() >= limit => 0.0,
             SpeedFeedback::Wheel => 1.0,
         }
@@ -1960,6 +1986,8 @@ mod tests {
         let mut car = Car::with_config(SpineConfig {
             speed_feedback: SpeedFeedback::None {
                 full_throttle_speed: 3.0,
+                start_throttle: 0.0,
+                start_throttle_reverse: 0.0,
             },
             ..SpineConfig::default()
         });
@@ -2044,6 +2072,8 @@ mod tests {
         SpineConfig {
             speed_feedback: SpeedFeedback::None {
                 full_throttle_speed: 3.0,
+                start_throttle: 0.0,
+                start_throttle_reverse: 0.0,
             },
             ..SpineConfig::default()
         }
@@ -2061,6 +2091,8 @@ mod tests {
         let no_map = SpineConfig {
             speed_feedback: SpeedFeedback::None {
                 full_throttle_speed: 0.0,
+                start_throttle: 0.0,
+                start_throttle_reverse: 0.0,
             },
             ..c
         };
@@ -2833,6 +2865,62 @@ mod tests {
             })
             .last()
             .unwrap()
+    }
+
+    /// The ESP32's open loop (Arsh, 27 Nov): the wheels start at 475 of the 700 cap
+    /// forward, 525 in reverse.
+    fn start_config() -> SpineConfig {
+        SpineConfig {
+            speed_feedback: SpeedFeedback::None {
+                full_throttle_speed: 3.0,
+                start_throttle: 475.0 / 700.0,
+                start_throttle_reverse: 525.0 / 700.0,
+            },
+            rc_fitted: true,
+            ..SpineConfig::default()
+        }
+    }
+
+    #[test]
+    fn with_no_wheel_speed_the_rc_never_asks_for_a_throttle_that_cannot_turn_the_wheels() {
+        let (start, start_reverse) = (475.0 / 700.0, 525.0 / 700.0);
+        let mut car = Car::with_config(start_config());
+        car.clear_rc(RcSwitch::Direct);
+        // The whole ramp, forward: either no throttle (the stop at its start) or at least
+        // the start, rising to 1.0 m/s's throttle, 550 of 700.
+        let mut last = 0.0;
+        for _ in 0..300 {
+            let out = rc_ticks(&mut car, rc_direct(Pedal::Forward, true), 0.0, 1);
+            assert!(
+                out.throttle == 0.0 || out.throttle >= start,
+                "{}",
+                out.throttle
+            );
+            assert!(out.throttle >= last, "the ramp only rises");
+            last = out.throttle;
+        }
+        assert!((last * 700.0 - 550.0).abs() < 0.5, "{}", last * 700.0);
+        // Back, after the stop brake held a second: the reverse ramp, from its own start
+        // to 0.5 m/s's throttle, 554 of 700.
+        rc_ticks(&mut car, rc_direct(Pedal::Reverse, true), 0.0, 120);
+        let mut last = 0.0;
+        for _ in 0..300 {
+            let out = rc_ticks(&mut car, rc_direct(Pedal::Reverse, true), 0.0, 1);
+            assert!(
+                out.throttle == 0.0 || (out.reverse && out.throttle >= start_reverse),
+                "{out:?}"
+            );
+            last = out.throttle;
+        }
+        assert!((last * 700.0 - 554.2).abs() < 0.5, "{}", last * 700.0);
+    }
+
+    #[test]
+    fn the_open_loop_cap_starts_where_the_wheels_turn_too() {
+        let c = start_config();
+        let cap = |reverse| c.open_loop_throttle_cap(reverse).unwrap() * 700.0;
+        assert!((cap(false) - 550.0).abs() < 0.5, "{}", cap(false));
+        assert!((cap(true) - 554.2).abs() < 0.5, "{}", cap(true));
     }
 
     #[test]

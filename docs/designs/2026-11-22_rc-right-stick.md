@@ -18,7 +18,7 @@ car, instead of a full brake.
 ```text
 right stick (CH2, springs back)      left stick (CH3, stays where it is put)
    up past 88 %: give the car             up: forward
-   to the computer (steering              middle ±30 %: throttle off, the motor slows the car
+   to the computer (steering              middle ±20 %: throttle off, the motor slows the car
    centred, held 0.5 s)                   back: reverse
    down past 88 %: hard brake,            past 88 % the other way while still moving:
    the RC takes the car                   the hard brake too
@@ -30,7 +30,7 @@ right stick (CH2, springs back)      left stick (CH3, stays where it is put)
 | Right stick past -88 % (up), steering (CH4) within ±15 %, held 0.5 s | the computer gets the car (normal mode only; ignored in manual) |
 | Let go of the right stick | braked at least 1 s, and until the left stick leaves the zone it was in |
 | Left stick up or back | the car drives that way at a fixed speed: 1.0 m/s forward, 0.5 m/s back, ramped at 0.5 m/s² |
-| Left stick in the middle | throttle off, no brake: the motor's own braking (regen, assumed) |
+| Left stick in the middle | throttle off, no brake: the car slows as the motor controller decides (no regen of our own: `docs/firmware.md`, "Braking with the motor") |
 | Left stick the other way while the car moves | throttle off; past ±88 % the hard brake too. Then the new way once stopped |
 
 "Stopped" is under 0.05 m/s for 0.5 s, when the spine has a speed. Today's ESP32 has none
@@ -45,7 +45,7 @@ All to check on a car day.
 |---|---|---|
 | Stick ends, both sticks | 88 % | `RcMap::full` |
 | Steering centred, to give | ±15 % | `RcMap::centred` |
-| Left stick middle | ±30 % | `RcMap::brake_band` |
+| Left stick middle | ±20 % (±30 % until 26 Nov) | `RcMap::brake_band` |
 | Held up, to give | 0.5 s | `RC_GIVE_MS` |
 | Braked after a stop | at least 1 s | `RC_BRAKE_MS` |
 | Stopped | under 0.05 m/s for 0.5 s | `STANDSTILL_SPEED`, `RC_STOPPED_MS` |
