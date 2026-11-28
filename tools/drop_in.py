@@ -18,6 +18,8 @@ SIM_READERS = {'sim_adapter', 'sim_gps', 'spine_sim', 'chase_jpeg', 'debug_hud',
                'dev_window', 'hw_panel', 'spine_bridge', 'legacy_uart_bridge', 'foxglove_bridge',
                'sim_cameras', 'simulator', 'sim_imu', 'sim_radar', 'sim_camera_relay',
                'sim_lidar_relay',
+               # the Orin's web page: it only shows (aav_web, no publisher), as hw_panel.
+               'web',
                # pixi run jacks: the simulator's own switch (tools/jacks.py), SIM only.
                'jacks_cli'}
 

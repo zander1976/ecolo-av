@@ -11,7 +11,6 @@
 
   <exec_depend>aav_description</exec_depend>
   <!-- web.launch.py: the Orin's web page (sim.launch.py web:=, the car's set-up) -->
-  <exec_depend>aav_hud</exec_depend>
   <exec_depend>aav_command_mux</exec_depend>
   <exec_depend>aav_self_test_rs</exec_depend>
   <exec_depend>aav_io_mux</exec_depend>

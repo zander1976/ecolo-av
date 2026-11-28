@@ -134,8 +134,8 @@ bench's argument names:
                       curvature no faster than the steering turns (tools/lattice_smooth.py)
                       planner_search:=hybrid: ours runs Nav2's Hybrid-A* ported instead
                       of the lattice (a challenger, the league's hybrid_rs)
-  tracker:=lqr        another path follower (mppi_lag, ours in Rust, is the default;
-                      aav_track: pure_pursuit, stanley, lqr or mpc; mpc_lag_rs), on the
+  tracker:=mpc        another path follower (mppi_lag, ours in Rust, is the default;
+                      aav_track: mpc, mpc_full or mpc_lag; mpc_lag_rs), on the
                       same planner, smoother and stop zone. aav_track's drive forwards
                       only: with reversing:=false (docs/trials.md); mppi_lag reverses too
   costmap:=own, navigator:=own, smoother:=own, controller:=mppi
@@ -364,9 +364,10 @@ from aav_description.lane_map import (check_lane_graph, check_lane_source,
                                       DEFAULT_LANE_GRAPH, DEFAULT_LANE_SOURCE)
 from aav_sim_models import worlds
 from aav_spine import bridges
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
+from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription, LogInfo,
+                            OpaqueFunction)
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node, SetParameter
 from launch_ros.substitutions import FindPackageShare
@@ -464,6 +465,15 @@ def check_pose_source(word):
     if word not in ('gps', 'ndt'):
         raise ValueError(f'pose_source:={word}: use gps or ndt')
     return word
+
+
+def package_found(package):
+    """Say if a package is built and installed here."""
+    try:
+        get_package_share_directory(package)
+    except PackageNotFoundError:
+        return False
+    return True
 
 
 def include(context, package, launch_file, **args):
@@ -924,7 +934,11 @@ def launch_setup(context):
                                           'config', 'bench.yaml'),
                              {'use_sim_time': True, 'source': 'sim'}]),
         ]
-    if arg('web').lower() == 'true':
+    if arg('web').lower() == 'true' and not package_found('aav_hud'):
+        # The car's own build skips aav_hud (tools/car_install.sh), so nothing may depend
+        # on it: without it, the simulator runs with no web page and says so.
+        actions.append(LogInfo(msg='web:=true, but aav_hud is not built: no web page'))
+    elif arg('web').lower() == 'true':
         # The Orin's web page, as on the car (docs/designs/2026-11-27_web-screens.md): it
         # reads the simulated ESP32's lines straight from it, as it will the board's.
         actions.append(include(
