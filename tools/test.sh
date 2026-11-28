@@ -142,6 +142,8 @@ if command -v cargo >/dev/null; then
   (cd ros/sim/aav_simulator && cargo test -q --locked -p sim-core --features shared)
   section "ros/sim/aav_spine_sim: bench mode's car: the spine's real logic on a model car"
   (cd ros/sim/aav_spine_sim && cargo test -q --locked -p bench-car)
+  section "ros/sim/aav_spine_sim: the virtual car's ESP32 (the Rust firmware's logic on a laptop)"
+  (cd ros/sim/aav_spine_sim && cargo test -q --locked -p virtual-esp32)
   # The closed-loop runs (tests/closed_loop.rs) are the slowest Rust tests we have. Inside
   # `pixi run test` (AAV_COLCON_TEST_FOLLOWS=1), colcon test runs the whole crate again in
   # release, so they run once, there; alone, tools/test.sh runs them too (TODO 209).
@@ -223,7 +225,7 @@ if command -v cargo >/dev/null; then
   rust_style ros/localization/aav_ndt -p ndt-core
   rust_style ros/localization/aav_pose_check -p pose-check-core
   rust_style ros/sim/aav_simulator -p sim-core --features shared
-  rust_style ros/sim/aav_spine_sim -p bench-car
+  rust_style ros/sim/aav_spine_sim -p bench-car -p virtual-esp32
   rust_style ros/drivers/aav_mppi_lag -p mppi-lag --features shared
   rust_style ros/drivers/aav_mpc_lag -p mpc-lag
   rust_style ros/drivers/aav_costmap -p costmap

@@ -47,6 +47,11 @@ use report::{Reporter, Snapshot};
 
 /// The open loop's speed at full throttle (m/s): the board program's.
 pub const FULL_THROTTLE_SPEED: f32 = 3.0;
+/// Where the open loop starts, forward and in reverse (DAC codes): the board program's
+/// `THROTTLE_START_CODE` and `THROTTLE_START_REVERSE_CODE` (PR #52, measured on stands).
+pub const THROTTLE_START_CODE: u16 = 475;
+/// The same, in reverse.
+pub const THROTTLE_START_REVERSE_CODE: u16 = 525;
 /// The brake with nobody driving: the board program's (full on, as the 2025-26 C++).
 pub const IDLE_BRAKE: f32 = 1.0;
 /// The recording's length: the longest test (6 s) at 100 Hz, and room to spare.
@@ -196,6 +201,8 @@ impl VirtualEsp32 {
             } else {
                 SpeedFeedback::None {
                     full_throttle_speed: FULL_THROTTLE_SPEED,
+                    start_throttle: cal.throttle.fraction(THROTTLE_START_CODE),
+                    start_throttle_reverse: cal.throttle.fraction(THROTTLE_START_REVERSE_CODE),
                 }
             },
             idle_brake: IDLE_BRAKE,
