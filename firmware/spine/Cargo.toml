@@ -32,6 +32,8 @@ members = [
     "crates/status-lines",
     # The checks around the ESP32's firmware update over WiFi (wifi-update).
     "crates/app-update",
+    # The ESP32 page's bench: controls held to move, LIMP, a trace, the hardware tests.
+    "crates/bench-core",
 ]
 
 [workspace.package]

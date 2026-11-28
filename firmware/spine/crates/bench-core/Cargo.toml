@@ -1,0 +1,12 @@
+[package]
+name = "bench-core"
+description = "The ESP32 page's bench: simple controls held to move, LIMP, a trace in RAM and its step responses, and the hardware tests. Only the spine's own requests (spine-core's test mode, legacy-link's limp) go out."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# no_std, no allocator: the spine's own crates only.
+[dependencies]
+spine-core = { path = "../spine-core" }
+legacy-link = { path = "../legacy-link" }

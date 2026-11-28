@@ -7,7 +7,7 @@ cortex and the esp32."
 
 | | |
 |---|---|
-| State | **Steps 1 and 2 built** (27 Nov, on the virtual car): `aav_web`, aav_hud's `web-app` ([README](../../ros/hud/aav_hud/README.md#node-web-aav_web-the-orins-web-page-read-only)). Steps 3-6 not started |
+| State | **Steps 1 and 2 built** (27 Nov, on the virtual car): `aav_web`, aav_hud's `web-app` ([README](../../ros/hud/aav_hud/README.md#node-web-aav_web-the-orins-web-page-read-only)). Step 3 built (`bench-core`, logic only); steps 4-6 not started |
 | Replaces | nothing yet: the raylib hardware page and test bench **stay** beside it (Ben: "Maybe keep both for now") |
 | Not changed | the in-car HUD stays raylib on the Pi (CLAUDE.md, Screens) |
 | Open | W1-W5 at the bottom |
@@ -103,8 +103,8 @@ Rust), not a Python copy (W2).
 |---|---|---|
 | 1 | The Orin page, read only: **Car** and **ROS** tabs, on the virtual car | on the Mac, a stopped sensor turns red within 2 s. ✅ 27 Nov: built; ROS 65 of 65 live, 0 problems (the 2 s test not run) |
 | 2 | The **Hops** tab: the ESP32's stream + `/ego/actuator_cmd` + CORTEX's frames | a turn in Ravensim shows on all three graphs, with the delay. 🟡 27 Nov: the graphs and verdicts built (panel-core's); the delay between hops not yet shown; the mux hop NO DATA in Ravensim (TODO 286a) |
-| 3 | `bench-core`: the measurements (the trace buffer, step response) and the tests' sequences; laptop tests | `cargo test` |
-| 4 | The fake ESP32 runs `bench-core`; its page gets Controls, Measure, Tests | from the page: creep, turn, LIMP, a step response, in Ravensim |
+| 3 | `bench-core`: the measurements (the trace buffer, step response) and the tests' sequences; laptop tests | `cargo test`. ✅ 27 Nov: 20 tests; the buttons become spine-core's `TestRequest` (its hardware test mode) and legacy-link's `CalRequest::Limp`, so the safety rules stay the spine's |
+| 4 | The fake ESP32 runs `bench-core`; its page gets Controls, Measure, Tests | from the page: creep, turn, LIMP, a step response, in Ravensim. Found 27 Nov: today's fake (`sim_esp32`) is the 2025-26 C++ in Python, with no test mode; the fake that can run `bench-core` is the Rust spine (`spine-core` + `legacy-link`) on the bridge's frames: W2 |
 | 5 | The real ESP32: `wifi-control`, bench first, no car | the hardware lead says yes (W1) |
 | 6 | The Orin page's **Tests** tab (the software rungs) | W4 |
 

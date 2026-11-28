@@ -163,6 +163,7 @@ current): after adding, moving or removing a package, run
 | `ad5311` | The throttle DAC |
 | `adaptive-brake` | The adaptive brake |
 | `app-update` | The checks around a firmware update over WiFi (the ESP32's wifi-update) |
+| `bench-core` | The ESP32 page's bench |
 | `hd44780` | A character LCD with an HD44780 controller (16x2, 20x4), on six GPIO pins in 4-bit mode, write only |
 | `ibus` | The FlySky iBUS protocol from the RC receiver |
 | `jrk-g2` | Pololu Jrk G2 motor controller over I2C |
