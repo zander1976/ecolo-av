@@ -69,6 +69,7 @@ canvas{width:100%;height:140px;display:block}
 <section id="hops">
   <div class="hops" id="hoprow"></div>
   <div class="counts" id="counts"></div>
+  <div class="counts" id="delays"></div>
   <div id="graphs"></div>
   <p class="note">Left: what ROS asked, in its own units (ego white, the mux grey). Right: on the wire,
   the frame's -1 to 1 (what CORTEX wrote blue, what the ESP32 got red). The last 60 s.
@@ -123,6 +124,13 @@ function hops(s) {
     `uplink <b>${c.uplink_fresh == null ? "?" : c.uplink_fresh ? "fresh" : "stale"}</b>, ${n(c.uplink_frames)} frames, lost <b>${n(c.uplink_lost)}</b>`,
     `status lines lost <b>${c.lines_lost}</b>` + (c.restarted ? `, <b style="color:var(--red)">the board restarted</b>` : "")
   ].map(x => `<span>${x}</span>`).join("");
+  const dl = (name, d, why) => d ? `${name} <b>${d.median_ms.toFixed(1)} ms</b> (${d.low_ms.toFixed(1)} to ${d.high_ms.toFixed(1)}, ${d.count} paired)`
+                                 : `${name} <b>?</b> (${why})`;
+  $("delays").innerHTML = [
+    dl("ego to mux", s.delays.ego_to_mux, "no command paired by stamp"),
+    `mux to CORTEX <b>?</b> (no key to pair by)`,
+    dl("CORTEX to ESP32", s.delays.pi_to_esp32, "needs version 2 frames, paired by counter"),
+  ].map(x => `<span>${x}</span>`).join("") + `<span class="note">delays as this computer heard each hop, to 5 ms</span>`;
   const box = $("graphs");
   if (box.children.length !== s.graphs.length) {
     box.innerHTML = s.graphs.map(g => `<div class="card"><h2>${esc(g.channel)}

@@ -46,6 +46,11 @@ pub const RX_TOLERANCE: f64 = 0.01;
 pub const BRAKE_DEMAND: f64 = -0.05;
 /// What "follows" means between the mux and the frames: a correlation at least this.
 pub const FOLLOWS: f64 = 0.5;
+/// A mux speed at least this (m/s) asks the car to move.
+pub const MOVING: f64 = 0.05;
+/// The share of moving samples whose frame throttle is on, the same way, for "follows"
+/// when a speed loop shapes it.
+pub const AGREE: f64 = 0.8;
 
 /// One of the three graphs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -364,6 +369,45 @@ impl<T: Copy> Log<T> {
     }
 }
 
+/// How long a command took from one hop to the next, ms, as this computer heard both:
+/// the middle one, the least, the most, and how many were paired.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Delay {
+    /// The median.
+    pub median_ms: f64,
+    /// The least.
+    pub low_ms: f64,
+    /// The most.
+    pub high_ms: f64,
+    /// How many pairs.
+    pub count: usize,
+}
+
+impl Delay {
+    fn of(mut ms: Vec<f64>) -> Option<Self> {
+        if ms.is_empty() {
+            return None;
+        }
+        ms.sort_by(f64::total_cmp);
+        Some(Self {
+            median_ms: ms[ms.len() / 2],
+            low_ms: ms[0],
+            high_ms: ms[ms.len() - 1],
+            count: ms.len(),
+        })
+    }
+}
+
+/// The delays between hops that can be paired one command to one command.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Delays {
+    /// ego to the output mux, paired by the header's stamp.
+    pub ego_to_mux: Option<Delay>,
+    /// What the Pi wrote to what the ESP32 says it got, paired by counter and check
+    /// (version 2 frames and later; includes the ESP32's WiFi to this computer).
+    pub pi_to_esp32: Option<Delay>,
+}
+
 /// The graphs' data: everything heard in the last 60 s.
 #[derive(Debug, Clone, Default)]
 pub struct Graphs {
@@ -383,10 +427,18 @@ pub struct Graphs {
     restarts: Log<()>,
     last_seq: Option<u64>,
     lines_lost: u64,
+    /// The bridge flips the steering (its `steering_sign` -1): undone before comparing.
+    frame_inverted: bool,
     boot: Option<(String, u64)>,
 }
 
 impl Graphs {
+    /// The bridge's `steering_sign` (PanelConfig's `frame_steering_sign`): a frame's
+    /// steering is the mux's times this.
+    pub fn set_frame_steering_sign(&mut self, sign: f64) {
+        self.frame_inverted = sign < 0.0;
+    }
+
     /// Keeps ego's command.
     pub fn record_ego(&mut self, at: Instant, d: Drive) {
         self.ego.push(at, d);
@@ -528,6 +580,47 @@ impl Graphs {
             .filter_map(|t| Some((t.at, c.of_drive(&t.value)?)))
             .collect();
         self.with_gaps(raw)
+    }
+
+    /// The delays between hops over the window, where commands pair one to one. The mux
+    /// to the Pi has no key to pair by (the bridge writes on its own timer): none.
+    #[must_use]
+    pub fn delays(&self, now: Instant) -> Delays {
+        let from = Self::from(now);
+        let ego: HashMap<u64, Instant> = self
+            .ego
+            .since(from)
+            .filter(|t| t.value.stamp_ns != 0)
+            .map(|t| (t.value.stamp_ns, t.at))
+            .collect();
+        let ego_to_mux = self
+            .mux
+            .since(from)
+            .filter_map(|t| {
+                let sent = ego.get(&t.value.stamp_ns)?;
+                Some(t.at.checked_duration_since(*sent)?.as_secs_f64() * 1000.0)
+            })
+            .collect();
+        // A key two frames share can't say which arrived: left out, as the hop's verdict.
+        let mut written: HashMap<(u8, u8), Option<Instant>> = HashMap::new();
+        for t in self.pi.since(from).filter(|t| t.value.version >= 2) {
+            written
+                .entry((t.value.counter, t.value.check))
+                .and_modify(|seen| *seen = None)
+                .or_insert(Some(t.at));
+        }
+        let pi_to_esp32 = self
+            .rx
+            .since(from)
+            .filter_map(|t| {
+                let sent = (*written.get(&(t.value.counter, t.value.check))?)?;
+                Some(t.at.checked_duration_since(sent)?.as_secs_f64() * 1000.0)
+            })
+            .collect();
+        Delays {
+            ego_to_mux: Delay::of(ego_to_mux),
+            pi_to_esp32: Delay::of(pi_to_esp32),
+        }
     }
 
     /// The IMU's turn rate over the window, deg/s.
@@ -700,12 +793,24 @@ impl Graphs {
             } else if mux.is_empty() {
                 Verdict::NotTested("the mux not heard: nothing to compare".into())
             } else {
-                // Each frame against the mux's latest command when it was written.
+                // Each frame against the mux's latest command when it was written; and
+                // whether that frame brakes (a speed loop slowing the car).
+                let braking: Vec<bool> = frames
+                    .iter()
+                    .filter(|f| mux.iter().rev().any(|m| m.at <= f.at))
+                    .map(|f| f.value.accel < BRAKE_DEMAND)
+                    .collect();
                 let pairs: Vec<(f64, f64)> = frames
                     .iter()
                     .filter_map(|f| {
                         let up = mux.iter().rev().find(|m| m.at <= f.at)?;
-                        Some((c.of_drive(&up.value)?, f.value.value(c)))
+                        let wrote = f.value.value(c);
+                        let undone = if c == Channel::Steering && self.frame_inverted {
+                            -wrote
+                        } else {
+                            wrote
+                        };
+                        Some((c.of_drive(&up.value)?, undone))
                     })
                     .collect();
                 let (up, down): (Vec<f64>, Vec<f64>) = pairs.iter().copied().unzip();
@@ -717,12 +822,7 @@ impl Graphs {
                         range(&up)
                     ))
                 } else {
-                    let r = correlation(&pairs);
-                    if r < FOLLOWS {
-                        Verdict::Different(format!("doesn't follow the mux (r = {r:.2})"))
-                    } else {
-                        Verdict::Ok(format!("follows the mux (r = {r:.2})"))
-                    }
+                    follows(c, &pairs, &braking, self.frame_inverted)
                 }
             };
             (c, v)
@@ -898,6 +998,57 @@ fn range(values: &[f64]) -> f64 {
 }
 
 /// Pearson's correlation of the pairs; 0 when either side is flat.
+/// Whether what the Pi wrote follows the mux, one channel: (the mux's, the frame's) pairs,
+/// the frame's steering with the bridge's sign already undone (`inverted`: it was).
+///
+/// - Steering: `r` at least [`FOLLOWS`]. A wrong sign is DIFFERENT: the bridge's
+///   `steering_sign` and PanelConfig's `frame_steering_sign` disagree with the wiring.
+/// - Throttle: `r` at least [`FOLLOWS`]; or, when the bridge's speed loop shapes it (its
+///   `pi` mode writes the loop's throttle, not the speed), on whenever the mux asks to
+///   move, the same way, or braking (`braking`: the frame's accel, one per pair), in at
+///   least [`AGREE`] of the samples (27 Nov: r 0.32 on the virtual car, a working loop).
+fn follows(c: Channel, pairs: &[(f64, f64)], braking: &[bool], inverted: bool) -> Verdict {
+    let r = correlation(pairs);
+    match c {
+        Channel::Steering if r >= FOLLOWS && inverted => Verdict::Ok(format!(
+            "follows the mux (r = {r:.2}, the bridge's steering_sign -1 undone)"
+        )),
+        Channel::Throttle | Channel::Steering if r >= FOLLOWS => {
+            Verdict::Ok(format!("follows the mux (r = {r:.2})"))
+        }
+        Channel::Throttle => {
+            // A sample asking to move agrees when its frame drives the same way, or brakes
+            // (the loop slowing the car down to what is asked).
+            let moving: Vec<(f64, f64, bool)> = pairs
+                .iter()
+                .zip(braking.iter().copied().chain(core::iter::repeat(false)))
+                .filter(|((up, _), _)| up.abs() >= MOVING)
+                .map(|(&(up, down), b)| (up, down, b))
+                .collect();
+            let agree = moving
+                .iter()
+                .filter(|(up, down, brakes)| {
+                    *brakes || (down.abs() > 0.0 && up.signum() == down.signum())
+                })
+                .count();
+            if !moving.is_empty() && agree as f64 >= AGREE * moving.len() as f64 {
+                Verdict::Ok(format!(
+                    "on with the mux, the same way, {agree} of {} samples (r = {r:.2}: \
+                     the bridge's speed loop shapes it)",
+                    moving.len()
+                ))
+            } else {
+                Verdict::Different(format!(
+                    "doesn't follow the mux (r = {r:.2}; on the same way in {agree} of {} \
+                     samples asking to move)",
+                    moving.len()
+                ))
+            }
+        }
+        _ => Verdict::Different(format!("doesn't follow the mux (r = {r:.2})")),
+    }
+}
+
 fn correlation(pairs: &[(f64, f64)]) -> f64 {
     let n = pairs.len() as f64;
     if pairs.len() < 2 {
@@ -1378,5 +1529,78 @@ mod tests {
             .channels
             .iter()
             .all(|(_, v)| v.why().contains("version 1")));
+    }
+
+    #[test]
+    fn delays_pair_one_command_to_one() {
+        let t = Instant::now();
+        let mut g = Graphs::default();
+        for i in 0..10u32 {
+            let at = ms(t, u64::from(i) * 100);
+            let d = drive(u64::from(i) + 1, 0.3, 0.0);
+            g.record_ego(at, d);
+            g.record_mux(ms(at, 2), d);
+            let f = frame(i as u8, 0.1 * f64::from(i), 0.1, 0.0, i);
+            g.record_pi(ms(at, 5), f);
+            g.record_esp32(ms(at, 25), &status(u64::from(i), Some(rx_of(&f)), i, 0));
+        }
+        let d = g.delays(ms(t, 1000));
+        let mux = d.ego_to_mux.expect("ego to mux");
+        assert_eq!(mux.count, 10);
+        assert!((mux.median_ms - 2.0).abs() < 1e-6);
+        let esp = d.pi_to_esp32.expect("pi to esp32");
+        assert!((esp.median_ms - 20.0).abs() < 1e-6 && esp.count == 10);
+        // Version 1 frames can't be paired: none.
+        let mut g1 = Graphs::default();
+        let mut f = frame(0, 0.1, 0.1, 0.0, 1);
+        f.version = 1;
+        g1.record_pi(t, f);
+        g1.record_esp32(ms(t, 20), &status(0, Some(rx_of(&f)), 1, 0));
+        assert_eq!(g1.delays(ms(t, 100)).pi_to_esp32, None);
+    }
+
+    #[test]
+    fn the_bridges_sign_is_undone_and_a_shaped_throttle_still_follows() {
+        // A frame steering the other way, with the bridge's sign known: follows.
+        let t = Instant::now();
+        let mut g = Graphs::default();
+        g.set_frame_steering_sign(-1.0);
+        let mut now = t;
+        for i in 0..40u32 {
+            now = ms(t, u64::from(i) * 100);
+            let s = (f64::from(i) / 5.0).sin() * 0.3;
+            g.record_mux(now, drive(u64::from(i) + 1, 0.3, s));
+            g.record_pi(now, frame(i as u8, -s / 0.5, 0.1, 0.0, i));
+        }
+        let pi = &g.hops(now, STALE)[2];
+        let steering = pi
+            .channels
+            .iter()
+            .find(|(c, _)| *c == Channel::Steering)
+            .expect("ch");
+        assert_eq!(steering.1.word(), "OK", "{pi:?}");
+        assert!(steering.1.why().contains("undone"));
+        // A PI loop: throttle high at the start, then settling, while the speed asked ramps.
+        let p: Vec<(f64, f64)> = (0..20)
+            .map(|i| {
+                let up = 0.05 + 0.05 * f64::from(i);
+                (
+                    up,
+                    if i < 5 {
+                        0.9
+                    } else {
+                        0.4 + 0.01 * f64::from(i % 3)
+                    },
+                )
+            })
+            .collect();
+        assert!(correlation(&p) < FOLLOWS);
+        assert_eq!(follows(Channel::Throttle, &p, &[], false).word(), "OK");
+        // Asked forward, written backward: different.
+        let wrong: Vec<(f64, f64)> = (0..20).map(|i| (0.1 + 0.01 * f64::from(i), -0.3)).collect();
+        assert_eq!(
+            follows(Channel::Throttle, &wrong, &[], false).word(),
+            "DIFFERENT"
+        );
     }
 }

@@ -166,11 +166,11 @@ relative to where it starts; key M), `ndt_map_cell` (1.0 m), `voxels_cube_size` 
 | sub | `steering_raw_topic`: `/vehicle/steering_actuator/raw` (the calibration page: counts, the firmware's state) | aav_interfaces/ActuatorRaw |
 | sub | `calibration_line_topic`: `/vehicle/steering_actuator/calibration` (the bridge's line) | std_msgs/String |
 | pub | `steering_calibration_topic`: `/drivers/buttons/steering_calibration` (the calibration page's limp or jog, 10 Hz while it asks and the window draws; END: MODE_OFF 0.5 s) | aav_interfaces/SteeringCalibration |
-| sub | `ego_command_topic`: `/ego/actuator_cmd`; `car_command_topic`: `/control/car/actuator_cmd` (the GRAPHS page's first hops, paired by stamp) | ackermann_msgs/AckermannDriveStamped |
+| sub | `ego_command_topic`: `/ego/actuator_cmd`; `car_command_topic`: `/control/car/actuator_cmd`, or in a simulator `sim_command_topic`: `/control/sim/actuator_cmd` (the output mux sends one or the other; the GRAPHS page's first hops, paired by stamp) | ackermann_msgs/AckermannDriveStamped |
 | sub | `link_frame_topic`: `/control/car/link_frame` (what the Pi wrote); `uplink_health_topic`: `/vehicle/esp32/uplink_health` | aav_interfaces/LinkFrame, UplinkHealth |
 | reads | `esp32_url` (empty: off), or `--esp32 ws://HOST:PORT/`: the ESP32's JSON status lines (`firmware/status/`) over its WebSocket; sends only the opening, a pong or a close | WebSocket text |
 
-Other parameters: `stale_after` (1.0 s), `speed_step` (0.1 m/s), `steer_step` (0.05 rad),
+Other parameters: `frame_steering_sign` (-1.0: the UART bridge's `steering_sign`, undone before the GRAPHS page compares; a test keeps it equal to `legacy.yaml`), `stale_after` (1.0 s), `speed_step` (0.1 m/s), `steer_step` (0.05 rad),
 `creep` (0.1 m/s, CENTRE), `sim_cap` (1.0 m/s), `stands_cap` (0.3 m/s), `theme` (`initial_d`);
 the calibration page's `jog_step` (25 counts), `jog_min`, `jog_max` (400, 3500),
 `sweep_rate` (100 counts/s), `sweep_max_error` (150 counts), `sweep_stall` (0.6 s);
@@ -195,7 +195,7 @@ verdict, the counts that prove the wire) and **ROS** (`--profile`'s topics again
 contract: LIVE, MISSING, WRONG TYPE, QUIET, NOT IN CONTRACT; the problems first).
 `aav_web --expected virtual` prints the topics a profile needs live. Seen on the virtual
 car, 27 Nov: CAR all OK, ROS 65 of 65 live, 0 problems; HOPS: ego OK while driving, the
-mux NO DATA (TODO 286a), the ESP32 NOT TESTED (version 1 frames have no counter).
+the ESP32 NOT TESTED (version 1 frames have no counter); the mux hop reads the simulator's command too since 28 Nov (TODO 286a).
 
 ### Launch and commands
 

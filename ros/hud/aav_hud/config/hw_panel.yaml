@@ -33,6 +33,8 @@ hw_panel:
     # --- the GRAPHS page (Tab; docs/hud.md, "The graphs page"): read only ---
     ego_command_topic: /ego/actuator_cmd          # ackermann_msgs/msg/AckermannDriveStamped: ego's command (the first hop)
     car_command_topic: /control/car/actuator_cmd  # ackermann_msgs/msg/AckermannDriveStamped: the output mux's, for the real car (paired with ego's by stamp)
+    sim_command_topic: /control/sim/actuator_cmd  # ackermann_msgs/msg/AckermannDriveStamped: the output mux's, in a simulator (it sends this or the car's, never both)
+    frame_steering_sign: -1.0  # the UART bridge's steering_sign (aav_legacy legacy.yaml): a frame's steering is the mux's times this; the GRAPHS page undoes it. A test keeps the two equal
     link_frame_topic: /control/car/link_frame     # aav_interfaces/msg/LinkFrame: a sample of the frames the Pi wrote to the ESP32
     uplink_health_topic: /vehicle/esp32/uplink_health  # aav_interfaces/msg/UplinkHealth: how the ESP32's uplink frames arrive
     esp32_url: ""          # the ESP32's WebSocket for its JSON status lines (firmware/status), such as ws://192.168.4.1:81/; empty: not read. Read only; --esp32 URL sets it too

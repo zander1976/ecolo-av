@@ -192,7 +192,7 @@ fn serve(addr: SocketAddr, latest: Latest, stop: Arc<AtomicBool>) -> Result<()> 
 #[cfg(feature = "ros")]
 mod feed {
     //! The news, on a thread of its own: ROS (listen-only) and the ESP32's lines into the
-    //! panel's state, then a snapshot five times a second.
+    //! panel's state every 5 ms, then a snapshot five times a second.
 
     use std::{
         sync::{
@@ -213,6 +213,10 @@ mod feed {
         Latest, Options,
     };
 
+    /// How often the news is taken: an update's time is when it was taken, so this is the
+    /// delays' resolution.
+    const DRAIN: Duration = Duration::from_millis(5);
+    /// How often the page's snapshot is made.
     const EVERY: Duration = Duration::from_millis(200);
 
     pub fn start(
@@ -241,7 +245,11 @@ mod feed {
         };
         let profile = opts.profile.clone();
         let mut state = PanelState::new(config.stale_after());
+        state
+            .graphs
+            .set_frame_steering_sign(config.frame_steering_sign);
         Ok(thread::Builder::new().name("feed".into()).spawn(move || {
+            let mut next_snapshot = Instant::now();
             while !stop.load(Ordering::SeqCst) && !ros.has_stopped() {
                 let now = Instant::now();
                 for update in ros.drain(now) {
@@ -252,23 +260,26 @@ mod feed {
                         state.apply(update, now);
                     }
                 }
-                let seen: Option<Vec<Seen>> = ros.topics().map(|t| {
-                    t.into_iter()
-                        .map(|t| Seen {
-                            name: t.name,
-                            types: t.types,
-                            publishers: t.publishers,
-                        })
-                        .collect()
-                });
-                let ros_tab = Ros::judge(&contract, &profile, seen.as_deref());
-                let snap = snapshot::build(&state, ros_tab, now);
-                if let Ok(json) = serde_json::to_string(&snap) {
-                    if let Ok(mut l) = latest.write() {
-                        *l = Arc::new(json);
+                if now >= next_snapshot {
+                    next_snapshot = now + EVERY;
+                    let seen: Option<Vec<Seen>> = ros.topics().map(|t| {
+                        t.into_iter()
+                            .map(|t| Seen {
+                                name: t.name,
+                                types: t.types,
+                                publishers: t.publishers,
+                            })
+                            .collect()
+                    });
+                    let ros_tab = Ros::judge(&contract, &profile, seen.as_deref());
+                    let snap = snapshot::build(&state, ros_tab, now);
+                    if let Ok(json) = serde_json::to_string(&snap) {
+                        if let Ok(mut l) = latest.write() {
+                            *l = Arc::new(json);
+                        }
                     }
                 }
-                thread::sleep(EVERY);
+                thread::sleep(DRAIN);
             }
             // Ctrl-C (the node's handler) or the node failed: the server stops too.
             stop.store(true, Ordering::SeqCst);

@@ -31,6 +31,8 @@ pub struct Snapshot {
     pub graphs: Vec<Graph>,
     /// The counts that prove the wire.
     pub counts: Counts,
+    /// The delays between hops, where commands pair one to one.
+    pub delays: Delays,
     /// The ESP32's WebSocket: off, connecting, connected or lost.
     pub esp32: String,
     /// The ROS tab.
@@ -80,6 +82,28 @@ pub struct Graph {
     pub esp32: Vec<(f64, f64, bool)>,
     /// "received", "uplink output" or none.
     pub esp32_from: Option<&'static str>,
+}
+
+/// A delay between two hops, ms, as this computer heard both.
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct Delay {
+    /// The median.
+    pub median_ms: f64,
+    /// The least.
+    pub low_ms: f64,
+    /// The most.
+    pub high_ms: f64,
+    /// How many commands were paired.
+    pub count: usize,
+}
+
+/// The delays the page shows.
+#[derive(Debug, Clone, Copy, Default, Serialize)]
+pub struct Delays {
+    /// ego to the output mux (by stamp).
+    pub ego_to_mux: Option<Delay>,
+    /// What CORTEX wrote to what the ESP32 got (by counter and check; version 2 frames).
+    pub pi_to_esp32: Option<Delay>,
 }
 
 /// The status strip's counts.
@@ -228,6 +252,19 @@ pub fn build(state: &PanelState, ros: Ros, now: Instant) -> Snapshot {
         lines_lost: c.lines_lost,
         restarted: c.restarted,
     };
+    let d = g.delays(now);
+    let delay = |d: Option<panel_core::graphs::Delay>| {
+        d.map(|d| Delay {
+            median_ms: d.median_ms,
+            low_ms: d.low_ms,
+            high_ms: d.high_ms,
+            count: d.count,
+        })
+    };
+    let delays = Delays {
+        ego_to_mux: delay(d.ego_to_mux),
+        pi_to_esp32: delay(d.pi_to_esp32),
+    };
     let esp32 = match state.esp32.as_ref().map(|e| &e.link) {
         None => "off".to_owned(),
         Some(Esp32Link::Connecting(to)) => format!("connecting to {to}"),
@@ -241,6 +278,7 @@ pub fn build(state: &PanelState, ros: Ros, now: Instant) -> Snapshot {
         hops,
         graphs,
         counts,
+        delays,
         esp32,
         ros,
     }
@@ -290,6 +328,7 @@ mod tests {
         assert_eq!(s.esp32, "off");
         let json = serde_json::to_string(&s).expect("serialises");
         assert!(json.contains("\"graphs\""));
+        assert!(json.contains("\"delays\":{\"ego_to_mux\":null,\"pi_to_esp32\":null}"));
     }
 
     #[test]

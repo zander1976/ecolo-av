@@ -113,8 +113,12 @@ pub struct Panel {
 
 impl Panel {
     pub fn new(config: &PanelConfig, vehicle: &Vehicle, stands: bool, host: Host) -> Self {
+        let mut state = PanelState::new(config.stale_after());
+        state
+            .graphs
+            .set_frame_steering_sign(config.frame_steering_sign);
         Self {
-            state: PanelState::new(config.stale_after()),
+            state,
             buttons: Buttons::new(Steps {
                 speed: config.speed_step,
                 steer: config.steer_step,

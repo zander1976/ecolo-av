@@ -68,6 +68,9 @@ pub enum Topic {
     EgoCommand,
     /// Read (the GRAPHS page): the output mux's command for the real car.
     CarCommand,
+    /// Read (the GRAPHS page): the output mux's command in a simulator (the mux sends one
+    /// or the other, never both).
+    SimCommand,
     /// Read (the GRAPHS page): a sample of the frames the Pi wrote to the ESP32.
     LinkFrame,
     /// Read (the GRAPHS page): how the ESP32's uplink frames arrive.
@@ -76,7 +79,7 @@ pub enum Topic {
 
 impl Topic {
     /// Every topic.
-    pub const ALL: [Topic; 25] = [
+    pub const ALL: [Topic; 26] = [
         Topic::ScreenAlive,
         Topic::Buttons,
         Topic::Estop,
@@ -100,6 +103,7 @@ impl Topic {
         Topic::CalibrationLine,
         Topic::EgoCommand,
         Topic::CarCommand,
+        Topic::SimCommand,
         Topic::LinkFrame,
         Topic::UplinkHealth,
     ];
@@ -131,6 +135,7 @@ impl Topic {
             Self::CalibrationLine => "calibration_line_topic",
             Self::EgoCommand => "ego_command_topic",
             Self::CarCommand => "car_command_topic",
+            Self::SimCommand => "sim_command_topic",
             Self::LinkFrame => "link_frame_topic",
             Self::UplinkHealth => "uplink_health_topic",
         }
@@ -274,8 +279,14 @@ pub struct PanelConfig {
     pub ego_command_topic: String,
     /// [`Topic::CarCommand`]'s topic.
     pub car_command_topic: String,
+    /// [`Topic::SimCommand`]'s topic.
+    pub sim_command_topic: String,
     /// [`Topic::LinkFrame`]'s topic.
     pub link_frame_topic: String,
+    /// The UART bridge's `steering_sign` (+1 or -1): a frame's steering is the mux's times
+    /// this. The GRAPHS page undoes it before comparing (a test keeps it equal to
+    /// aav_legacy's legacy.yaml).
+    pub frame_steering_sign: f64,
     /// [`Topic::UplinkHealth`]'s topic.
     pub uplink_health_topic: String,
     /// The ESP32's WebSocket for its status lines (`ws://...`); empty: not read. Read only.
@@ -401,6 +412,12 @@ impl PanelConfig {
                 max: self.jog_max,
             });
         }
+        if self.frame_steering_sign.abs() != 1.0 {
+            return Err(ConfigError::Number(
+                "frame_steering_sign (+1 or -1)",
+                self.frame_steering_sign,
+            ));
+        }
         self.esp32()?;
         Ok(())
     }
@@ -432,6 +449,7 @@ impl PanelConfig {
             Topic::CalibrationLine => &self.calibration_line_topic,
             Topic::EgoCommand => &self.ego_command_topic,
             Topic::CarCommand => &self.car_command_topic,
+            Topic::SimCommand => &self.sim_command_topic,
             Topic::LinkFrame => &self.link_frame_topic,
             Topic::UplinkHealth => &self.uplink_health_topic,
         }
@@ -463,6 +481,7 @@ impl PanelConfig {
             Topic::CalibrationLine => &mut self.calibration_line_topic,
             Topic::EgoCommand => &mut self.ego_command_topic,
             Topic::CarCommand => &mut self.car_command_topic,
+            Topic::SimCommand => &mut self.sim_command_topic,
             Topic::LinkFrame => &mut self.link_frame_topic,
             Topic::UplinkHealth => &mut self.uplink_health_topic,
         };
@@ -657,5 +676,18 @@ mod tests {
             PanelConfig::from_yaml(&bad),
             Err(ConfigError::Caps { .. })
         ));
+    }
+
+    /// The GRAPHS page undoes the bridge's steering sign: the two files must agree.
+    #[test]
+    fn the_frame_steering_sign_is_the_bridges() {
+        let legacy = include_str!("../../../../../can_bridge/aav_legacy/config/legacy.yaml");
+        let bridge: f64 = legacy
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("steering_sign:"))
+            .and_then(|v| v.split('#').next())
+            .and_then(|v| v.trim().parse().ok())
+            .expect("legacy.yaml has steering_sign");
+        assert_eq!(PanelConfig::default().frame_steering_sign, bridge);
     }
 }

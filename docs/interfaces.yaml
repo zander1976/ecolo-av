@@ -309,7 +309,7 @@ topics:
   /control/sim/actuator_cmd:
     type: ackermann_msgs/msg/AckermannDriveStamped
     pub: [output_mux]
-    sub: [sim_adapter, spine_bridge, legacy_uart_bridge]
+    sub: [sim_adapter, spine_bridge, legacy_uart_bridge, hw_panel, web]
     live: [sim]
     note: Ravensim's commands, from output_mux target:=sim, while every source is SIM. Exactly one backend reads it - sim_adapter, or in the spine profile (spine:=true) spine_bridge with source sim, or with today's car in the loop (esp32:=true) legacy_uart_bridge, remapped from /control/car/actuator_cmd, with source sim.
   /control/sim/heartbeat:

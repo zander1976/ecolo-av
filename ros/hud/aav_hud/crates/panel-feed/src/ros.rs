@@ -392,6 +392,12 @@ fn spin(
         let tx = tx.clone();
         move |m: AckermannDriveStamped| send(&tx, Update::CarCommand(drive(&m)))
     })?;
+    // In a simulator the output mux sends the same command here instead (it sends one or
+    // the other): the GRAPHS page's mux hop, there too (TODO 286a).
+    let _sim = node.create_subscription(topic(Topic::SimCommand).as_str().sensor_data_qos(), {
+        let tx = tx.clone();
+        move |m: AckermannDriveStamped| send(&tx, Update::CarCommand(drive(&m)))
+    })?;
     let _link = node.create_subscription(topic(Topic::LinkFrame).as_str().sensor_data_qos(), {
         let tx = tx.clone();
         move |m: LinkFrame| {
