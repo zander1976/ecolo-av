@@ -110,12 +110,29 @@ Rust), not a Python copy (W2).
 
 The raylib hardware page and test bench stay until the HTML ones have been used for a while (W3).
 
+### Step 4's plan (27 Nov)
+
+Today's virtual ESP32 (`sim_esp32`) is the 2025-26 C++ in Python: it has no test mode, so
+it can't run `bench-core`. The one that can is the Rust firmware's own logic on a laptop.
+
+| Part | From |
+|---|---|
+| the bridge's frames in (local TCP, as `sim_esp32` today) | `legacy-link`'s parser, versions 1-4 |
+| the spine | `spine-core` (its test mode) and `legacy-link`'s `SteerCal` (LIMP) |
+| the page's buttons and tests | `bench-core` |
+| the status lines and the page | `status-lines`; the board's `page.html` plus the new tabs |
+| the outputs to Ravensim | `/vehicle/sim/spine_outputs`, as `spine_sim` sends them |
+
+A new node beside `spine_sim` in `aav_spine_sim` (Rust), `esp32:=rust` to choose it; the
+C++ stand-in stays the default until the new one matches it on `pixi run check virtual`
+and the ladder's rung 1.
+
 ## 6. Open questions
 
 | # | Question | My pick |
 |---|---|---|
 | W1 | Writes on the real ESP32's page (Controls, Tests): flash `wifi-control` on the car? | the hardware lead's call; bench only until they say |
-| W2 | The fake ESP32 runs `bench-core`: a small Rust program beside Ravensim, or Python calling it (PyO3)? | a small Rust program (Rust first) |
+| W2 | The fake ESP32 runs `bench-core`: a small Rust program beside Ravensim, or Python calling it (PyO3)? | a small Rust program (Rust first): the plan above |
 | W3 | When do the raylib hardware page and test bench go? | after a car day on the HTML ones |
 | W4 | The ladder's software rungs: on the Orin page, or a laptop page? | the Orin page, run only on SIM (the ladder already never moves the real car) |
 | W5 | Does the Orin page reach the ESP32 over WiFi on the car (the ESP32 joins the car's WiFi)? | yes; if WiFi delays the tick, CORTEX's uplink only |
