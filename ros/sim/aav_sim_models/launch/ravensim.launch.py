@@ -6,7 +6,8 @@ Ravensim as the car: the world, the car, its sensors, the adapter and the camera
       [radar:=true] [cameras:=true] [chase_camera:=true] [camera_lockstep:=auto]
       [actuator_model:=true] [actuators:=] [payload:=0] [adaptive_brake:=false]
       [faults:=false] [spine:=false] [arm:=true] [rc_pad:=false] [rc_pad_mode:=high]
-      [esp32:=false] [esp32_loop:=pi] [esp32_impl:=cpp|rust] [bridge:=rust|python]
+      [esp32:=false] [esp32_loop:=pi] [esp32_impl:=cpp|rust] [esp32_status_port:=8766]
+      [bridge:=rust|python]
       [legacy_impl:=rust|python]
 
 Ravensim is our own simulator (aav_simulator, Rust; docs/own-simulator.md). It reads the
@@ -179,15 +180,20 @@ def esp32_in_the_loop(context, car, sim_time):
     model = {f'speed_loop.{k}': float(car['actuators'][k])
              for k in ('max_accel', 'max_brake', 'drag')}
     impl = LaunchConfiguration('esp32_impl').perform(context)
+    # Its page and /ws: 8766, as the board's stand-in always was; another for a second run
+    # on one computer.
+    status_port = int(LaunchConfiguration('esp32_status_port').perform(context))
     if impl == 'rust':
         # The Rust firmware's logic (aav_spine_sim): the same node name, port, topic and
         # page. The frames the bridge sends (1 here, below), and Ravensim's measurements.
         # One dict (a Rust node's launch values in one source: docs/languages.md).
         esp32 = Node(package='aav_spine_sim', executable='virtual_esp32', name='sim_esp32',
-                     parameters=[{'port': port, 'frame_version': 1, **sim_time}])
+                     parameters=[{'port': port, 'status_port': status_port,
+                                  'frame_version': 1, **sim_time}])
     else:
         esp32 = Node(package='aav_sim_models', executable='sim_esp32', name='sim_esp32',
-                     parameters=[{'port': port}, steering, sim_time])
+                     parameters=[{'port': port, 'status_port': status_port}, steering,
+                                 sim_time])
     return [
         esp32,
         # One dict, legacy.yaml's values first: a parameter file's node-specific values
@@ -460,6 +466,10 @@ def generate_launch_description():
                                           "(sim_esp32, the 2025-26 C++ firmware's logic in "
                                           "Python) or rust (virtual_esp32, the Rust firmware's "
                                           'own, with the bench on its page)'),
+        DeclareLaunchArgument('esp32_status_port', default_value='8766',
+                              description="with esp32:=true: the ESP32 stand-in's page and "
+                                          '/ws on 127.0.0.1 (0: off); another for a second '
+                                          'run on this computer'),
         DeclareLaunchArgument('esp32_loop', default_value='pi',
                               description="with esp32:=true: the bridge's speed_loop.mode, "
                                           'pi or open'),

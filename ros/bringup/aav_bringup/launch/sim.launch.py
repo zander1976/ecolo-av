@@ -25,7 +25,8 @@ The whole stack in a simulator: same nodes and configs as the car, simulated har
       [plan_around:=true] [things:=false]
       [watchdog:=true] [geofence:=true] [geofence_radius:=]
       [watch_hud:=false] [faults:=false] [spine:=false] [arm:=true]
-      [esp32:=false] [esp32_loop:=pi] [esp32_impl:=cpp] [legacy_impl:=rust]
+      [esp32:=false] [esp32_loop:=pi] [esp32_impl:=cpp] [esp32_status_port:=8766]
+      [legacy_impl:=rust]
       [bridge:=rust|python]
       [ghost:=false] [simulator:=ravensim] [camera_lockstep:=auto] [graphics:=auto]
   pixi run sim                                     the virtual car: setup:=car (below)
@@ -708,7 +709,7 @@ def launch_setup(context):
                 arm_when_open_impl=vehicle.check_arm_when_open_impl(
                     arg('arm_when_open_impl')),
                 esp32=arg('esp32'), esp32_loop=arg('esp32_loop'),
-                esp32_impl=arg('esp32_impl'),
+                esp32_impl=arg('esp32_impl'), esp32_status_port=arg('esp32_status_port'),
                 legacy_impl=vehicle.check_legacy_impl(arg('legacy_impl')),
                 camera_lockstep=arg('camera_lockstep'), graphics=arg('graphics')),
         include(context, 'aav_command_mux', 'mux.launch.py', use_sim_time='true',
@@ -949,7 +950,8 @@ def launch_setup(context):
         actions.append(include(
             context, 'aav_hud', 'web.launch.py', use_sim_time='true',
             profile='virtual' if setup.strip().lower() == setups.CAR else 'sim',
-            esp32=('ws://127.0.0.1:8766/ws' if arg('esp32').lower() == 'true' else '')))
+            esp32=(f"ws://127.0.0.1:{arg('esp32_status_port')}/ws"
+                   if arg('esp32').lower() == 'true' else '')))
     if flag['teleop']:
         actions.append(include(context, 'aav_teleop', 'teleop.launch.py', use_sim_time='true'))
     if flag['perception']:
@@ -1175,6 +1177,10 @@ def generate_launch_description():
                                           "(sim_esp32, the 2025-26 C++ firmware's logic in "
                                           "Python) or rust (virtual_esp32, the Rust firmware's "
                                           'own, with Controls, Measure and Tests on its page)'),
+        DeclareLaunchArgument('esp32_status_port', default_value='8766',
+                              description="with esp32:=true: the ESP32 stand-in's page and "
+                                          '/ws on 127.0.0.1, which the web page reads; another '
+                                          'for a second run on this computer'),
         DeclareLaunchArgument('esp32_loop', default_value='pi',
                               description="with esp32:=true: the bridge's speed_loop.mode, "
                                           'pi or open'),

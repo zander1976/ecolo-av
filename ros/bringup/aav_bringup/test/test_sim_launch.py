@@ -559,9 +559,13 @@ def test_esp32_impl_picks_the_stand_in_on_the_same_port_and_name():
                                                                   'virtual_esp32')
     for esp32 in (cpp, rust):
         assert parameters(esp32)['port'] == port
+        assert parameters(esp32)['status_port'] == 8766
         assert parameters(esp32)['use_sim_time'] is True
     # The bridge sends version 1 frames: the Rust one reads the same.
     assert parameters(rust)['frame_version'] == 1
+    other = node(started(RAVENSIM, esp32='true', esp32_impl='rust', esp32_status_port='8796'),
+                 'sim_esp32')
+    assert parameters(other)['status_port'] == 8796
     with pytest.raises(ValueError, match='esp32_impl'):
         started(RAVENSIM, esp32='true', esp32_impl='python')
 

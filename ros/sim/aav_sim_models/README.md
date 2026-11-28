@@ -59,7 +59,7 @@ under `tools/software_gl.sh`), `graphics` (auto, simple, pretty; auto = pretty o
 `payload` (kg aboard), `adaptive_brake`, `lag_scale`, `on_stands` (the car starts on stands),
 `speed_wheels` (rear, or front as today's car), `free_wheel_mass` (20 kg, a guess), `faults`, `spine`, `arm`, `bridge`
 (rust or python), `rc_pad` (with `spine`: an RC receiver on the spine and a PS4 gamepad as
-the FS-i6X, `aav_spine_sim`'s `rc_pad`), `rc_pad_mode` (high or low), `esp32`, `esp32_loop` (pi or open), `esp32_impl` (cpp or rust), `noise_seed`, `wheel_noise`,
+the FS-i6X, `aav_spine_sim`'s `rc_pad`), `rc_pad_mode` (high or low), `esp32`, `esp32_loop` (pi or open), `esp32_impl` (cpp or rust), `esp32_status_port` (8766), `noise_seed`, `wheel_noise`,
 `wheel_slip`, `clock_hz`.
 
 ### Nodes
