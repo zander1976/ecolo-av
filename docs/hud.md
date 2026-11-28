@@ -867,7 +867,7 @@ until step 5 makes its name an alias.
 | the sensor panel (key L) | SENSORS, WHERE AM I, PLAN |
 | each localizer's car in 3D and from above; AMCL's particles | key W; key A |
 | NDT's score, the health checks, the costmap cubes' road fit | WHERE AM I; WHAT IT SEES |
-| the costmap's cubes, the ground hidden, NDT's map, keys 1-4 | there already (V, G, N and M, SWAP) |
+| the costmap's cubes, the ground hidden, NDT's map, key 1 (keys 1-4 until 26 Nov) | there already (V, G, N and M, SWAP) |
 | the lidar's own cubes, kept and fading | not ported: the world view draws the car's cubes, never the raw cloud (Ben, 5 Nov) |
 | NDT's match as ellipses | not ported yet: its share on the map is a row |
 
@@ -907,8 +907,8 @@ The 3D view, in both layouts:
 | Panel, NDT: TRACKING / WAITING / LOST, score per point, ms per match; or "no NDT map at ...: make it with pixi run ndt-map drive" | `/localization/ndt/status` | - |
 | Keys, bottom left: each key and its layer's state (key H hides them) | - | - |
 
-It publishes nothing. Its one call: keys 1-4 ask aav_track's parameter service for
-another tracker, in the simulator only (the design's D3: never an actuator).
+It publishes nothing. Its one call: key 1 asks aav_track's parameter service for
+MPC (keys 2-4 did Stanley, LQR and MPC until 26 Nov), in the simulator only (the design's D3: never an actuator).
 
 ### How the cubes are placed
 
@@ -939,7 +939,7 @@ cloud (stamp t) --/tf_static--> base_link --EKF local's pose AT t--> odom --> 20
 | H | hide or show the key legend |
 | C | CHASE (behind the car) / FOLLOW (fixed angle) / FREE |
 | R | back to CHASE |
-| 1 2 3 4 | swap the trial tracker: pure pursuit, Stanley, LQR, MPC. **Sim only**: refused unless `/system/source` says SIM, and the track node refuses unless `live_swap` is on (`sim.launch.py`). The answer shows under TRACKER |
+| 1 | swap the trial tracker to MPC (2-4 did pure pursuit, Stanley and LQR until 26 Nov). **Sim only**: refused unless `/system/source` says SIM, and the track node refuses unless `live_swap` is on (`sim.launch.py`). The answer shows under TRACKER |
 | F11 | full screen |
 
 ### Run it
@@ -954,8 +954,8 @@ pixi run build && pixi run debug-hud    # the node alone, beside a running sim
 something to show; and `ndt:=true` too when `maps/ndt/test_lot.pcd` is there. No map yet:
 `pixi run ndt-map drive` once (about 6 min, headless; the map stays out of git). To swap a
 tracker live, start it with one of `aav_track`'s, forward only:
-`pixi run demo --debug tracker:=pure_pursuit reversing:=false`; then keys 1-4, or
-`ros2 param set /track tracker lqr` (sim only, both ways).
+`pixi run demo --debug tracker:=mpc_full reversing:=false`; then key 1 (MPC), or
+`ros2 param set /track tracker mpc_lag` (sim only, both ways).
 
 ### How it's built
 

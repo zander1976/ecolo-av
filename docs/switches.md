@@ -27,7 +27,7 @@ now, then delete"). One switch sets every level at once ([the league](league.md)
 |---|---|
 | `pixi run sim` | ours: our planner, `mppi_lag`, our costmaps and navigator, the behaviour planner (`stack:=ours`) |
 | `pixi run sim stack:=best` | every level's champion |
-| `pixi run sim tracker:=lqr` | ours, but LQR steers: **a switch you give always wins** |
+| `pixi run sim tracker:=mpc` | ours, but our MPC steers: **a switch you give always wins** |
 
 Nav2 went on 17 Nov (Ben, 16 Nov: "Now"; [Nav2, as it was](history/nav2-as-it-was.md)):
 `stack:=stock` and Nav2's planners, controllers, costmaps, navigator and smoother went with
@@ -55,9 +55,9 @@ scored in stage 2): a parked obstacle on the lane is passed by a QP that holds t
 
 | Switch | In plain words | Gazebo, 29 Oct |
 |---|---|---|
-| `tracker:=pure_pursuit` | ours: steer at a point ahead | **12 of 12** |
-| `tracker:=stanley` | ours: fix the distance off the path and the heading | **12 of 12** |
-| `tracker:=lqr` | ours: a formula for the best steering each moment | 10 of 12 |
+| `tracker:=pure_pursuit` | ours: steer at a point ahead (removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`) | **12 of 12** |
+| `tracker:=stanley` | ours: fix the distance off the path and the heading (removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`) | **12 of 12** |
+| `tracker:=lqr` | ours: a formula for the best steering each moment (removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26`) | 10 of 12 |
 | `tracker:=mpc` | ours: try the next 1.5 s of steering, keep the best | **12 of 12** |
 | `tracker:=mpc_full` | ours: MPC that plans the speed too | 10 of 12 |
 | `tracker:=mpc_lag` | ours: MPC that knows the car is late, and plans for it (7 Nov) | Ravensim, 8 Nov: 6 of 12 (no U-turn by the building; [trials](history/trials-log.md#lag-aware-mpc-7-nov-mpc_lag)) |
@@ -72,7 +72,7 @@ the same in Rust, `gears.rs`). Every tracker reverses.
 `tracker:=mppi_lag mppi_lag_sampling:=smooth` (or `steer:=mppi_lag_smooth`; TODO 212, a
 challenger, scored in stage 2): MPPI samples the steering's **change**, so its commands come
 out smooth without a larger control cost.
-In `demo --debug`, keys 1-4 swap the tracker live. More: [Controllers](controllers.md),
+In `demo --debug`, key 1 swaps the tracker to MPC live (keys 2-4 did Stanley, LQR and MPC until 26 Nov). More: [Controllers](controllers.md),
 [Trials](trials.md).
 
 ## Where am I

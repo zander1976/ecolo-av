@@ -26,7 +26,7 @@ The message: `name` algorithms, `level` OK, `message` one short line
 |---|---|
 | run | `sim world:=test_lot` |
 | planner | `ours in Rust (aav_planner: the lattice, ...)` |
-| path follower | `mppi_lag (aav_mppi_lag)`, or `lqr (aav_track, trial)` |
+| path follower | `mppi_lag (aav_mppi_lag)`, or `mpc (aav_track, trial)` |
 | obstacles | `lidar scan + radar`, or `voxels: the lidar as 0.25 m cubes (trial)` |
 | local EKF, global EKF | their inputs: `wheels, IMU`, `+ KISS-ICP speed (trial)` |
 | NDT, KISS-ICP, AMCL | `off`, `on, scored only`, or `on, into the global EKF` |

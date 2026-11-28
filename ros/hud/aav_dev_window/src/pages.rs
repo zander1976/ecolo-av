@@ -516,7 +516,7 @@ mod tests {
         let (mut s, now) = (state(), Instant::now());
         s.apply(
             Update::Track(TrackStatus::from_values(
-                "lqr",
+                "mpc",
                 [("cross_track_m", "-0.05"), ("missed_ticks", "2")],
             )),
             now,
@@ -531,6 +531,6 @@ mod tests {
         assert_eq!(rows[0].words, "nav (20)");
         assert_eq!(rows[1].words, "2 points, 5.0 m long; its end 5.0 m away");
         assert_eq!(rows[2].light, Light::Warn, "ticks were missed");
-        assert!(rows[2].words.starts_with("lqr, -0.05 m off the path"));
+        assert!(rows[2].words.starts_with("mpc, -0.05 m off the path"));
     }
 }

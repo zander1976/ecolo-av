@@ -249,7 +249,7 @@ pub struct DebugConfig {
     pub track_status_topic: String,
     /// [`Topic::Source`]'s topic.
     pub source_topic: String,
-    /// aav_track's parameter service, for keys 1-4 (sim only).
+    /// aav_track's parameter service, for key 1 (sim only).
     pub track_parameters_service: String,
     /// NDT's map file (a PCD), for key M; relative to where the program starts.
     pub ndt_map: String,

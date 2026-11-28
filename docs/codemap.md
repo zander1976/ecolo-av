@@ -77,7 +77,7 @@ current): after adding, moving or removing a package, run
 | [aav_scripted](../ros/drivers/aav_scripted/README.md) | Python | Scripted driver | `aav_scripted/speed_profile.py` | `aav_scripted/scripted_driver.py` | `test/` | `config/`, `launch/` |
 | [aav_smoother](../ros/drivers/aav_smoother/README.md) | Rust | Our own velocity smoother in Rust (rclrs), for a car | `crates/car-smoother` | `crates/smoother-node` | - | - |
 | [aav_teleop](../ros/drivers/aav_teleop/README.md) | launch, config | Human drivers | - | - | `test/` | `config/`, `launch/` |
-| [aav_track](../ros/drivers/aav_track/README.md) | Python | Trial path followers (pure pursuit, Stanley, LQR, MPC) that stand in for mppi_lag | `aav_track/(8 modules)` | `aav_track/track_node.py` | `test/` | `config/` |
+| [aav_track](../ros/drivers/aav_track/README.md) | Python | Trial path followers (MPC, MPC with speed, lag-aware MPC) that stand in for mppi_lag | `aav_track/(8 modules)` | `aav_track/track_node.py` | `test/` | `config/` |
 
 ## ros/command_mux
 

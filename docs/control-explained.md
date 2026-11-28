@@ -260,7 +260,7 @@ has. That's what MPC fixes (section 6).
 
 | Where | |
 |---|---|
-| `tracker:=lqr` | `aav_track`'s LQR lane keeper, a trial follower |
+| `tracker:=lqr` | `aav_track`'s LQR, a trial follower: removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26` |
 | `VehicleModel.speed_lqi` | the speed loop's gains (next section) |
 | Pure pursuit | is secretly a hand-made u = −K x (vehicle-model.md, section 3), which is why it fits on the same graph |
 

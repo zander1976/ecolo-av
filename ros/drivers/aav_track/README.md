@@ -14,20 +14,21 @@ navigator --FollowPath--> track --cmd_vel_nav--> velocity_smoother
 | `tracker:=` | Steers by | Module |
 |---|---|---|
 | `mppi_lag` (default) | `aav_mppi_lag` (Rust); this node doesn't run | - |
-| `pure_pursuit` | an arc to a carrot on the path: the trial's control | `trackers/pure_pursuit.py` |
-| `stanley` | heading error + atan(k e / v), at the front axle | `trackers/stanley.py` |
-| `lqr` | -K x about the path's bend, K by speed and bend (Riccati), + a 2 s preview of the bends ahead | `trackers/lqr.py` |
 | `mpc` | a 1.5 s plan of steering, within full lock and the steering rate (scipy) | `trackers/mpc.py` |
 | `mpc_full` | a 9 m plan of speed and steering together, within the steering, throttle and brake (its own speed) | `trackers/mpc_full.py` |
 | `mpc_lag` | a 1.5 s plan of steering and set speed through the car's lags: the spine's speed loop, throttle, brake, the steering motor and linkage, dead times (its own speed; **lag-aware**) | `trackers/mpc_lag.py` |
+
+Pure pursuit, Stanley and LQR went on 26 Nov (Ben: "aren't used really at all"): their
+code is in git tag `save/trackers-stanley-lqr-pp-2026-11-26`, their scores stay in
+`docs/league*.md` and `docs/trials.md`. `mpc` is the node's own default `tracker`.
 
 Every tracker drives with **one speed policy** (`speed.py`) and Nav2's **own checks**
 (`checks.py`), so a trial compares steering only. The exceptions are `mpc_full` and
 `mpc_lag`: they plan their own speed (`Command.speed`), within the policy's limits.
 
 ```sh
-pixi run sim world:=test_lot tracker:=lqr          # reverses too (TODO 174)
-pixi run measure controllers --trackers pure_pursuit lqr --tours lot --legs 1
+pixi run sim world:=test_lot tracker:=mpc          # reverses too (TODO 174)
+pixi run measure controllers --trackers mpc mpc_lag --tours lot --legs 1
 ```
 
 ## Interface
@@ -53,7 +54,7 @@ ego.yaml; nothing copied):
 | `cruise_speed` | RPP's `desired_linear_vel`, or `max_speed:=` (sim_speed) |
 | `acceleration`, `deceleration` | the velocity smoother's `max_accel`, `max_decel` |
 | `max_brake` | vehicle.yaml `actuators.max_brake` (half is planned: `approach.planned_deceleration`) |
-| `lookahead_min`, `lookahead_max`, `lookahead_time`, `transform_tolerance` | RPP's |
+| `transform_tolerance` | RPP's |
 | `xy_goal_tolerance`, `yaw_goal_tolerance` | `general_goal_checker` |
 | `progress_radius`, `progress_angle`, `progress_time` | `progress_checker` |
 | `wheelbase`, `max_steering_angle` | vehicle.yaml |
@@ -66,15 +67,15 @@ map correction (TODO 186: `map_correction_speed` 0.1 m/s, 0 the old way;
 `map_correction_turn_rate` 1°/s; `map_correction_snap_distance` 2 m and
 `map_correction_snap_angle` 10°, taken at once past them; the launch's bool
 `map_correction`, false with `map_correction:=newest`: the old way), and
-each tracker's gains (`stanley.*`, `lqr.*`, `mpc.*`, `mpc_full.*`, `mpc_lag.*`; every
+each tracker's gains (`mpc.*`, `mpc_full.*`, `mpc_lag.*`; every
 tracker's are declared). `mpc_full` also takes `cruise_speed`, `acceleration`, `max_brake`,
 `lateral_accel` and vehicle.yaml's `max_accel` (the throttle). `mpc_lag` takes those,
 `deceleration`, and vehicle.yaml's whole `actuators:` section (`car_model.ActuatorConfig`).
 
 **Live swap (sim only).** `live_swap` (default false; `sim.launch.py` sets it through
 `navigation.launch.py live_swap:=true`, the car never does): `ros2 param set /track
-tracker lqr` builds the new tracker between ticks, gives it the path and its place on it
-(`hint`), starts lqr's and mpc's steering estimate at the last command (not the wheels'
+tracker mpc_full` builds the new tracker between ticks, gives it the path and its place on it
+(`hint`), starts mpc's and mpc_full's steering estimate at the last command (not the wheels'
 measured angle: the node doesn't read it), resets the loop statistics and logs the swap.
 Without `live_swap`, or for an unknown name, the change is refused with its reason. The
 debug HUD's panel shows the tracker from the status topic.
@@ -90,13 +91,13 @@ Modules (all but `track_node.py` have no ROS):
 | `checks.py` | `GoalCheck`, `ProgressCheck`: Nav2's SimpleGoalChecker and PoseProgressChecker |
 | `speed.py` | `SpeedPolicy`: cruise, `line.turn_speed_limit` for a bend ahead, `approach.Approach` on the stopping law (`aav_description` `stop_law.py`, since 7 Nov) to stop |
 | `trackers/__init__.py` | `State`, `Limits`, `Command`, `Tracker`, `SteerLag`, `make(name, limits, model)` |
-| `trackers/*.py` | the six trackers |
+| `trackers/*.py` | the three trackers |
 | `qp.py` | a small QP solver (OSQP's ADMM, numpy) for `mpc_full` and `mpc_lag` |
 | `lag_model.py` | the shared car model's maths (`aav_description` `car_model.py`) again, on arrays and in the path's frame, for `mpc_lag`'s plan: `step()`; its numbers and speed loops are `car_model`'s (`CarParams` is `car_model.ActuatorConfig`). `mpc_lag`'s estimate runs `car_model.step` itself |
 
-Built from: `aav_drive_to_point`'s `line.py` (`pursuit_curvature`, `turn_speed_limit`)
-and `approach.py`; `aav_ego`'s `vehicle_model.py` (`VehicleModel.lateral`, for LQR and
-MPC); `aav_description`'s `vehicle.yaml`.
+Built from: `aav_drive_to_point`'s `line.py` (`turn_speed_limit`)
+and `approach.py`; `aav_ego`'s `vehicle_model.py` (`VehicleModel.lateral`, for the
+MPCs); `aav_description`'s `vehicle.yaml`.
 
 ## Invariants
 
@@ -132,7 +133,7 @@ runs it). In Ravensim: `pixi run measure controllers --trackers ...`.
 | `test_checks.py` | the goal and progress checks |
 | `test_gears.py` | the cuts at cusps, the mirror, the cusp's rules; every tracker backing up a straight line, and through a cusp and backwards round a bend (`sim_car.follow_geared`, TODO 174) |
 | `test_speed.py` | cruise, slow before a bend, stop at the end |
-| `test_trackers.py` | each tracker on a pretend car (`sim_car.py`: ego's model, the simulator's actuators): straight, a curve, a 1 m offset, at 1 and 3 m/s; the forward U-turn in a 14 m lane, at the planner's radius and at full lock; limits; LQR's schedule and preview; mpc_full's speed (slows to swing, stops at the end, throttle and brake); MPC's step times |
+| `test_trackers.py` | each tracker on a pretend car (`sim_car.py`: ego's model, the simulator's actuators): straight, a curve, a 1 m offset, at 1 and 3 m/s; the forward U-turn in a 14 m lane, at the planner's radius and at full lock; limits; mpc_full's speed (slows to swing, stops at the end, throttle and brake); MPC's step times |
 | `test_qp.py` | the QP solver against hand answers and scipy's SLSQP |
 | `test_lag_model.py` | the model's spec (lags, rate, deadband, brake, bicycle); the same states as `car_model.step`, step for step (both speed loops, every branch) |
 | `test_trackers.py` (mpc_lag) | no speed overshoot; the 2 m/s U-turn with vehicle.yaml's lags and with them doubled (`follow(lag_scale=2)`); the stop; the dead-time buffer; step time |

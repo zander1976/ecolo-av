@@ -252,12 +252,12 @@ def test_mppi_lag_follows_unless_another_tracker_is_asked_for():
 
 
 def test_a_tracker_takes_follow_path_with_nav2s_own_checks():
-    nodes = nav_nodes(tracker='lqr', max_speed='3')
+    nodes = nav_nodes(tracker='mpc', max_speed='3')
     assert 'mppi_lag' not in nodes
     p = given(nodes['track'])
-    assert p['tracker'] == 'lqr'
+    assert p['tracker'] == 'mpc'
     assert p['live_swap'] is False          # only the sim swaps trackers live
-    assert given(nav_nodes(tracker='lqr', live_swap='true')['track'])['live_swap'] is True
+    assert given(nav_nodes(tracker='mpc', live_swap='true')['track'])['live_swap'] is True
     assert p['cruise_speed'] == 3.0
     assert p['xy_goal_tolerance'] == 1.0 and p['yaw_goal_tolerance'] == 0.75
     assert p['odom_topic'] == '/localization/odom/local'
@@ -295,20 +295,20 @@ def test_bad_trackers_and_reversing_trackers_are_refused():
     rs = given(nav_nodes(tracker='mpc_lag_rs', reversing='true')['mpc_lag_rs'])
     assert rs['max_reverse_speed'] > 0
     # aav_track's reverse since 19 Nov (TODO 174), at vehicle.yaml's reverse speed.
-    track = given(nav_nodes(tracker='stanley', reversing='true')['track'])
+    track = given(nav_nodes(tracker='mpc_full', reversing='true')['track'])
     assert track['max_reverse_speed'] > 0
-    assert given(nav_nodes(tracker='stanley')['track'])['max_reverse_speed'] == 0.0
+    assert given(nav_nodes(tracker='mpc_full')['track'])['max_reverse_speed'] == 0.0
 
 
 def test_map_correction_newest_turns_the_followers_slew_off():
     # TODO 186: a switch of its own (a rate set here would lose to the node's own file).
-    for tracker, name in (('mppi_lag', 'mppi_lag'), ('lqr', 'track')):
+    for tracker, name in (('mppi_lag', 'mppi_lag'), ('mpc', 'track')):
         p = given(nav_nodes(tracker=tracker)[name])
         assert p['map_correction'] is False and 'map_correction_speed' not in p
         p = given(nav_nodes(tracker=tracker, map_correction='slow')[name])
         assert p['map_correction'] is True
     with pytest.raises(ValueError, match='slow or newest'):
-        nav_nodes(tracker='lqr', map_correction='fast')
+        nav_nodes(tracker='mpc', map_correction='fast')
     # The sim's stack picks it (15 Nov, TODO 168): ours slow, best newest; by hand wins.
     assert sent_to_navigation(SIM)['map_correction'] == 'slow'
     assert sent_to_navigation(SIM, stack='best')['map_correction'] == 'newest'

@@ -29,7 +29,7 @@ docs/league-results-2026-11-16.md).
     pixi run sim-check --stack best        (every run with a named stack from stacks.yaml,
                                             stack:=, docs/league.md: ours, best, car; a
                                             flag below still wins over it)
-    pixi run sim-check --tracker lqr       (every run with that path follower, tracker:=;
+    pixi run sim-check --tracker mpc       (every run with that path follower, tracker:=;
                                             also --planner, --costmap and --navigator, each
                                             with only ours left since Nav2 went)
     pixi run sim-check --legs-only --lidar-obstacle --plan-around

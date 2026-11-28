@@ -40,11 +40,11 @@ Reversing   (TODO 174) a path is cut at its cusps (gears.py): a backwards stretc
             next stretch is taken at the cusp: within 0.3 m of its end and nearly still,
             or standing 2 s within 1.5 m. The goal is checked on the last stretch only.
 Parameters  tracker can be changed while it runs, only with live_swap:=true (sim.launch.py
-            sets it; the car never): `ros2 param set /track tracker lqr`. The new tracker
+            sets it; the car never): `ros2 param set /track tracker mpc_full`. The new tracker
             is built between ticks (one thread), takes the path and its place on it,
             starts its steering from the last command, and the loop statistics reset.
 
-navigation.launch.py tracker:=pure_pursuit|stanley|lqr|mpc|mpc_full|mpc_lag starts it in
+navigation.launch.py tracker:=mpc|mpc_full|mpc_lag starts it in
 mppi_lag's place, so the navigator's FollowPath comes here. Everything after cmd_vel_nav
 (the smoother, the stop zone, twist_mux's slot 20, the locks) is unchanged. The checks are
 Nav2's own (checks.py, with nav2.yaml's numbers):
@@ -91,10 +91,6 @@ import tf2_ros
 
 # Each tracker's own parameters (config/track.yaml), as <tracker>.<name>.
 TRACKER_PARAMS = {
-    'pure_pursuit': {},           # its lookahead comes from nav2.yaml's RPP block
-    'stanley': {'gain': 1.0, 'soft_speed': 1.0, 'yaw_rate_gain': 0.0},
-    'lqr': {'q': [1.0, 2.0, 0.05], 'r': 0.2, 'r_rate': 100.0, 'preview': 2.0,
-            'min_speed': 0.5},
     'mpc': {'horizon': 30, 'q': [1.0, 2.0, 0.05], 'r': 2.0, 'r_rate': 1.0, 'min_speed': 0.5},
     # Its speed limits come from the node's own (cruise_speed, acceleration, max_brake,
     # lateral_accel) and vehicle.yaml's max_accel: the same as the shared policy's.
@@ -136,13 +132,12 @@ class Track(Node):
     def __init__(self, **kwargs):
         super().__init__('track', **kwargs)
         p = {name: self.declare_parameter(name, default).value for name, default in (
-            ('tracker', 'pure_pursuit'), ('rate_hz', 20.0),
+            ('tracker', 'mpc'), ('rate_hz', 20.0),
             ('odom_topic', '/localization/odom/local'), ('odom_frame', 'odom'),
             ('odom_timeout', 1.0), ('transform_tolerance', 0.5), ('stamped', True),
             ('cruise_speed', 1.0), ('acceleration', 1.0), ('deceleration', 2.0),
             ('max_brake', 3.0),
             ('lateral_accel', 1.0),
-            ('lookahead_min', 1.5), ('lookahead_max', 4.0), ('lookahead_time', 1.5),
             ('xy_goal_tolerance', 1.0), ('yaw_goal_tolerance', 0.75),
             ('progress_radius', 0.5), ('progress_angle', 0.5), ('progress_time', 10.0),
             ('wheelbase', 1.57), ('max_steering_angle', 0.5), ('max_steering_rate', 0.6),
@@ -225,9 +220,6 @@ class Track(Node):
         """Return a new tracker called `name`, with its parameters as declared at start."""
         own = dict(self.own[name])
         p = self.p
-        if name == 'pure_pursuit':
-            own = {'lookahead_min': p['lookahead_min'], 'lookahead_max': p['lookahead_max'],
-                   'lookahead_time': p['lookahead_time']}
         if name in trackers.MODEL_TRACKERS + trackers.LAG_TRACKERS:
             own['period'] = 1.0 / p['rate_hz']
         if name in ('mpc_full', 'mpc_lag'):
@@ -278,7 +270,7 @@ class Track(Node):
         if job is not None:
             new.reset(job.path)
             new.hint = job.hint
-        # lqr and mpc estimate the wheels' angle (SteerLag): start it at the last command.
+        # mpc and mpc_full estimate the wheels' angle (SteerLag): start it at the last command.
         lag = getattr(new, 'lag', None)
         if lag is not None:
             lag.angle = self.steer

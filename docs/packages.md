@@ -37,7 +37,7 @@ each one's README has its topics.
 | `aav_language` | drivers | plain English: a local model plans drive tools, you say yes | [[works]] Gazebo and the turtle | new |
 | `aav_navigation` | drivers | our navigation, set up for a car (each node a port of a Nav2 server), and the maps | [[works]] goals reached in Ravensim | new |
 | `aav_routes` | drivers | street routes (Valhalla) as GPS waypoints for the navigator; directions on the campus (`router:=campus`) | [[works]] in Gazebo | new |
-| `aav_track` | drivers | trial path followers in `mppi_lag`'s place (`tracker:=` pure_pursuit, stanley, lqr, mpc, mpc_full, mpc_lag) | built 29 Oct; trials, off by default ([Trials](trials.md)) | new |
+| `aav_track` | drivers | trial path followers in `mppi_lag`'s place (`tracker:=` mpc, mpc_full, mpc_lag; pure pursuit, Stanley and LQR went on 26 Nov) | built 29 Oct; trials, off by default ([Trials](trials.md)) | new |
 | `aav_mpc_lag` | drivers | `mpc_lag_rs`: `aav_track`'s lag-aware MPC in Rust, a challenger (`tracker:=mpc_lag_rs`) | built 15 Nov; scored 16 Nov ([league](league-results-2026-11-16.md)) | new: a port of `aav_track`'s `mpc_lag` |
 | `aav_mppi_lag` | drivers | Nav2's MPPI in Rust, on a car model that knows the actuators' lag (`tracker:=mppi_lag`) | built 7 Nov; the default follower ([its page](mppi-lag.md)) | new: a port of Nav2's MPPI (`PROVENANCE.md`) |
 | `aav_costmap` | drivers | our own costmap in Rust (`costmap:=own`) | built 8 Nov; the only one since 17 Nov ([its page](own-costmap.md)) | new: a port of Nav2's `costmap_2d` layers |

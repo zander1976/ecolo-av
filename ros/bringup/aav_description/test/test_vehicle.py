@@ -483,7 +483,7 @@ def test_trackers_sit_beside_the_controllers_and_mppi_lag_is_the_default():
     assert vehicle.DEFAULT_TRACKER == 'mppi_lag' and 'none' not in vehicle.TRACKERS
     # Not in CONTROLLERS: nav2_tuned would take a tracker's name for a block layout.
     assert not set(vehicle.TRACKERS) & set(vehicle.TUNED_CONTROLLERS)
-    assert vehicle.check_tracker(' LQR ') == 'lqr'
+    assert vehicle.check_tracker(' MPC ') == 'mpc'
     assert vehicle.check_tracker('mppi_lag', reversing=True) == 'mppi_lag'
     with pytest.raises(ValueError, match='pick one of'):
         vehicle.check_tracker('none')
@@ -492,7 +492,7 @@ def test_trackers_sit_beside_the_controllers_and_mppi_lag_is_the_default():
     # mppi_lag reverses (Ben, 14 Nov); aav_track's trackers too (TODO 174); mpc_lag_rs
     # since 20 Nov (TODO 213).
     assert vehicle.check_tracker('mppi_lag', reversing=True) == 'mppi_lag'
-    assert vehicle.check_tracker('stanley', reversing=True) == 'stanley'
+    assert vehicle.check_tracker('mpc_full', reversing=True) == 'mpc_full'
     assert vehicle.check_tracker('mpc_lag_rs', reversing=True) == 'mpc_lag_rs'
     assert set(vehicle.FORWARD_ONLY_TRACKERS) == set()
 

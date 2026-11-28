@@ -12,12 +12,13 @@ import statistics
 
 from aav_track.path import Path
 from aav_track.trackers import Limits, make, State
-from aav_track.trackers.lqr import LQR
 import pytest
 import sim_car
-from sim_car import arc, follow, LIMITS, MODEL, straight, tracker, uturn, widest
+from sim_car import arc, follow, LIMITS, straight, tracker, uturn, widest
 
-TRACKERS = ['pure_pursuit', 'stanley', 'lqr', 'mpc', 'mpc_full', 'mpc_lag']
+# pure_pursuit, stanley and lqr went on 26 Nov (Ben): git tag
+# save/trackers-stanley-lqr-pp-2026-11-26.
+TRACKERS = ['mpc', 'mpc_full', 'mpc_lag']
 
 
 def check_limits(run, period=0.05):
@@ -48,10 +49,8 @@ def test_a_step_offset_converges(name, speed):
     check_limits(run)
 
 
-# The worst off-path in the bend, m. Stanley's has no feed-forward for the bend: the front
-# axle sits on the path, so base_link cuts the corner (L^2 / 2R, about 0.15 m on an 8 m bend).
-BEND = {'pure_pursuit': 0.25, 'stanley': 0.25, 'lqr': 0.1, 'mpc': 0.05, 'mpc_full': 0.1,
-        'mpc_lag': 0.05}
+# The worst off-path in the bend, m.
+BEND = {'mpc': 0.05, 'mpc_full': 0.1, 'mpc_lag': 0.05}
 
 
 @pytest.mark.parametrize('name', TRACKERS)
@@ -63,45 +62,10 @@ def test_a_curve_stays_close(name, speed):
     check_limits(run)
 
 
-def test_the_model_trackers_beat_pure_pursuit_on_the_bend():
-    worst = {n: max(follow(tracker(n), arc(radius=6.0), (0, 0, 0), cruise=3.0).cross())
-             for n in ('pure_pursuit', 'lqr', 'mpc')}
-    assert worst['lqr'] < worst['pure_pursuit'] and worst['mpc'] < worst['pure_pursuit']
-
-
-def test_lqr_gains_are_scheduled_by_speed():
-    lqr = LQR(LIMITS, MODEL)
-    slow, fast = lqr.gains(0.5), lqr.gains(5.0)
-    assert slow[0] > 0 and slow[1] > 0
-    assert not (slow == pytest.approx(fast))
-    assert lqr.gains(0.0) == pytest.approx(slow)        # below the table: its first row
-    assert lqr.gains(0.625) == pytest.approx((lqr.gains(0.5) + lqr.gains(0.75)) / 2)
-
-
-def test_lqr_gains_are_scheduled_by_the_bend():
-    # About full lock, the steering turns the car 1 / cos^2 faster: other gains, either way.
-    lqr = LQR(LIMITS, MODEL)
-    straight_on, lock = lqr.gains(1.0, 0.0), lqr.gains(1.0, LIMITS.max_steer)
-    assert not (straight_on == pytest.approx(lock, rel=0.01))
-    assert lqr.gains(1.0, -LIMITS.max_steer) == pytest.approx(lock)
-    assert lqr.gains(1.0, 0.05) == pytest.approx((straight_on + lqr.gains(1.0, 0.1)) / 2)
-
-
-def test_lqr_previews_a_bend_ahead():
-    # A left bend 1 m ahead, at 1 m/s: the preview steers left before it arrives.
-    lqr = LQR(LIMITS, MODEL)
-    assert len(lqr.preview_gains(1.0)) == 40
-    lqr.reset(Path(arc(radius=4.0, lead=1.0)))
-    cmd = lqr.step(State(0.0, 0.0, 0.0, 1.0), 0.05)
-    assert cmd.debug['feed_forward_rad'] == pytest.approx(0.0)
-    assert cmd.debug['preview_rad'] > 0 and cmd.steer > 0
-
-
 # The U-turn of the test lot's "turn back" leg (29 Oct): Smac's light bulb, forward only,
 # in a 14 m lane, at 1 m/s. At the planner's radius (full lock x 1.25: 3.6 m) and at full
 # lock itself (2.88 m), where nothing is left to correct with: the worst off the path, m.
-UTURN = {'pure_pursuit': (0.2, 0.35), 'stanley': (0.5, 0.6), 'lqr': (0.1, 0.35),
-         'mpc': (0.1, 0.4), 'mpc_full': (0.15, 0.25), 'mpc_lag': (0.1, 0.4)}
+UTURN = {'mpc': (0.1, 0.4), 'mpc_full': (0.15, 0.25), 'mpc_lag': (0.1, 0.4)}
 FULL_LOCK = LIMITS.wheelbase / math.tan(LIMITS.max_steer)
 
 
@@ -115,12 +79,6 @@ def test_a_u_turn_in_a_14_m_lane(name, lock):
     # The body keeps 2 m from both walls (y = +-7 m): room for collision_monitor's zone.
     assert widest(run) < 5.0
     check_limits(run)
-
-
-def test_lqr_without_its_preview_swings_wider():
-    worst = {p: max(follow(tracker('lqr', preview=p), uturn(FULL_LOCK), (0, 0, 0)).cross())
-             for p in (0.0, 2.0)}
-    assert worst[2.0] < 0.6 * worst[0.0]
 
 
 @pytest.mark.timing
@@ -146,17 +104,17 @@ def test_bad_names_and_numbers_are_refused():
     with pytest.raises(ValueError, match='no tracker'):
         make('mppi', LIMITS)
     with pytest.raises(ValueError, match='model'):
-        make('lqr', LIMITS)
+        make('mpc', LIMITS)
     with pytest.raises(ValueError):
         Limits(wheelbase=1.5, max_steer=2.0, max_steer_rate=0.5)
-    with pytest.raises(ValueError):
-        tracker('pure_pursuit', lookahead_min=0.0)
+    with pytest.raises(ValueError, match='no tracker'):
+        make('lqr', LIMITS)             # went on 26 Nov
     with pytest.raises(RuntimeError):
-        tracker('stanley').step(State(0.0, 0.0, 0.0, 1.0), 0.05)
+        tracker('mpc').step(State(0.0, 0.0, 0.0, 1.0), 0.05)
 
 
 def test_no_steering_wanted_at_the_end_of_a_straight():
-    trk = tracker('lqr')
+    trk = tracker('mpc')
     run = follow(trk, straight(10.0), (0.0, 0.0, 0.0))
     assert run.reached and abs(run.steers()[-1]) < 1e-6
     assert math.isfinite(run.rows[-1][4])
@@ -230,16 +188,16 @@ def test_mpc_lag_holds_its_speed_without_the_loops_overshoot():
     # The spine's PI overshoots a step of set speed by about 14 % (TODO 27); the shared
     # policy's trackers ride it. mpc_lag predicts it, and eases the set speed in.
     lag = follow(tracker('mpc_lag'), straight(), (0.0, 0.0, 0.0), cruise=1.0)
-    pp = follow(tracker('pure_pursuit'), straight(), (0.0, 0.0, 0.0), cruise=1.0)
+    plain = follow(tracker('mpc'), straight(), (0.0, 0.0, 0.0), cruise=1.0)
     assert lag.reached and max(r[4] for r in lag.rows) < 1.03
-    assert max(r[4] for r in pp.rows) > 1.1
+    assert max(r[4] for r in plain.rows) > 1.1
     check_speed(lag, 1.0, throttle=1.0, brake=2.0)
 
 
 def test_mpc_lag_on_the_u_turn_at_2_m_s():
     # At 2 m/s the steering swings lock to lock as fast as it can. With vehicle.yaml's lags
     # it is about as close as mpc (0.10 against 0.09 m, 7 Nov); with the car's lags twice
-    # what it was told, it holds the path better than mpc and lqr.
+    # what it was told, it holds the path better than mpc.
     def worst(name, scale):
         run = follow(tracker(name), uturn(), (0, 0, 0), cruise=2.0, lag_scale=scale)
         assert run.reached and widest(run) < 5.5
@@ -247,8 +205,8 @@ def test_mpc_lag_on_the_u_turn_at_2_m_s():
         return max(run.cross())
 
     assert worst('mpc_lag', 1.0) < 0.12
-    doubled = {n: worst(n, 2.0) for n in ('mpc', 'lqr', 'mpc_lag')}
-    assert doubled['mpc_lag'] < min(doubled['mpc'], doubled['lqr'])
+    doubled = {n: worst(n, 2.0) for n in ('mpc', 'mpc_lag')}
+    assert doubled['mpc_lag'] < doubled['mpc']
     assert doubled['mpc_lag'] < 0.25
 
 

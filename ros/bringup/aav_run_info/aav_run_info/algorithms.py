@@ -16,8 +16,8 @@ PLANNERS = {
 CONTROLLERS = {
     'mppi': "MPPI's block (nav2.yaml), read by mppi_lag",
 }
-TRACKERS = ('pure_pursuit', 'stanley', 'lqr', 'mpc', 'mpc_full', 'mpc_lag', 'mppi_lag',
-            'mpc_lag_rs')
+# pure_pursuit, stanley and lqr went on 26 Nov (Ben).
+TRACKERS = ('mpc', 'mpc_full', 'mpc_lag', 'mppi_lag', 'mpc_lag_rs')
 # The champion: no "trial" beside its name.
 CHAMPION = 'mppi_lag'
 # The trackers with a package of their own (the rest are aav_track's).

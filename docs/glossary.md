@@ -138,7 +138,7 @@ Can't find a word? Search this page (Ctrl+F or ⌘F). Missing one? Add a row, in
 | raylib | a small graphics library; our Rust HUD uses it | `ros/hud/aav_hud` |
 | RC | Radio Control: a hand-held transmitter | the FlySky override |
 | RF-DETR | a neural network that finds objects in a picture; RF-DETR Nano is our default detector | `aav_detector`, `aav_camera_stream` |
-| Regulated Pure Pursuit | a Nav2 controller: steers toward a point ahead on the path. Ours until 22 Oct; gone with Nav2 (17 Nov). Our pure pursuit: `tracker:=pure_pursuit` | [path followers](path-followers.md) |
+| Regulated Pure Pursuit | a Nav2 controller: steers toward a point ahead on the path. Ours until 22 Oct; gone with Nav2 (17 Nov). Our pure pursuit, `tracker:=pure_pursuit`, removed 26 Nov (Ben), tag `save/trackers-stanley-lqr-pp-2026-11-26` (`aav_drive_to_point` still steers by it) | [path followers](path-followers.md) |
 | REP-103, REP-105 | ROS's rules for units and frames | `CLAUDE.md` |
 | RoboStack | ROS 2 packaged for Pixi and conda | `pixi.toml` |
 | ROS 2 | Robot Operating System: programs (nodes) that talk over topics | everywhere |

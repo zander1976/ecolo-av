@@ -32,17 +32,11 @@ PROGRAMS = [
 ]
 
 # Who steers along the path: ours (mppi_lag, the champion; Nav2's own controllers went on
-# 17 Nov), or one of our trial trackers.
+# 17 Nov), or one of our trial trackers (pure pursuit, Stanley and LQR went on 26 Nov).
 # (value, plain words, the launch arguments it sets)
 FOLLOWERS = [
     ('mppi_lag', "ours: Nav2's MPPI in Rust, knowing the steering and pedals lag (default)",
      ['tracker:=mppi_lag']),
-    ('pure_pursuit', 'ours: steer at a point ahead (finished 12 of 12 legs)',
-     ['tracker:=pure_pursuit', 'reversing:=false']),
-    ('stanley', 'ours: fix the distance off the path and the heading (12 of 12)',
-     ['tracker:=stanley', 'reversing:=false']),
-    ('lqr', 'ours: a formula for the best steering each moment',
-     ['tracker:=lqr', 'reversing:=false']),
     ('mpc', 'ours: try the next 1.5 s of steering, keep the best (12 of 12)',
      ['tracker:=mpc', 'reversing:=false']),
     ('mpc_full', 'ours: MPC that plans the speed too',

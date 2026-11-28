@@ -53,7 +53,7 @@ Switches:
                           on nav2.yaml's GridBased block (Reeds-Shepp with reversing:=true)
   lattice_headings:=32, lattice_moves:=smooth|smooth_fast, plan_smoothing:=strong
                           the lattice's trial files and its smoother (docs/own-planner.md)
-  tracker:=pure_pursuit|stanley|lqr|mpc|mpc_full|mpc_lag|mpc_lag_rs
+  tracker:=mpc|mpc_full|mpc_lag|mpc_lag_rs
                           another follower serves follow_path (aav_track's; mpc_lag_rs:
                           aav_mpc_lag). Each reverses with reversing:=true (TODO 174,
                           213)
@@ -957,7 +957,7 @@ def generate_launch_description():
         DeclareLaunchArgument('live_swap', default_value='false',
                               description='true (sim.launch.py sets it): the tracker can be '
                                           'changed while it runs, `ros2 param set /track '
-                                          'tracker lqr`. Never on the car'),
+                                          'tracker mpc_full`. Never on the car'),
         DeclareLaunchArgument('amcl', default_value='false',
                               description='true (with lidar:=true): AMCL as a trial, '
                                           'scored only: /localization/amcl/pose'),

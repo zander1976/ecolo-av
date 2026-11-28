@@ -189,7 +189,7 @@ pub enum Update {
     Origin(Announcement),
     /// Why the last cloud became no cubes.
     ScanProblem(String),
-    /// The answer to a tracker swap (keys 1-4).
+    /// The answer to a tracker swap (key 1).
     SwapReply(Reply),
     /// `/localization/ndt/status`.
     Ndt(NdtStatus),
@@ -239,7 +239,7 @@ pub struct DebugState {
     pub frame_problem: Option<String>,
     /// The car's path in odom, for the trail.
     trail: VecDeque<Point>,
-    /// The last tracker swap's answer (keys 1-4).
+    /// The last tracker swap's answer (key 1).
     pub swap_reply: Option<Reply>,
     /// NDT's last status.
     pub ndt: Option<NdtStatus>,

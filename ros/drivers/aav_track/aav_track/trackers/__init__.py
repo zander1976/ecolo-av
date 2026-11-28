@@ -2,7 +2,7 @@
 The trial trackers: one small class each, no ROS (CLAUDE.md: keep the maths out of ROS).
 
 ```python
-tracker = make('lqr', limits, model)   # model: aav_ego VehicleModel (lqr, mpc, mpc_full),
+tracker = make('mpc', limits, model)   # model: aav_ego VehicleModel (mpc, mpc_full),
                                        # aav_track.lag_model CarParams (mpc_lag)
 tracker.reset(path)                    # a new path, in odom (aav_track.path.Path)
 cmd = tracker.step(state, dt)          # Command(steer, speed_cap=None, debug={})
@@ -10,12 +10,12 @@ cmd = tracker.step(state, dt)          # Command(steer, speed_cap=None, debug={}
 
 | Name | Module | Steers by |
 |---|---|---|
-| `pure_pursuit` | `pure_pursuit.py` | an arc to a carrot ahead on the path (the control) |
-| `stanley` | `stanley.py` | heading error + atan(k e / v), at the front axle |
-| `lqr` | `lqr.py` | -K x on [e_y, e_theta, delta], gains scheduled by speed, + feed-forward |
 | `mpc` | `mpc.py` | a 1.5 s plan of steering commands, within the steering's limits |
 | `mpc_full` | `mpc_full.py` | a 9 m plan of speed and steering together (its own speed) |
 | `mpc_lag` | `mpc_lag.py` | 1.5 s of steering and set speed through the lags (lag-aware) |
+
+pure_pursuit, stanley and lqr went on 26 Nov (Ben: "aren't used really at all"): their
+code is in git tag save/trackers-stanley-lqr-pp-2026-11-26, their scores in docs/league*.md.
 
 Every tracker keeps its command within full lock and the steering rate (`Limits`); the
 node then turns it into (v, w = v tan(steer) / L) with the one speed policy (`speed.py`).
@@ -119,7 +119,7 @@ class SteerLag:
 
 
 # The trackers that need aav_ego's VehicleModel; and those that need lag_model.CarParams.
-MODEL_TRACKERS = ('lqr', 'mpc', 'mpc_full')
+MODEL_TRACKERS = ('mpc', 'mpc_full')
 LAG_TRACKERS = ('mpc_lag',)
 
 
@@ -129,12 +129,6 @@ def make(name: str, limits: Limits, model=None, **params) -> Tracker:
 
     MODEL_TRACKERS need `model` as aav_ego's VehicleModel; LAG_TRACKERS as lag_model.CarParams.
     """
-    if name == 'pure_pursuit':
-        from aav_track.trackers.pure_pursuit import PurePursuit
-        return PurePursuit(limits, **params)
-    if name == 'stanley':
-        from aav_track.trackers.stanley import Stanley
-        return Stanley(limits, **params)
     if name in LAG_TRACKERS:
         if model is None:
             raise ValueError(f'{name} needs the car with its lags (lag_model.CarParams)')
@@ -143,13 +137,9 @@ def make(name: str, limits: Limits, model=None, **params) -> Tracker:
     if name in MODEL_TRACKERS:
         if model is None:
             raise ValueError(f'{name} needs the vehicle model')
-        if name == 'lqr':
-            from aav_track.trackers.lqr import LQR
-            return LQR(limits, model, **params)
         if name == 'mpc_full':
             from aav_track.trackers.mpc_full import MPCFull
             return MPCFull(limits, model, **params)
         from aav_track.trackers.mpc import MPC
         return MPC(limits, model, **params)
-    raise ValueError(f'no tracker called {name!r}: pure_pursuit, stanley, lqr, mpc, '
-                     'mpc_full or mpc_lag')
+    raise ValueError(f'no tracker called {name!r}: mpc, mpc_full or mpc_lag')

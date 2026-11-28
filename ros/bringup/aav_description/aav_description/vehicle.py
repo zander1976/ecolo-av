@@ -321,8 +321,8 @@ REPLAN_ONCE_HZ = 1e-4
 CONTROLLERS = ('mppi',)
 DEFAULT_CONTROLLER = 'mppi'
 # nav2_tuned's layouts of FollowPath: mppi, the MPPI block copied there (what the launch
-# always picks); rpp, the file's own FollowPath kept (Regulated Pure Pursuit's numbers,
-# whose lookahead aav_track reads; and a part of nav2.yaml with no MPPI block, as tests give).
+# always picks); rpp, the file's own FollowPath kept (Regulated Pure Pursuit's numbers; and
+# a part of nav2.yaml with no MPPI block, as tests give).
 TUNED_CONTROLLERS = ('rpp', 'mppi')
 
 
@@ -330,9 +330,10 @@ TUNED_CONTROLLERS = ('rpp', 'mppi')
 # default since Nav2 went (17 Nov), is aav_mppi_lag's node (Rust): Nav2's MPPI ported, on a
 # car model with the actuators' lag (docs/mppi-lag.md). mpc_lag_rs is aav_mpc_lag's node
 # (Rust): aav_track's mpc_lag ported, a challenger beside it (TODO 132, 199). The rest are
-# aav_track's (Python). 'none' (Nav2's controller_server) went with Nav2.
-TRACKERS = ('pure_pursuit', 'stanley', 'lqr', 'mpc', 'mpc_full', 'mpc_lag', 'mppi_lag',
-            'mpc_lag_rs')
+# aav_track's (Python). 'none' (Nav2's controller_server) went with Nav2; pure_pursuit,
+# stanley and lqr on 26 Nov (Ben: "aren't used really at all"; git tag
+# save/trackers-stanley-lqr-pp-2026-11-26).
+TRACKERS = ('mpc', 'mpc_full', 'mpc_lag', 'mppi_lag', 'mpc_lag_rs')
 DEFAULT_TRACKER = 'mppi_lag'
 # The trackers that drive forwards only: refused with reversing:=true. None since 20 Nov:
 # mppi_lag reverses as Nav2's MPPI does (Ben, 14 Nov: "The car can reverse"); aav_track's
@@ -1087,9 +1088,6 @@ def track_params(nav2, cfg, ego=None, max_speed=None, speed_loop=DEFAULT_SPEED_L
         'acceleration': float(smoother['max_accel'][0]),
         'deceleration': abs(float(smoother['max_decel'][0])),
         'max_brake': float(act['max_brake']),
-        'lookahead_min': float(rpp['min_lookahead_dist']),
-        'lookahead_max': float(rpp['max_lookahead_dist']),
-        'lookahead_time': float(rpp['lookahead_time']),
         'transform_tolerance': float(rpp['transform_tolerance']),
         'xy_goal_tolerance': float(goal['xy_goal_tolerance']),
         'yaw_goal_tolerance': float(goal['yaw_goal_tolerance']),
@@ -1111,8 +1109,6 @@ MPPI_LAG_ACTUATORS = ('max_accel', 'throttle_deadband', 'throttle_lag', 'max_bra
                       'brake_lag', 'drag', 'steer_rate', 'steer_lag', 'steer_offset',
                       'steer_deadband', 'throttle_dead_time', 'brake_dead_time',
                       'steer_dead_time')
-# aav_track's parameters mpc_lag_rs (aav_mpc_lag) doesn't take: pure pursuit's lookahead.
-MPC_LAG_RS_UNUSED = ('lookahead_min', 'lookahead_max', 'lookahead_time')
 
 
 def mpc_lag_rs_params(nav2, cfg, ego=None, max_speed=None, speed_loop=DEFAULT_SPEED_LOOP,
@@ -1125,9 +1121,7 @@ def mpc_lag_rs_params(nav2, cfg, ego=None, max_speed=None, speed_loop=DEFAULT_SP
     dead times 0 when unset), where aav_track reads the file itself. `reversing`: it may
     back up, at vehicle.yaml's max_reverse_speed (0: forward only; TODO 213).
     """
-    params = {k: v for k, v in track_params(nav2, cfg, ego, max_speed, speed_loop,
-                                            reversing=reversing).items()
-              if k not in MPC_LAG_RS_UNUSED}
+    params = dict(track_params(nav2, cfg, ego, max_speed, speed_loop, reversing=reversing))
     act = cfg['actuators']
     params.update({f'actuators.{k}': float(act.get(k, 0.0)) for k in MPPI_LAG_ACTUATORS})
     return params

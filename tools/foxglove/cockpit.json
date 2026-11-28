@@ -266,10 +266,10 @@
     },
     "CallService!tracker": {
       "serviceName": "/track/set_parameters",
-      "requestPayload": "{\n  \"parameters\": [\n    {\n      \"name\": \"tracker\",\n      \"value\": {\n        \"type\": 4,\n        \"string_value\": \"lqr\"\n      }\n    }\n  ]\n}",
+      "requestPayload": "{\n  \"parameters\": [\n    {\n      \"name\": \"tracker\",\n      \"value\": {\n        \"type\": 4,\n        \"string_value\": \"mpc\"\n      }\n    }\n  ]\n}",
       "layout": "horizontal",
       "buttonText": "Set the tracker",
-      "buttonTooltip": "Sim only (live_swap). Write pure_pursuit, stanley, lqr, mpc or mpc_full in string_value, then press. Needs a tracker at launch (tracker:=...): with none, there is no /track to call.",
+      "buttonTooltip": "Sim only (live_swap). Write mpc, mpc_full or mpc_lag in string_value, then press. Needs a tracker at launch (tracker:=...): with none, there is no /track to call.",
       "buttonColor": "#1565c0"
     },
     "Table!switches": {

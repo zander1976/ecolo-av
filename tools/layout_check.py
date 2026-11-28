@@ -62,7 +62,7 @@ OPTIONAL = {
 }
 # The services the layouts call, and the parts that serve them only when asked for.
 OPTIONAL_SERVICES = {
-    '/track/set_parameters': 'a trial tracker at launch (tracker:=lqr...), sim only',
+    '/track/set_parameters': 'a trial tracker at launch (tracker:=mpc...), sim only',
 }
 # Topics a layout's own user scripts make, inside the app: never asked of the bridge.
 SCRIPT_PREFIX = '/studio_script/'

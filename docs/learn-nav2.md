@@ -64,7 +64,7 @@ it searches.
 
 Our follower is **MPPI**: it tries 2000 futures through a model of the car, and picks a
 blend of the best ([MPPI with lag](mppi-lag.md)). **Pure pursuit** is the easiest way in,
-and `tracker:=pure_pursuit` runs it ([Trials](trials.md)).
+and `aav_drive_to_point` steers by it (the trial `tracker:=pure_pursuit` went on 26 Nov; [Trials](trials.md)).
 
 **Pure pursuit** is how you steer a bike: look at a point on the path a little ahead (the
 **carrot**), and turn so you'd arc through it.

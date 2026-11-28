@@ -84,7 +84,7 @@ Off unless a switch turns them on; in the simulator only, except where it says
 |---|---|---|
 | `aav_ndt`, `aav_kiss_icp`, `aav_localization_health_rs` | NDT on a saved lidar map (Rust); KISS-ICP lidar odometry (stock, MIT); health checks that only warn (on by default) | localization |
 | `aav_voxels` | the lidar as 0.25 m cubes for the costmap | perception |
-| `aav_track`, `aav_mppi_lag` | path followers: pure pursuit, Stanley, LQR, MPC, a lag-aware MPC; Nav2's MPPI in Rust on a model with the car's lags | drivers |
+| `aav_track`, `aav_mppi_lag` | path followers: MPC, a lag-aware MPC (pure pursuit, Stanley and LQR went on 26 Nov); Nav2's MPPI in Rust on a model with the car's lags | drivers |
 | `aav_costmap`, `aav_planner`, `aav_navigator`, `aav_smoother` | Nav2's costmap, State Lattice planner, navigator and velocity smoother, ported to Rust: the defaults since 17 Nov | drivers |
 | `aav_diffusion_planner` | a small model draws the path, a guard checks it, the lattice is the fallback | drivers |
 | `aav_behaviour_rs` | the behaviour planner: a speed cap on navigation before a stop sign, an obstacle, the fence and the goal | drivers |

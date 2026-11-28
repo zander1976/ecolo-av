@@ -1,4 +1,7 @@
-//! Keys 1-4: swap the trial tracker (aav_track) while it drives, in the simulator only.
+//! Key 1: swap the trial tracker (aav_track) to MPC while it drives, in the simulator only.
+//! Keys 1-3 were pure pursuit, Stanley and LQR until 26 Nov (Ben removed them; git tag
+//! save/trackers-stanley-lqr-pp-2026-11-26); MPC moved from key 4 to key 1, and keys 2-4
+//! now do nothing.
 //!
 //! The debug HUD never touches an actuator (the design's D3); it may only retune a
 //! **simulated** tracker, through the track node's own parameter service. The track
@@ -7,40 +10,26 @@
 use hud_core::origin::{Origin, Origins};
 use thiserror::Error;
 
-/// The trackers, in key order: 1 pure pursuit, 2 Stanley, 3 LQR, 4 MPC.
+/// The trackers, in key order: 1 MPC.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tracker {
-    /// Pure pursuit (key 1).
-    PurePursuit,
-    /// Stanley (key 2).
-    Stanley,
-    /// LQR (key 3).
-    Lqr,
-    /// MPC (key 4).
+    /// MPC (key 1).
     Mpc,
 }
 
 impl Tracker {
     /// Every tracker, in key order.
-    pub const ALL: [Tracker; 4] = [
-        Tracker::PurePursuit,
-        Tracker::Stanley,
-        Tracker::Lqr,
-        Tracker::Mpc,
-    ];
+    pub const ALL: [Tracker; 1] = [Tracker::Mpc];
 
     /// aav_track's name for it (its `tracker` parameter).
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
-            Self::PurePursuit => "pure_pursuit",
-            Self::Stanley => "stanley",
-            Self::Lqr => "lqr",
             Self::Mpc => "mpc",
         }
     }
 
-    /// The tracker on key `digit` (1 to 4).
+    /// The tracker on key `digit` (1; the other digits have none).
     #[must_use]
     pub fn on_key(digit: u8) -> Option<Self> {
         Self::ALL.get(usize::from(digit.checked_sub(1)?)).copied()
@@ -119,10 +108,12 @@ mod tests {
 
     #[test]
     fn keys_pick_trackers() {
-        assert_eq!(Tracker::on_key(1), Some(Tracker::PurePursuit));
-        assert_eq!(Tracker::on_key(4).map(Tracker::name), Some("mpc"));
+        assert_eq!(Tracker::on_key(1).map(Tracker::name), Some("mpc"));
         assert_eq!(Tracker::on_key(0), None);
-        assert_eq!(Tracker::on_key(5), None);
+        // Keys 2-4 were Stanley, LQR and MPC until 26 Nov: nothing now.
+        for digit in 2..=5 {
+            assert_eq!(Tracker::on_key(digit), None);
+        }
     }
 
     #[test]
@@ -139,10 +130,10 @@ mod tests {
     #[test]
     fn replies_read_plainly() {
         let ok = Reply {
-            asked: "lqr",
+            asked: "mpc",
             outcome: Ok(()),
         };
-        assert_eq!(ok.line(), "swapped to lqr");
+        assert_eq!(ok.line(), "swapped to mpc");
         let no = Reply {
             asked: "mpc",
             outcome: Err("live_swap is off".into()),

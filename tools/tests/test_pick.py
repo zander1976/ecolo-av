@@ -97,7 +97,7 @@ def test_demo_defaults_to_the_ekfs_only():
 
 def test_sim_with_a_localizer_moves_to_the_test_lot():
     # sim, empty, own_hybrid (not the default), mpc, both, cubes, lqi (ours come first)
-    answers = iter(['3', '3', '2', '5', '4', '2', '2'])
+    answers = iter(['3', '3', '2', '2', '4', '2', '2'])
     said = []
     cmd = pick.questions(read=lambda _: next(answers), say=said.append)
     assert cmd[2] == 'sim'

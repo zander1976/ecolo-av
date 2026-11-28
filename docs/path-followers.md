@@ -8,8 +8,8 @@ turn, 20 times a second.
     `controller_server`, in Gazebo. Both are gone: Gazebo on 16 Nov, Nav2 on 17 Nov
     ([Nav2, as it was](history/nav2-as-it-was.md), [Gazebo, as it was](history/gazebo-as-it-was.md)).
     Today the follower is ours, in Rust: **MPPI with the actuators' lag** (`aav_mppi_lag`,
-    [page](mppi-lag.md)), in Ravensim. Pure pursuit, Stanley, LQR and MPC are trials
-    (`tracker:=`, [Trials](trials.md)). The lessons below still hold.
+    [page](mppi-lag.md)), in Ravensim. MPC and `mpc_lag` are trials
+    (`tracker:=`, [Trials](trials.md)); pure pursuit, Stanley and LQR went on 26 Nov. The lessons below still hold.
 
 > **The short version**
 > - **MPPI** won (22 Oct): it tries 2000 possible futures every cycle through a model of the car, and picks the best blend. It turns to a goal's heading; it costs more computer. Ours (`mppi_lag`) is it, ported, with the lag in its model.
@@ -35,7 +35,7 @@ stop zone, twist_mux and ego. Everything after the controller is the same.
 ## Switch between them
 
 ```bash
-pixi run sim world:=test_lot tracker:=pure_pursuit   # Ravensim, pure pursuit following the path
+pixi run sim world:=test_lot tracker:=mpc            # Ravensim, our MPC following the path
 ```
 
 `controller:=` takes only `mppi` now (`mppi_lag`); `controller:=rpp` went with Nav2. The
@@ -48,7 +48,7 @@ speed and its top speed from `vehicle.yaml` (`aav_description/vehicle.py`).
 pixi run measure controllers                    # the follower, both tours
 pixi run measure controllers --tours obstacle   # only the box in the lane
 pixi run measure controllers --controllers mppi --speed 2
-pixi run measure controllers --trackers lqr mpc --runs 3   # the trial trackers (docs/trials.md)
+pixi run measure controllers --trackers mpc mpc_lag --runs 3   # the trial trackers (docs/trials.md)
 ```
 
 For each tour and controller the script starts the test lot with no windows (Ravensim;
