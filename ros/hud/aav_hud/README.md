@@ -74,7 +74,9 @@ blue, global green, AMCL orange, NDT purple). docs/hud.md, "Themes".
 | [`debug-core`](./crates/debug-core/README.md) | the debug HUD's logic: cubes (kept, fading), frames, poses at a stamp, NDT's status and map, the keys, the camera; no ROS, no raylib |
 | `crates/debug-app` | binary `debug_hud`: the window (`ui.rs`, instanced cubes, the seeing screen's top-downs), the node (`ros.rs`), `--demo` |
 | [`panel-core`](./crates/panel-core/README.md) | the hardware panel's logic: the buttons, where they may drive (`gate`), every sensor's number, `safety.py`'s rules ported, the steering calibration page (`calibration`, `steering_limits`, `sweep`), the graphs page (`graphs`, `esp32`, `ws`); no ROS, no raylib |
-| `crates/panel-app` | the library `panel_app` (`HardwarePage`: the whole panel for any window, used by `hw_panel` and by `map`'s HARDWARE page; `open_source`; `ros_args`: the node's arguments inside `map`; `ladder`: the LADDER tab's session, drawn by `ui/ladder.rs`) and the binary `hw_panel`: the window (`ui.rs`, the calibration page in `ui/calibration.rs`, the graphs in `ui/graphs.rs`), the node (`ros.rs`), the ESP32's WebSocket (`esp32.rs`, its own thread, read only), `--demo`, `--self-test`, `--cal-self-test` (`cal_script.rs`) |
+| `crates/panel-feed` | the panel's news, with no window (27 Nov): the `DataSource` trait (`source`), the ROS node (`ros`: `hw_panel`'s, which sends the buttons, or a **listener** with no publisher, which also reads the graph once a second) and the ESP32's WebSocket (`esp32`, its own thread, read only). Shared by `hw_panel`, `map` and `aav_web` |
+| `crates/panel-app` | the library `panel_app` (`HardwarePage`: the whole panel for any window, used by `hw_panel` and by `map`'s HARDWARE page; `open_source`; `ros_args`: the node's arguments inside `map`; `ladder`: the LADDER tab's session, drawn by `ui/ladder.rs`) and the binary `hw_panel`: the window (`ui.rs`, the calibration page in `ui/calibration.rs`, the graphs in `ui/graphs.rs`), `--demo`, `--self-test`, `--cal-self-test` (`cal_script.rs`); its node and ESP32 reader are panel-feed's |
+| `crates/web-app` | binary `aav_web`, the Orin's web page (27 Nov, [design](../../../docs/designs/2026-11-27_web-screens.md)): `contract` (the ROS tab: the graph against `docs/interfaces.yaml`, check_graph.py's rule), `snapshot` (the page's JSON from panel-core's state), the axum server, `web/index.html` (plain HTML and JS). No raylib: built before CMake's X11 check, so a headless Orin has it |
 
 ### Node `hud` (topic names from `config/hud.yaml`)
 
@@ -177,6 +179,24 @@ start-up and after a check passes) and `easter_egg_after` (60 s).
 SAVE writes `~/.local/share/aav/steering-calibration/steering-<time>.txt` (a person copies
 it; never vehicle.yaml); the MEASURE page's SAVE, `~/.local/share/aav/measurements/measure-<time>.txt`.
 
+### Node `web` (`aav_web`, the Orin's web page; read only)
+
+| Direction | What | |
+|---|---|---|
+| sub | `hw_panel`'s subscriptions above, the same topic names | |
+| reads | the graph once a second: each topic, its types, its publishers | |
+| reads | `--esp32 ws://HOST:PORT/ws` (launch `esp32:=`): the ESP32's status lines, straight from the board (the virtual car's: `ws://127.0.0.1:8766/ws`) | WebSocket text |
+| pub | **nothing**: only rclrs's own `/rosout` and `/parameter_events` (a test checks) | |
+| serves | HTTP on `--bind`:`--port` (`127.0.0.1:8780`; `bind:=0.0.0.0` for the car's network): `/` the page, `/api/snapshot` its JSON, 5 a second. GET only | |
+
+Three tabs: **CAR** (each sensor and actuator: OK, STALE or NEVER, its rate, its numbers),
+**HOPS** (what ROS asked, what CORTEX wrote, what the ESP32 got: 60 s graphs, each hop's
+verdict, the counts that prove the wire) and **ROS** (`--profile`'s topics against the
+contract: LIVE, MISSING, WRONG TYPE, QUIET, NOT IN CONTRACT; the problems first).
+`aav_web --expected virtual` prints the topics a profile needs live. Seen on the virtual
+car, 27 Nov: CAR all OK, ROS 65 of 65 live, 0 problems; HOPS: ego OK while driving, the
+mux NO DATA (TODO 286a), the ESP32 NOT TESTED (version 1 frames have no counter).
+
 ### Launch and commands
 
 | Command | Starts |
@@ -190,6 +210,7 @@ it; never vehicle.yaml); the MEASURE page's SAVE, `~/.local/share/aav/measuremen
 | `map --demo --debug-page` | the map window's debug page (key D) with pretend drivers: the navigator, a person on the keyboard, the sensors lock, on a 30 s loop |
 | `pixi run debug-hud`; `pixi run demo --debug` | `debug_hud.launch.py` (passes `--vehicle` and `--own-box`, the car's own box from `vehicle.self_box`); `demo` plus the debug HUD |
 | `cargo run --release -p debug-app --no-default-features -- --demo [--bench-cubes 20000]` | the debug HUD with pretend data; the drawing test |
+| `ros2 launch aav_hud web.launch.py [bind:=0.0.0.0] [port:=8780] [profile:=car] [esp32:=ws://...]`; `pixi run virtualcar` starts it (`web:=false`: without) | the Orin's web page, `aav_web`: open `http://127.0.0.1:8780/` |
 | `pixi run hw-panel [stands:=true] [fullscreen:=true]`; `pixi run hw-panel --demo` | `hw_panel.launch.py` (localhost-only); the panel with a pretend car |
 | `hw_panel --self-test 0.3:8` | for checks: Speed + to 0.3 m/s, GO held 8 s, through the same buttons and rules; prints asked and seen |
 | `map`, `hw_panel`, `debug_hud` `--demo --robot-now` | the little robot (the easter egg) at once, for screenshots (docs/hud.md, "The little robot") |
@@ -245,6 +266,8 @@ it; never vehicle.yaml); the MEASURE page's SAVE, `~/.local/share/aav/measuremen
 - `hw_panel`'s GRAPHS page and its ESP32 reader only read. The ESP32's lines feed the
   graphs and the status strip, never the buttons, the gate or the calibration page's
   rules. A value that never changed is NOT TESTED: a parked car never shows OK.
+- `aav_web` only reads: its node has no publisher, its server only GET routes, its page
+  asks only for `/api/snapshot` and loads nothing from the internet (tests check all three).
 - `debug_hud`'s clouds never go through the shared queue: a newest-only slot to the
   `cubes` thread, then a newest-only slot to the screen. Each is placed with the local
   EKF's pose at its own stamp. the costmap's cubes go the same way, through their own slots
@@ -272,6 +295,7 @@ it; never vehicle.yaml); the MEASURE page's SAVE, `~/.local/share/aav/measuremen
 
 ```sh
 cd ros/hud/aav_hud && cargo test --locked -p hud-core -p map-core -p debug-core -p panel-core
+cd ros/hud/aav_hud && cargo test --locked -p web-app --no-default-features
 ```
 
 The nodes themselves, with ROS (after `pixi run build`; each on its own domain and topics;

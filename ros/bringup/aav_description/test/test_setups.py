@@ -12,8 +12,10 @@ PIXI = os.path.join(HERE, '..', '..', '..', '..', 'pixi.toml')
 NOT_GIVEN = {name: setups.CHOSEN for name in setups.FALLBACK}
 
 
-OLD = {'world': 'empty', 'esp32': 'false', 'perception': 'false', 'detector_impl': 'python'}
-CAR = {'world': 'campus', 'esp32': 'true', 'perception': 'true', 'detector_impl': 'rust'}
+OLD = {'world': 'empty', 'esp32': 'false', 'perception': 'false', 'detector_impl': 'python',
+       'web': 'false'}
+CAR = {'world': 'campus', 'esp32': 'true', 'perception': 'true', 'detector_impl': 'rust',
+       'web': 'true'}
 
 
 def test_no_setup_keeps_the_launch_files_old_defaults():
@@ -64,5 +66,5 @@ def test_pixi_run_virtualcar_is_the_virtual_car_and_sim_its_old_name():
 def test_describe_says_what_the_setup_gave():
     values = setups.resolve('car', NOT_GIVEN)
     assert setups.describe('car', values) == ('setup:=car: world:=campus esp32:=true '
-                                              'perception:=true detector_impl:=rust')
+                                              'perception:=true detector_impl:=rust web:=true')
     assert setups.describe('', setups.resolve('', NOT_GIVEN)).startswith('no set-up')

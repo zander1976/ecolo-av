@@ -16,14 +16,13 @@
 
 pub mod cal_script;
 pub mod demo;
-mod esp32;
 pub mod ladder;
 pub mod page;
 mod robot;
 #[cfg(feature = "ros")]
-pub mod ros;
+pub use panel_feed::ros;
 pub mod ros_args;
-pub mod source;
+pub use panel_feed::source;
 pub mod ui;
 
 use std::time::Instant;
@@ -33,9 +32,10 @@ use panel_core::config::PanelConfig;
 
 pub use page::{HardwarePage, Host, Input, Panel, Step};
 
+use panel_feed::esp32::Esp32Reader;
+
 use crate::{
     demo::Demo,
-    esp32::Esp32Reader,
     source::{DataSource, WithEsp32},
 };
 

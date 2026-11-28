@@ -445,6 +445,12 @@ impl PanelState {
         }
     }
 
+    /// How quiet a topic may be before it shows STALE.
+    #[must_use]
+    pub fn stale_after(&self) -> Duration {
+        self.stale_after
+    }
+
     /// One row's health at `now`.
     #[must_use]
     pub fn health(&self, row: Row, now: Instant) -> Health {

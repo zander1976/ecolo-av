@@ -7,7 +7,7 @@ cortex and the esp32."
 
 | | |
 |---|---|
-| State | **Proposed** (27 Nov). Nothing built yet. |
+| State | **Steps 1 and 2 built** (27 Nov, on the virtual car): `aav_web`, aav_hud's `web-app` ([README](../../ros/hud/aav_hud/README.md#node-web-aav_web-the-orins-web-page-read-only)). Steps 3-6 not started |
 | Replaces | nothing yet: the raylib hardware page and test bench **stay** beside it (Ben: "Maybe keep both for now") |
 | Not changed | the in-car HUD stays raylib on the Pi (CLAUDE.md, Screens) |
 | Open | W1-W5 at the bottom |
@@ -101,8 +101,8 @@ Rust), not a Python copy (W2).
 
 | # | Step | Done when |
 |---|---|---|
-| 1 | The Orin page, read only: **Car** and **ROS** tabs, on the virtual car | on the Mac, a stopped sensor turns red within 2 s |
-| 2 | The **Hops** tab: the ESP32's stream + `/ego/actuator_cmd` + CORTEX's frames | a turn in Ravensim shows on all three graphs, with the delay |
+| 1 | The Orin page, read only: **Car** and **ROS** tabs, on the virtual car | on the Mac, a stopped sensor turns red within 2 s. ✅ 27 Nov: built; ROS 65 of 65 live, 0 problems (the 2 s test not run) |
+| 2 | The **Hops** tab: the ESP32's stream + `/ego/actuator_cmd` + CORTEX's frames | a turn in Ravensim shows on all three graphs, with the delay. 🟡 27 Nov: the graphs and verdicts built (panel-core's); the delay between hops not yet shown; the mux hop NO DATA in Ravensim (TODO 286a) |
 | 3 | `bench-core`: the measurements (the trace buffer, step response) and the tests' sequences; laptop tests | `cargo test` |
 | 4 | The fake ESP32 runs `bench-core`; its page gets Controls, Measure, Tests | from the page: creep, turn, LIMP, a step response, in Ravensim |
 | 5 | The real ESP32: `wifi-control`, bench first, no car | the hardware lead says yes (W1) |

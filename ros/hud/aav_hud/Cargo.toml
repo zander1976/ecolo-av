@@ -15,6 +15,10 @@ resolver = "2"
 #   `cargo run -p debug-app --no-default-features -- --demo`
 # panel-core: the hardware panel's logic (the buttons, where they may drive, the sensors'
 #   numbers, safety.py's rules). No ROS, no raylib: `cargo test -p panel-core`.
+# panel-feed: the panel's news, no window: the ROS node (or a listen-only one) and the
+#   ESP32's status lines. hw_panel, the map and the web page share it.
+# web-app: the Orin's web page, binary `aav_web`: read only, no raylib (the Orin runs no
+#   graphics). `cargo test -p web-app --no-default-features`.
 # panel-app: the hardware panel, binary `hw_panel`, built like hud-app:
 #   `cargo run -p panel-app --no-default-features -- --demo`
 members = [
@@ -25,7 +29,9 @@ members = [
   "crates/debug-core",
   "crates/debug-app",
   "crates/panel-core",
+  "crates/panel-feed",
   "crates/panel-app",
+  "crates/web-app",
 ]
 
 [workspace.package]

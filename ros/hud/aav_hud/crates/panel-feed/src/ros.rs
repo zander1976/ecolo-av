@@ -1,5 +1,7 @@
 //! The ROS side of the hardware panel: the node `hw_panel`, spun by rclrs on its own
-//! thread, as the HUD's.
+//! thread, as the HUD's. Or a listener ([`RosSource::listen`], the Orin's web page): the
+//! same subscriptions under its own name, **no publisher and no timer that sends**, and
+//! once a second the graph's topics, their types and publishers ([`RosSource::topics`]).
 //!
 //! Callbacks turn each message into a panel_core `Update`, sent over a channel. The
 //! other way, the window hands over two things: the frame count and the buttons' latest
@@ -77,7 +79,30 @@ struct Shared {
     calibration: Mutex<Option<Request>>,
     estop_presses: AtomicU64,
     stopped: AtomicBool,
+    /// A listener's view of the graph, refreshed once a second (None until the first).
+    topics: Mutex<Option<Vec<TopicSeen>>>,
 }
+
+/// One topic on the graph, as a listener saw it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TopicSeen {
+    /// Its name.
+    pub name: String,
+    /// Its types (more than one is a mistake somewhere).
+    pub types: Vec<String>,
+    /// How many publishers it has.
+    pub publishers: usize,
+}
+
+/// What the node is: the panel's, which sends the buttons; or a listener, which never sends.
+#[derive(Debug, Clone)]
+enum Role {
+    Panel,
+    Listener(String),
+}
+
+/// How often a listener reads the graph.
+const GRAPH_EVERY: Duration = Duration::from_secs(1);
 
 /// The node, seen from the screen.
 pub struct RosSource {
@@ -94,6 +119,31 @@ impl RosSource {
     /// Starts the node on its own thread and waits until it's up. `args` is the whole
     /// command line: ROS reads what follows `--ros-args`.
     pub fn start(args: Vec<String>, config: PanelConfig) -> Result<(Self, PanelConfig)> {
+        Self::start_as(args, config, Role::Panel)
+    }
+
+    /// A listener named `name`: the panel's subscriptions, no publisher at all, and the
+    /// graph's topics once a second. Read only: the buttons and the e-stop it is handed
+    /// go nowhere.
+    pub fn listen(
+        args: Vec<String>,
+        config: PanelConfig,
+        name: &str,
+    ) -> Result<(Self, PanelConfig)> {
+        Self::start_as(args, config, Role::Listener(name.to_owned()))
+    }
+
+    /// The graph's topics, as last read (a listener only; None before the first read,
+    /// and always for the panel's node).
+    pub fn topics(&self) -> Option<Vec<TopicSeen>> {
+        self.shared
+            .topics
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    fn start_as(args: Vec<String>, config: PanelConfig, role: Role) -> Result<(Self, PanelConfig)> {
         let (ready_tx, ready_rx) = mpsc::channel::<Ready>();
         let (update_tx, updates) = mpsc::sync_channel(QUEUE);
         let shared = Arc::new(Shared {
@@ -102,12 +152,13 @@ impl RosSource {
             calibration: Mutex::new(None),
             estop_presses: AtomicU64::new(0),
             stopped: AtomicBool::new(false),
+            topics: Mutex::new(None),
         });
         let thread = {
             let shared = Arc::clone(&shared);
             thread::Builder::new().name("ros".into()).spawn(move || {
                 let mut ready = Some(ready_tx);
-                if let Err(e) = spin(args, config, update_tx, &shared, &mut ready) {
+                if let Err(e) = spin(args, config, &role, update_tx, &shared, &mut ready) {
                     match ready.take() {
                         Some(r) => {
                             let _ = r.send(Err(e));
@@ -189,13 +240,17 @@ impl Drop for RosSource {
 fn spin(
     args: Vec<String>,
     config: PanelConfig,
+    role: &Role,
     tx: SyncSender<Update>,
     shared: &Arc<Shared>,
     ready: &mut Option<mpsc::Sender<Ready>>,
 ) -> Result<()> {
     let context = Context::new(args, InitOptions::default())?;
     let mut executor = context.create_basic_executor();
-    let node = executor.create_node(NODE_NAME)?;
+    let node = executor.create_node(match role {
+        Role::Panel => NODE_NAME,
+        Role::Listener(name) => name.as_str(),
+    })?;
     let (_params, config) = Params::declare(&node, config)?;
     let topic = |t: Topic| config.topic(t).to_owned();
     let latched = QoSProfile::topics_default()
@@ -369,82 +424,92 @@ fn spin(
             }
         })?;
 
-    let estop_pub: Publisher<Bool> =
-        node.create_publisher(topic(Topic::Estop).as_str().qos(reliable10))?;
-    let alive_pub: Publisher<UInt64> =
-        node.create_publisher(topic(Topic::ScreenAlive).as_str().qos(reliable10))?;
-    let buttons_pub: Publisher<TwistStamped> =
-        node.create_publisher(topic(Topic::Buttons).as_str().qos(reliable10))?;
-    let calibration_pub: Publisher<SteeringCalibration> =
-        node.create_publisher(topic(Topic::SteeringCalibration).as_str().qos(reliable10))?;
-    let _timer = node.create_timer_repeating(TICK, {
-        let node = Arc::clone(&node);
-        let shared = Arc::clone(shared);
-        let mut heartbeat = Heartbeat::default();
-        let mut button = EstopButton::default();
-        let mut presses_seen = 0;
-        let mut failed = false;
-        let mut cal_failed = false;
-        move || {
-            let now = Instant::now();
-            // The buttons: only while the window draws.
-            let drawn = Frames(shared.frames.load(Ordering::Relaxed));
-            if let Some(Frames(count)) = heartbeat.poll(now, drawn) {
-                let _ = alive_pub.publish(UInt64 { data: count });
-                let command = *shared
-                    .command
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner);
-                if let Some(c) = command {
-                    match buttons_pub.publish(twist(c)) {
-                        Ok(()) => failed = false,
-                        Err(e) if !failed => {
-                            failed = true;
-                            log_error!(node.logger(), "the buttons' command wasn't published: {e}");
+    // The panel's publishers and its sending timer; a listener has neither.
+    let _timer = match role {
+        Role::Panel => {
+            let estop_pub: Publisher<Bool> =
+                node.create_publisher(topic(Topic::Estop).as_str().qos(reliable10))?;
+            let alive_pub: Publisher<UInt64> =
+                node.create_publisher(topic(Topic::ScreenAlive).as_str().qos(reliable10))?;
+            let buttons_pub: Publisher<TwistStamped> =
+                node.create_publisher(topic(Topic::Buttons).as_str().qos(reliable10))?;
+            let calibration_pub: Publisher<SteeringCalibration> =
+                node.create_publisher(topic(Topic::SteeringCalibration).as_str().qos(reliable10))?;
+            node.create_timer_repeating(TICK, {
+                let node = Arc::clone(&node);
+                let shared = Arc::clone(shared);
+                let mut heartbeat = Heartbeat::default();
+                let mut button = EstopButton::default();
+                let mut presses_seen = 0;
+                let mut failed = false;
+                let mut cal_failed = false;
+                move || {
+                    let now = Instant::now();
+                    // The buttons: only while the window draws.
+                    let drawn = Frames(shared.frames.load(Ordering::Relaxed));
+                    if let Some(Frames(count)) = heartbeat.poll(now, drawn) {
+                        let _ = alive_pub.publish(UInt64 { data: count });
+                        let command = *shared
+                            .command
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner);
+                        if let Some(c) = command {
+                            match buttons_pub.publish(twist(c)) {
+                                Ok(()) => failed = false,
+                                Err(e) if !failed => {
+                                    failed = true;
+                                    log_error!(
+                                        node.logger(),
+                                        "the buttons' command wasn't published: {e}"
+                                    );
+                                }
+                                Err(_) => {}
+                            }
                         }
-                        Err(_) => {}
+                        let calibration = *shared
+                            .calibration
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner);
+                        if let Some(r) = calibration {
+                            match calibration_pub.publish(steering_calibration(r)) {
+                                Ok(()) => cal_failed = false,
+                                Err(e) if !cal_failed => {
+                                    cal_failed = true;
+                                    log_error!(
+                                        node.logger(),
+                                        "the calibration request wasn't published: {e}"
+                                    );
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                    // The E-STOP: true 5 times, never false.
+                    let presses = shared.estop_presses.load(Ordering::SeqCst);
+                    if presses != presses_seen {
+                        presses_seen = presses;
+                        log_warn!(
+                            node.logger(),
+                            "e-stop pressed on the hardware panel: publishing true"
+                        );
+                        button.press(now);
+                    }
+                    if button.poll(now).is_some() {
+                        let sent = match estop_pub.publish(Bool { data: true }) {
+                            Ok(()) => Some(estop_pub.get_subscription_count().unwrap_or(0)),
+                            Err(e) => {
+                                log_error!(node.logger(), "the e-stop wasn't published: {e}");
+                                None
+                            }
+                        };
+                        send(&tx, Update::EstopSent(sent));
                     }
                 }
-                let calibration = *shared
-                    .calibration
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner);
-                if let Some(r) = calibration {
-                    match calibration_pub.publish(steering_calibration(r)) {
-                        Ok(()) => cal_failed = false,
-                        Err(e) if !cal_failed => {
-                            cal_failed = true;
-                            log_error!(
-                                node.logger(),
-                                "the calibration request wasn't published: {e}"
-                            );
-                        }
-                        Err(_) => {}
-                    }
-                }
-            }
-            // The E-STOP: true 5 times, never false.
-            let presses = shared.estop_presses.load(Ordering::SeqCst);
-            if presses != presses_seen {
-                presses_seen = presses;
-                log_warn!(
-                    node.logger(),
-                    "e-stop pressed on the hardware panel: publishing true"
-                );
-                button.press(now);
-            }
-            if button.poll(now).is_some() {
-                let sent = match estop_pub.publish(Bool { data: true }) {
-                    Ok(()) => Some(estop_pub.get_subscription_count().unwrap_or(0)),
-                    Err(e) => {
-                        log_error!(node.logger(), "the e-stop wasn't published: {e}");
-                        None
-                    }
-                };
-                send(&tx, Update::EstopSent(sent));
-            }
+            })?
         }
-    })?;
+        // A listener sends nothing: it only reads the graph.
+        Role::Listener(_) => graph_timer(&node, shared)?,
+    };
 
     if let Some(r) = ready.take() {
         r.send(Ok((config, Arc::clone(executor.commands()))))
@@ -452,6 +517,27 @@ fn spin(
     }
     executor.spin(SpinOptions::default()).first_error()?;
     Ok(())
+}
+
+/// A listener's timer: once a second, the graph's topics, their types and publishers.
+fn graph_timer(node: &Node, shared: &Arc<Shared>) -> Result<Timer> {
+    let reader = Arc::clone(node);
+    let shared = Arc::clone(shared);
+    Ok(node.create_timer_repeating(GRAPH_EVERY, move || {
+        let Ok(names) = reader.get_topic_names_and_types() else {
+            return;
+        };
+        let mut seen: Vec<TopicSeen> = names
+            .into_iter()
+            .map(|(name, types)| TopicSeen {
+                publishers: reader.count_publishers(&name).unwrap_or(0),
+                name,
+                types,
+            })
+            .collect();
+        seen.sort_by(|a, b| a.name.cmp(&b.name));
+        *shared.topics.lock().unwrap_or_else(PoisonError::into_inner) = Some(seen);
+    })?)
 }
 
 /// Sends one update to the screen; drops it if the screen is far behind.
@@ -614,6 +700,48 @@ mod tests {
     use super::*;
     use crate::source::DataSource as _;
     use std::sync::atomic::AtomicUsize;
+
+    /// A listener (the web page's) publishes nothing of its own: only what every rclrs
+    /// node has (`/rosout`, `/parameter_events`). It reads the graph: within a few
+    /// seconds its topics list has a talker's topic, with its type and one publisher.
+    /// Needs ROS sourced; this computer only, on ROS_DOMAIN_ID (95 unless set).
+    #[test]
+    fn a_listener_publishes_nothing_and_reads_the_graph() -> Result<()> {
+        if std::env::var_os("ROS_DOMAIN_ID").is_none() {
+            std::env::set_var("ROS_DOMAIN_ID", "95");
+        }
+        std::env::set_var("ROS_AUTOMATIC_DISCOVERY_RANGE", "LOCALHOST");
+        let name = format!("web_listener_test_{}", std::process::id());
+        let (listener, _) = RosSource::listen(vec![name.clone()], PanelConfig::default(), &name)?;
+
+        let context = Context::default_from_env()?;
+        let mut executor = context.create_basic_executor();
+        let talker = executor.create_node(format!("{name}_talker").as_str())?;
+        let said = format!("/{name}/said");
+        let publisher: Publisher<Bool> = talker.create_publisher(said.as_str())?;
+        let mut seen = None;
+        for _ in 0..50 {
+            let _ = publisher.publish(Bool { data: true });
+            executor.spin(SpinOptions::default().timeout(Duration::from_millis(100)));
+            seen = listener
+                .topics()
+                .and_then(|t| t.into_iter().find(|t| t.name == said));
+            if seen.is_some() {
+                break;
+            }
+        }
+        let seen = seen.expect("the listener's graph never had the talker's topic");
+        assert_eq!(seen.types, vec!["std_msgs/msg/Bool".to_owned()]);
+        assert_eq!(seen.publishers, 1);
+
+        let its_own: Vec<String> = talker
+            .get_publisher_names_and_types_by_node(&name, "/")?
+            .into_keys()
+            .filter(|t| t != "/rosout" && t != "/parameter_events")
+            .collect();
+        assert!(its_own.is_empty(), "the listener publishes {its_own:?}");
+        Ok(())
+    }
 
     /// The real node, as twist_mux would hear it: no command before the window draws;
     /// the buttons' command (and the calibration request, as the bridge would hear it)

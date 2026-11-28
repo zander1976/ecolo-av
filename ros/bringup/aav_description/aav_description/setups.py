@@ -14,9 +14,11 @@ names the world around them.
 |---|---|---|
 | (none) | world:=empty esp32:=false | the launch file's defaults, as |
 |        | perception:=false detector_impl:=python | every test starts it |
+|        | web:=false |  |
 | car | world:=campus esp32:=true | everything the car provides, on Carleton's |
 |     | perception:=true detector_impl:=rust | campus (the street map's place): every |
-|     |                         | topic the car has (pixi run check virtual) |
+|     | web:=true               | topic the car has (pixi run check virtual), |
+|     |                         | and the Orin's web page on 127.0.0.1:8780 |
 
 The car's set-up was world:=road until 26 Nov (Ben, 26 Nov: "create a consinstent map
 between all 3"): the campus is the one world the simulator, the world view and the map
@@ -38,13 +40,14 @@ CAR = 'car'      # what pixi run sim passes (Ben, 25 Nov: "pixi run sim" is the 
 
 # What each switch is with no set-up and nothing given by hand.
 FALLBACK = {'world': 'empty', 'esp32': 'false', 'perception': 'false',
-            'detector_impl': DEFAULT_DETECTOR_IMPL}
+            'detector_impl': DEFAULT_DETECTOR_IMPL, 'web': 'false'}
 
 SETUPS = {
     CAR: {'what': 'everything the car provides: the campus, the simulated ESP32 and the '
                   'stop-sign detector (Rust, ONNX), so every topic the car has (pixi run '
-                  'check virtual)',
-          'world': 'campus', 'esp32': 'true', 'perception': 'true', 'detector_impl': 'rust'},
+                  "check virtual); and the Orin's web page (aav_web, 127.0.0.1:8780)",
+          'world': 'campus', 'esp32': 'true', 'perception': 'true', 'detector_impl': 'rust',
+          'web': 'true'},
 }
 
 

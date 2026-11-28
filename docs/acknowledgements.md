@@ -207,6 +207,7 @@ not yet). The papers the guide names; the ones we built on are in the tables abo
 | **chrony** (`chronyc tracking`) | GPL-2.0 | runs, a separate program | the recording kit's clock check on each car computer (TODO 249) |
 | **criterion** (Brook Heisler, Jorge Aparicio) | MIT / Apache-2.0 | benchmarks only | MPPI's tick, the planner's legs, the costmap's updates and an NDT match timed with statistics (`benches/`, TODO 203) |
 | **tracing**, **tracing-subscriber** (tokio-rs) | MIT | runs, only when built in | the MPPI tick's stages as spans, timed on stderr (`aav_mppi_lag` feature `trace`, TODO 196) |
+| **axum**, **tokio** (tokio-rs) | MIT | runs | the Orin's web page: its HTTP server (`aav_web`, aav_hud's `web-app`) |
 | **Tracy** (Bartosz Taudul), through **tracing-tracy** | BSD-3-Clause; MIT / Apache-2.0 | runs, only when built in | the same spans, live in the Tracy viewer (feature `tracy`) |
 | CPython's `math.hypot` (`vector_norm` in `Modules/mathmodule.c`, R. Hettinger) | PSF-2.0 | idea | `aav_ego_rs`'s `hypot`: the same algorithm, so the Rust ego gives the Python's last bit (TODO 185); `aav_safety_rs`'s `pyfmt::hypot`, so the Rust geofence's distances match `geofence.py`'s to the bit (batch 7) |
 | **RoboStack**; **Pixi** | BSD-3 | runs | ROS on Macs and any Linux, without admin rights |

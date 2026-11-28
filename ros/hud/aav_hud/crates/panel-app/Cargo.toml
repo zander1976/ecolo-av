@@ -13,11 +13,13 @@ path = "src/main.rs"
 # colcon builds with ROS. `--no-default-features` builds a window that only runs --demo,
 # on any computer, with no ROS sourced.
 default = ["ros"]
-ros = ["dep:rclrs", "dep:ros-env", "dep:ctrlc"]
+ros = ["panel-feed/ros"]
 
 [dependencies]
 anyhow = "1"
 panel-core = { path = "../panel-core" }
+# The news (ROS, the ESP32): shared with the Orin's web page, which has no window.
+panel-feed = { path = "../panel-feed", default-features = false }
 hud-core = { path = "../hud-core" }
 # Only its library: the window's monitor and full screen, shared with the HUD.
 hud-app = { path = "../hud-app", default-features = false }
@@ -30,8 +32,3 @@ raylib = { version = "6", features = [
   "SUPPORT_FILEFORMAT_TTF",
   "SUPPORT_SCREEN_CAPTURE",
 ] }
-# SIGINT, plus SIGTERM and SIGHUP: rclrs 0.8 has no signal handling of its own yet.
-ctrlc = { version = "3", features = ["termination"], optional = true }
-rclrs = { version = "0.8", optional = true }
-# The message types: compiled from the Rust code that ships with Jazzy (AMENT_PREFIX_PATH).
-ros-env = { version = "0.3", optional = true }

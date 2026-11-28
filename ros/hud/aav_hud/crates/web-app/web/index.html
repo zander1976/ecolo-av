@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AAV: the car (read only)</title>
+<style>
+/* Initial D: black, white and Carleton's red, sharp (hud_core::theme's default). */
+:root{--bg:#000;--fg:#fff;--dim:#9a9a9a;--line:#444;--red:#e4002b;--ok:#3ad26b;--warn:#ffb000;
+  --ego:#ffffff;--mux:#9a9a9a;--pi:#4aa3ff;--esp:#ff5a7a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;gap:18px;align-items:center;padding:10px 16px;border-bottom:2px solid var(--red);flex-wrap:wrap}
+header h1{font-size:20px;margin:0;letter-spacing:.04em}
+.pill{border:1px solid var(--line);padding:2px 10px;font-weight:600}
+.pill.red{background:var(--red);border-color:var(--red)}
+.pill.ok{border-color:var(--ok);color:var(--ok)}
+.pill.warn{border-color:var(--warn);color:var(--warn)}
+nav{display:flex;gap:0;margin-left:auto}
+nav button{background:none;color:var(--fg);border:1px solid var(--line);padding:6px 18px;font:inherit;cursor:pointer}
+nav button.on{background:var(--fg);color:var(--bg);font-weight:700}
+main{padding:14px 16px;max-width:1400px}
+section{display:none}section.on{display:block}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:5px 10px;border-bottom:1px solid #222;vertical-align:top}
+th{color:var(--dim);font-weight:600}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.v-OK,.v-LIVE{color:var(--ok);font-weight:700}
+.v-STALE,.v-DIFFERENT,.v-WRONG_TYPE{color:var(--warn);font-weight:700}
+.v-NEVER,.v-NO_DATA,.v-MISSING{color:var(--red);font-weight:700}
+.v-NOT_TESTED,.v-QUIET,.v-NOT_IN_CONTRACT{color:var(--dim)}
+.hops{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.hop{border:1px solid var(--line);padding:8px 12px;min-width:200px;flex:1}
+.hop b{display:block;font-size:15px;color:var(--dim)}
+.hop .why{font-size:14px;color:var(--dim)}
+.card{border:1px solid var(--line);margin-bottom:12px;padding:8px 10px}
+.card h2{font-size:16px;margin:0 0 4px}
+.key{font-size:14px;color:var(--dim);font-weight:400}
+.key i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin:0 4px 0 10px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+canvas{width:100%;height:140px;display:block}
+.counts{display:flex;gap:22px;flex-wrap:wrap;font-size:15px;color:var(--dim);margin:6px 0 12px}
+.counts b{color:var(--fg)}
+.note{color:var(--dim);font-size:14px}
+#gone{display:none;background:var(--red);padding:6px 16px;font-weight:700}
+@media (max-width:800px){.pair{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="gone">NO NEWS FROM aav_web: the page shows the last it heard</div>
+<header>
+  <h1>AAV · THE CAR</h1>
+  <span class="pill" id="source">SOURCE ?</span>
+  <span class="pill" id="estop">E-STOP ?</span>
+  <span class="pill" id="esp32">ESP32 ?</span>
+  <span class="pill" id="rossum">ROS ?</span>
+  <nav>
+    <button data-tab="car" class="on">CAR</button>
+    <button data-tab="hops">HOPS</button>
+    <button data-tab="ros">ROS</button>
+  </nav>
+</header>
+<main>
+<section id="car" class="on">
+  <table><thead><tr><th>Sensor or actuator</th><th>Health</th><th>Rate</th><th>Last heard</th><th>Numbers</th></tr></thead>
+  <tbody id="carrows"></tbody></table>
+  <p class="note">Read only. The same rules as hw_panel: a topic quieter than its limit is STALE.</p>
+</section>
+<section id="hops">
+  <div class="hops" id="hoprow"></div>
+  <div class="counts" id="counts"></div>
+  <div id="graphs"></div>
+  <p class="note">Left: what ROS asked, in its own units (ego white, the mux grey). Right: on the wire,
+  the frame's -1 to 1 (what CORTEX wrote blue, what the ESP32 got red). The last 60 s.
+  A value that never changed proves nothing: NOT TESTED.</p>
+</section>
+<section id="ros">
+  <p id="rosline" class="note"></p>
+  <table><thead><tr><th>Topic</th><th>Verdict</th><th>Publishers</th><th>Needed here</th><th>Type</th></tr></thead>
+  <tbody id="rosrows"></tbody></table>
+</section>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cls = w => "v-" + String(w).replace(/ /g, "_");
+let tab = "car", last = null, lastOk = 0;
+
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("on", s.id === tab));
+  if (last) draw(last);
+});
+
+function pill(id, text, kind) { const p = $(id); p.textContent = text; p.className = "pill " + (kind || ""); }
+
+function header(s) {
+  pill("source", s.source, s.source === "REAL" || s.source === "UNKNOWN" ? "warn" : "ok");
+  pill("estop", s.estop === true ? "E-STOP ON" : s.estop === false ? "E-STOP OFF" : "E-STOP ?", s.estop ? "red" : "");
+  pill("esp32", "ESP32 " + s.esp32, s.esp32 === "connected" ? "ok" : s.esp32 === "off" ? "" : "warn");
+  const r = s.ros;
+  pill("rossum", !r.read ? "ROS: reading" : `ROS ${r.needed_live}/${r.needed} live` + (r.problems ? `, ${r.problems} problems` : ""),
+       !r.read ? "" : r.problems ? "red" : "ok");
+}
+
+function car(s) {
+  $("carrows").innerHTML = s.rows.map(r => `<tr><td>${esc(r.name)}</td>
+    <td class="${cls(r.health)}">${r.health}</td>
+    <td class="num">${r.rate_hz == null ? "" : r.rate_hz.toFixed(1) + " Hz"}</td>
+    <td class="num">${r.age_s == null ? "never" : r.age_s.toFixed(1) + " s ago"}</td>
+    <td>${esc(r.detail)}</td></tr>`).join("");
+}
+
+function hops(s) {
+  $("hoprow").innerHTML = s.hops.map(h => `<div class="hop"><b>${esc(h.hop)}</b>
+    <span class="${cls(h.verdict)}">${h.verdict}</span><div class="why">${esc(h.why)}</div></div>`).join("");
+  const c = s.counts, n = v => v == null ? "?" : v;
+  $("counts").innerHTML = [
+    `CORTEX wrote <b>${n(c.pi_written)}</b>, failed <b>${n(c.pi_failed)}</b>`,
+    `ESP32 counted <b>${n(c.esp32_frames)}</b>, bad <b>${n(c.esp32_bad)}</b>, skipped <b>${n(c.esp32_skipped)}</b>, twice <b>${n(c.esp32_repeats)}</b>`,
+    `uplink <b>${c.uplink_fresh == null ? "?" : c.uplink_fresh ? "fresh" : "stale"}</b>, ${n(c.uplink_frames)} frames, lost <b>${n(c.uplink_lost)}</b>`,
+    `status lines lost <b>${c.lines_lost}</b>` + (c.restarted ? `, <b style="color:var(--red)">the board restarted</b>` : "")
+  ].map(x => `<span>${x}</span>`).join("");
+  const box = $("graphs");
+  if (box.children.length !== s.graphs.length) {
+    box.innerHTML = s.graphs.map(g => `<div class="card"><h2>${esc(g.channel)}
+      <span class="key"><i style="background:var(--ego)"></i>ego<i style="background:var(--mux)"></i>mux
+      <i style="background:var(--pi)"></i>CORTEX wrote<i style="background:var(--esp)"></i>ESP32 <span class="from"></span></span></h2>
+      <div class="pair"><canvas class="asked"></canvas><canvas class="wire"></canvas></div></div>`).join("");
+  }
+  s.graphs.forEach((g, i) => {
+    const card = box.children[i];
+    card.querySelector(".from").textContent = g.esp32_from ? `(${g.esp32_from})` : "(nothing yet)";
+    plot(card.querySelector(".asked"), [[g.ego, "--ego"], [g.mux, "--mux"]], g.asked_unit, null);
+    plot(card.querySelector(".wire"), [[g.pi, "--pi"], [g.esp32, "--esp"]], "frame", [-1, 1]);
+  });
+}
+
+function plot(cv, lines, unit, fixed) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  const x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  let lo = Infinity, hi = -Infinity;
+  lines.forEach(([pts]) => pts.forEach(p => { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); }));
+  if (fixed) { lo = Math.min(lo, fixed[0]); hi = Math.max(hi, fixed[1]); }
+  if (!isFinite(lo)) { lo = -1; hi = 1; }
+  if (hi - lo < 1e-6) { lo -= 0.5; hi += 0.5; }
+  const L = 46, R = 6, T = 6, B = 18, X = t => L + (t + 60) / 60 * (w - L - R), Y = v => T + (hi - v) / (hi - lo) * (h - T - B);
+  x.strokeStyle = css("--line"); x.fillStyle = css("--dim"); x.font = "12px system-ui"; x.lineWidth = 1;
+  [lo, (lo + hi) / 2, hi].forEach(v => { x.beginPath(); x.moveTo(L, Y(v)); x.lineTo(w - R, Y(v)); x.stroke(); x.fillText(v.toFixed(2), 2, Y(v) + 4); });
+  if (lo < 0 && hi > 0) { x.strokeStyle = "#777"; x.beginPath(); x.moveTo(L, Y(0)); x.lineTo(w - R, Y(0)); x.stroke(); }
+  x.fillText("-60 s", L, h - 3); x.fillText("now", w - R - 24, h - 3); x.fillText(unit, L + 40, h - 3);
+  lines.forEach(([pts, colour]) => {
+    x.strokeStyle = css(colour); x.lineWidth = 2; x.beginPath();
+    pts.forEach((p, i) => { if (i === 0 || p[2]) x.moveTo(X(p[0]), Y(p[1])); else x.lineTo(X(p[0]), Y(p[1])); });
+    x.stroke();
+  });
+  if (lines.every(([pts]) => pts.length === 0)) { x.fillStyle = css("--dim"); x.fillText("NO DATA", w / 2 - 24, h / 2); }
+}
+
+function ros(s) {
+  const r = s.ros;
+  $("rosline").textContent = !r.read ? "Reading the graph..." :
+    `Profile ${r.profile}: ${r.needed_live} of ${r.needed} needed topics live, ${r.problems} problems. ` +
+    `Checked against docs/interfaces.yaml, as pixi run check does.`;
+  $("rosrows").innerHTML = r.rows.map(t => `<tr><td>${esc(t.name)}</td>
+    <td class="${cls(t.verdict)}">${t.verdict.replace(/_/g, " ")}</td>
+    <td class="num">${t.publishers}</td><td>${t.needed ? "yes" : ""}</td>
+    <td>${esc(t.kind)}${t.seen_types.length && t.seen_types.join() !== t.kind ? " (seen: " + esc(t.seen_types.join(", ")) + ")" : ""}</td></tr>`).join("");
+}
+
+function draw(s) {
+  header(s);
+  if (tab === "car") car(s); else if (tab === "hops") hops(s); else ros(s);
+}
+
+async function poll() {
+  try {
+    const r = await fetch("/api/snapshot", {cache: "no-store"});
+    const s = await r.json();
+    if (s.rows) { last = s; lastOk = Date.now(); draw(s); }
+  } catch (e) { /* shown by the banner below */ }
+  $("gone").style.display = Date.now() - lastOk > 2000 ? "block" : "none";
+  setTimeout(poll, 250);
+}
+poll();
+</script>
+</body>
+</html>

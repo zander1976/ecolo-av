@@ -1,0 +1,28 @@
+[package]
+name = "web-app"
+description = "aav_web: the Orin's web page, read only. What ROS asked, what CORTEX sent and what the ESP32 did, the car's sensors, and ROS against the contract (docs/designs/2026-11-27_web-screens.md)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "aav_web"
+path = "src/main.rs"
+
+[features]
+# colcon builds with ROS. `--no-default-features`: the logic and its tests only.
+default = ["ros"]
+ros = ["panel-feed/ros"]
+
+[dependencies]
+anyhow = "1"
+# The web server (Ben, 26 Nov: "stick with axum unless the graphing becomes an issue").
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "signal", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml_ng = "0.10"
+# No raylib: the Orin runs no graphics.
+panel-core = { path = "../panel-core" }
+panel-feed = { path = "../panel-feed", default-features = false }
+hud-core = { path = "../hud-core" }

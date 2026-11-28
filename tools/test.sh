@@ -166,6 +166,9 @@ if command -v cargo >/dev/null; then
   # Only the logic: the window (raylib) needs a screen's libraries, and colcon builds it.
   section "ros/hud/aav_hud: the HUD's state, GPS, e-stop and formatting; the map's maths; the hardware panel's buttons"
   (cd ros/hud/aav_hud && cargo test -q --locked -p hud-core -p map-core -p debug-core -p panel-core)
+  # The Orin's web page without ROS: its contract check, its snapshot, its read-only page.
+  section "ros/hud/aav_hud: the Orin's web page (aav_web): the contract check, the snapshot"
+  (cd ros/hud/aav_hud && cargo test -q --locked -p web-app --no-default-features)
   # Only the logic crate: -p keeps Bevy (the windows themselves) out of the build.
   section "ros/hud/aav_dev_window: the test ladder's window (TODO 271) and the navigation view (TODO 276): their logic"
   (cd ros/hud/aav_dev_window && cargo test -q --locked -p ladder-core -p nav-core)
@@ -222,6 +225,7 @@ if command -v cargo >/dev/null; then
   rust_style ros/drivers/aav_navigator -p navigator
   rust_style ros/drivers/aav_smoother -p car-smoother
   rust_style ros/hud/aav_hud -p hud-core -p map-core -p debug-core -p panel-core
+  rust_style ros/hud/aav_hud -p web-app -p panel-feed --no-default-features
   rust_style ros/hud/aav_dev_window -p ladder-core -p nav-core
   rust_style ros/sim/aav_sim_cameras -p camera-core
   for board in firmware/spine/boards/*/; do

@@ -8,6 +8,27 @@ find_package(ament_cmake REQUIRED)
 
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
+find_program(CARGO cargo)
+if(NOT CARGO)
+  message(FATAL_ERROR "cargo not found: build with `pixi run build`, or install Rust 1.88 "
+    "or newer with rustup (Ubuntu's apt cargo is too old for rclrs and raylib)")
+endif()
+
+# Build in colcon's build folder, not in src/. cargo itself decides what's out of date.
+# make's jobserver flags are dropped: cargo can't reach the jobserver from here, and says so.
+set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/target)
+
+# aav_web: the Orin's web page, read only. No raylib, so it is built before the X11 check:
+# a headless computer (the Orin, CI) has it too.
+add_custom_target(cargo_build_web ALL
+  COMMAND ${CMAKE_COMMAND} -E env --unset=MAKEFLAGS --unset=MFLAGS --unset=CARGO_MAKEFLAGS
+    CARGO_TARGET_DIR=${CARGO_TARGET_DIR}
+    ${CARGO} build --release --locked --quiet -p web-app --bin aav_web
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "cargo build --release --bin aav_web"
+  VERBATIM)
+install(PROGRAMS ${CARGO_TARGET_DIR}/release/aav_web DESTINATION lib/${PROJECT_NAME})
+
 # raylib draws through GLFW, which needs X11 and OpenGL's headers on Linux. A machine
 # without them (a headless server, CI) still builds the rest of the workspace: the HUD is
 # skipped there, with a warning that says what to install.
@@ -26,15 +47,8 @@ if(UNIX AND NOT APPLE)
   endif()
 endif()
 
-find_program(CARGO cargo)
-if(NOT CARGO)
-  message(FATAL_ERROR "cargo not found: build with `pixi run build`, or install Rust 1.88 "
-    "or newer with rustup (Ubuntu's apt cargo is too old for rclrs and raylib)")
-endif()
-
-# Build in colcon's build folder, not in src/. cargo itself decides what's out of date.
-# make's jobserver flags are dropped: cargo can't reach the jobserver from here, and says so.
-set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/target)
+# The screens wait for the web page's build: two cargo builds in one target folder at once
+# would wait on each other's lock anyway.
 add_custom_target(cargo_build ALL
   COMMAND ${CMAKE_COMMAND} -E env --unset=MAKEFLAGS --unset=MFLAGS --unset=CARGO_MAKEFLAGS
     CARGO_TARGET_DIR=${CARGO_TARGET_DIR}
@@ -42,6 +56,7 @@ add_custom_target(cargo_build ALL
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "cargo build --release --bin hud --bin map --bin debug_hud --bin hw_panel (raylib from source the first time: a minute)"
   VERBATIM)
+add_dependencies(cargo_build cargo_build_web)
 
 # hud: the in-car screen. map: the big screen's map window. debug_hud: the debug screen
 # (the lidar's cubes, the localizers, every sensor). hw_panel: the hardware screen (every

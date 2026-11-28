@@ -1,0 +1,21 @@
+[package]
+name = "panel-feed"
+description = "The hardware panel's news: the ROS node (hw_panel's, or a listen-only one) and the ESP32's status lines. No window: hw_panel, the map and the Orin's web page share it"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+# The ROS node. Without it, only the ESP32's lines and the trait.
+default = ["ros"]
+ros = ["dep:rclrs", "dep:ros-env", "dep:ctrlc"]
+
+[dependencies]
+anyhow = "1"
+panel-core = { path = "../panel-core" }
+hud-core = { path = "../hud-core" }
+# SIGINT, plus SIGTERM and SIGHUP: rclrs 0.8 has no signal handling of its own yet.
+ctrlc = { version = "3", features = ["termination"], optional = true }
+rclrs = { version = "0.8", optional = true }
+# The message types: compiled from the Rust code that ships with Jazzy (AMENT_PREFIX_PATH).
+ros-env = { version = "0.3", optional = true }

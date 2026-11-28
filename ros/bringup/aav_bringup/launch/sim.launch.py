@@ -924,6 +924,13 @@ def launch_setup(context):
                                           'config', 'bench.yaml'),
                              {'use_sim_time': True, 'source': 'sim'}]),
         ]
+    if arg('web').lower() == 'true':
+        # The Orin's web page, as on the car (docs/designs/2026-11-27_web-screens.md): it
+        # reads the simulated ESP32's lines straight from it, as it will the board's.
+        actions.append(include(
+            context, 'aav_hud', 'web.launch.py', use_sim_time='true',
+            profile='virtual' if setup.strip().lower() == setups.CAR else 'sim',
+            esp32=('ws://127.0.0.1:8766/ws' if arg('esp32').lower() == 'true' else '')))
     if flag['teleop']:
         actions.append(include(context, 'aav_teleop', 'teleop.launch.py', use_sim_time='true'))
     if flag['perception']:
@@ -1132,6 +1139,11 @@ def generate_launch_description():
         DeclareLaunchArgument('rc_pad_mode', default_value='high',
                               description="with rc_pad:=true: the mode switch's start, "
                                           'high (manual) or low (normal)'),
+        DeclareLaunchArgument('web', default_value=setups.CHOSEN,
+                              description="the Orin's web page (aav_hud aav_web, read only) "
+                                          'on 127.0.0.1:8780: the car, the hops, ROS against '
+                                          "the contract. Empty: the set-up's choice, else "
+                                          'false'),
         DeclareLaunchArgument('esp32', default_value=setups.CHOSEN,
                               description="today's car in the loop: legacy_uart_bridge and "
                                           'sim_esp32, the C++ firmware standing in. Empty: '
