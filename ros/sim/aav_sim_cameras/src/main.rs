@@ -346,7 +346,12 @@ fn run_in(o: &Options, rig: Rig, world: &SimWorld, dirs: &[PathBuf]) -> Result<(
     let mut tallies: Vec<Tally> = (0..n).map(|_| Tally::default()).collect();
     let mut saved = vec![false; n];
     let started = Instant::now();
+    let stop = sim_cameras::stop_flag();
     loop {
+        if stop.load(std::sync::atomic::Ordering::Relaxed) {
+            eprintln!("sim_cameras: Ctrl-C: stopping");
+            break;
+        }
         let elapsed = started.elapsed();
         if seconds.is_some_and(|s| elapsed.as_secs_f64() >= s) {
             break;

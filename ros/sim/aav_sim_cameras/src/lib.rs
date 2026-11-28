@@ -462,3 +462,20 @@ impl CameraRenderer for BevyRenderer {
             .collect()
     }
 }
+
+/// A flag that turns true on Ctrl-C (SIGINT), for a loop of our own to read.
+///
+/// Bevy's own handler (`TerminalCtrlCHandlerPlugin`, in `DefaultPlugins`) takes the signal
+/// and only asks the app to exit at its next update. Our loop updates the app only when a
+/// picture is due: with the simulator gone first, no pose comes, no picture is due, and
+/// Ctrl-C was never seen (TODO 287, 26 Nov: over a minute, until launch's SIGTERM).
+#[must_use]
+pub fn stop_flag() -> std::sync::Arc<std::sync::atomic::AtomicBool> {
+    use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc};
+    let flag = Arc::new(AtomicBool::new(false));
+    let set = Arc::clone(&flag);
+    bevy::app::TerminalCtrlCHandlerPlugin::register_exit_handler(move || {
+        set.store(true, Ordering::Relaxed);
+    });
+    flag
+}
